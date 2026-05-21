@@ -1,10 +1,12 @@
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
-from ..models import User
+from ..database import get_db
+from ..models import Asset, Post, PostTag, Tag, User
 from ..schemas import (
     AuthorSummary,
     FavoriteRequest,
@@ -19,6 +21,42 @@ from ..schemas import (
 )
 
 router = APIRouter()
+
+
+def _post_detail(post: Post, author: User, db: Session) -> PostDetail:
+    tags = (
+        db.query(Tag.name)
+        .join(PostTag, PostTag.tag_id == Tag.id)
+        .filter(PostTag.post_id == post.id)
+        .all()
+    )
+    cover_url = None
+    if post.cover_asset_id:
+        cover_url = db.query(Asset.public_url).filter(Asset.id == post.cover_asset_id).scalar()
+    image_urls = [
+        row[0]
+        for row in db.query(Asset.public_url)
+        .filter(Asset.post_id == post.id, Asset.kind == "image", Asset.public_url.isnot(None))
+        .all()
+    ]
+
+    return PostDetail(
+        id=post.id,
+        title=post.title,
+        summary=post.summary,
+        cover_url=cover_url,
+        tags=[tag[0] for tag in tags],
+        author=AuthorSummary(id=author.id, display_name=author.display_name, avatar_url=None),
+        like_count=post.like_count,
+        comment_count=post.comment_count,
+        favorite_count=post.favorite_count,
+        is_liked=False,
+        is_favorited=False,
+        created_at=post.created_at,
+        body=post.body,
+        image_urls=image_urls,
+        updated_at=post.updated_at,
+    )
 
 
 @router.post("", response_model=PostCreated, status_code=status.HTTP_201_CREATED)
@@ -44,25 +82,12 @@ def list_posts(
 
 
 @router.get("/{post_id}", response_model=PostDetail)
-def get_post(post_id: int) -> PostDetail:
-    now = datetime.utcnow()
-    return PostDetail(
-        id=post_id,
-        title="示例博客",
-        summary="示例摘要",
-        cover_url=None,
-        tags=[],
-        author=AuthorSummary(id=1, display_name="Alice", avatar_url=None),
-        like_count=0,
-        comment_count=0,
-        favorite_count=0,
-        is_liked=False,
-        is_favorited=False,
-        created_at=now,
-        body="示例正文",
-        image_urls=[],
-        updated_at=now,
-    )
+def get_post(post_id: int, db: Session = Depends(get_db)) -> PostDetail:
+    row = db.query(Post, User).join(User, User.id == Post.author_id).filter(Post.id == post_id).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="博客不存在")
+    post, author = row
+    return _post_detail(post, author, db)
 
 
 @router.patch("/{post_id}", response_model=PostCreated)

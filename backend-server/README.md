@@ -12,7 +12,7 @@ backend-server/
     database.py          # SQLite 连接、SQLAlchemy engine/session、get_db 依赖
     models.py            # SQLAlchemy 数据模型：用户、验证码、文章、资源、合集、互动等
     schemas.py           # Pydantic 请求/响应模型
-    auth.py              # 鉴权依赖入口，目前是开发占位实现
+    auth.py              # 密码哈希、JWT 签发与当前用户鉴权
     routers/
       __init__.py
       auth.py            # 验证码、注册、登录、当前用户接口
@@ -104,10 +104,10 @@ backend-server/forum.db
 
 ## 当前实现状态
 
-当前代码是可启动的后端原型，但部分能力仍是占位实现：
+当前代码是可启动的后端原型，登录注册已接入 SQLite：
 
-- `app/auth.py` 中的 `get_current_user` 还没有真正解析 JWT，目前只用 token 和数据库首个用户做开发占位。
-- `app/routers/auth.py` 的注册、登录还没有持久化用户、校验验证码、哈希密码或签发真实 JWT。
+- `app/auth.py` 负责密码哈希、JWT 签发和 `/auth/me` 的当前用户解析。
+- `app/routers/auth.py` 的注册、登录会持久化用户、校验验证码、校验密码并签发 JWT。
 - 上传接口目前只校验扩展名并返回示例响应，还没有保存文件或解析文档正文。
 - 文章、合集、评论、搜索等接口大多返回空列表或示例数据，尚未接入数据库查询。
 - `create_all` 适合原型阶段，结构稳定后建议迁移到 Alembic。

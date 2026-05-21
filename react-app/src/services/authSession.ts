@@ -11,11 +11,10 @@ export type AuthSession = {
 };
 
 export async function saveAuthSession(tokenResponse: TokenResponse) {
-  const user = await getMe(tokenResponse.access_token);
   const session: AuthSession = {
     accessToken: tokenResponse.access_token,
     tokenType: tokenResponse.token_type,
-    user,
+    user: tokenResponse.user,
   };
 
   await AsyncStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));

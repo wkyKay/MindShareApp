@@ -8,9 +8,12 @@ import { AuthScreen } from './src/screens/AuthScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { UploadScreen } from './src/screens/UploadScreen';
+import type { AuthSession } from './src/services/authSession';
 
 export default function App() {
   const [navigationStack, setNavigationStack] = useState<Page[]>(['home']);
+  const [profileRefreshKey, setProfileRefreshKey] = useState(0);
+  const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const page = navigationStack[navigationStack.length - 1];
 
   function navigate(pageName: Page) {
@@ -25,13 +28,26 @@ export default function App() {
     setNavigationStack((currentStack) => (currentStack.length > 1 ? currentStack.slice(0, -1) : currentStack));
   }
 
+  function finishAuth(session: AuthSession) {
+    setAuthSession(session);
+    setProfileRefreshKey((value) => value + 1);
+    switchTab('profile');
+  }
+
   return (
     <View style={styles.shell}>
       <View style={styles.app}>
         {page === 'home' && <HomeScreen />}
         {page === 'upload' && <UploadScreen onCancel={goBack} onSaved={() => switchTab('home')} />}
-        {page === 'profile' && <ProfileScreen onOpenAuth={() => navigate('auth')} />}
-        {page === 'auth' && <AuthScreen onBack={goBack} onDone={() => switchTab('profile')} />}
+        {page === 'profile' && (
+          <ProfileScreen
+            initialSession={authSession}
+            refreshKey={profileRefreshKey}
+            onOpenAuth={() => navigate('auth')}
+            onSessionChange={setAuthSession}
+          />
+        )}
+        {page === 'auth' && <AuthScreen onBack={goBack} onDone={finishAuth} />}
 
         <BottomTabs activePage={page} onChangePage={switchTab} />
       </View>

@@ -6,11 +6,11 @@ import { CaptchaField } from '../components/auth/CaptchaField';
 import { styles } from '../components/styles';
 import { API_BASE_URL } from '../config/api';
 import { getCaptcha, login, register, type AuthMode, type CaptchaResponse } from '../services/authApi';
-import { saveAuthSession } from '../services/authSession';
+import { saveAuthSession, type AuthSession } from '../services/authSession';
 
 type AuthScreenProps = {
   onBack: () => void;
-  onDone: () => void;
+  onDone: (session: AuthSession) => void;
 };
 
 export function AuthScreen({ onBack, onDone }: AuthScreenProps) {
@@ -32,7 +32,6 @@ export function AuthScreen({ onBack, onDone }: AuthScreenProps) {
     let isMounted = true;
 
     async function loadCaptcha() {
-      setMessage('');
       setCaptcha(null);
       setCaptchaCode('');
 
@@ -104,7 +103,7 @@ export function AuthScreen({ onBack, onDone }: AuthScreenProps) {
           });
       const session = await saveAuthSession(data);
       setMessage(`${session.user.display_name}，欢迎进入创作者空间。`);
-      onDone();
+      onDone(session);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '认证失败，请稍后重试。');
       setCaptchaTick((value) => value + 1);
