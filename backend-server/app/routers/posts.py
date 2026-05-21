@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, Depends, status
 
@@ -34,8 +35,8 @@ def create_post(payload: PostCreate, current_user: User = Depends(get_current_us
 @router.get("", response_model=PageResponse)
 def list_posts(
     tab: str = "discover",
-    tag: str | None = None,
-    author_id: int | None = None,
+    tag: Optional[str] = None,
+    author_id: Optional[int] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> PageResponse:

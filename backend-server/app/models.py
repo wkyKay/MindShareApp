@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -21,8 +22,8 @@ class User(TimestampMixin, Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str] = mapped_column(String(64), nullable=False)
-    avatar_asset_id: Mapped[int | None] = mapped_column(ForeignKey("assets.id"), nullable=True)
-    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    avatar_asset_id: Mapped[Optional[int]] = mapped_column(ForeignKey("assets.id"), nullable=True)
+    bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False, index=True)
 
     posts: Mapped[list["Post"]] = relationship(back_populates="author", foreign_keys="Post.author_id")
@@ -36,9 +37,9 @@ class Captcha(Base):
     captcha_key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     code_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     purpose: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
-    target: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    target: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     failed_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -50,15 +51,15 @@ class Post(TimestampMixin, Base):
     author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
     body: Mapped[str] = mapped_column(Text, nullable=False)
-    summary: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    cover_asset_id: Mapped[int | None] = mapped_column(ForeignKey("assets.id"), nullable=True)
+    summary: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+    cover_asset_id: Mapped[Optional[int]] = mapped_column(ForeignKey("assets.id"), nullable=True)
     visibility: Mapped[str] = mapped_column(String(20), default="public", nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(20), default="published", nullable=False, index=True)
     like_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     comment_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     favorite_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     view_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    published_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     author: Mapped[User] = relationship(back_populates="posts", foreign_keys=[author_id])
     assets: Mapped[list["Asset"]] = relationship(back_populates="post", foreign_keys="Asset.post_id")
@@ -92,20 +93,20 @@ class Asset(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     uploader_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
-    post_id: Mapped[int | None] = mapped_column(ForeignKey("posts.id"), nullable=True, index=True)
+    post_id: Mapped[Optional[int]] = mapped_column(ForeignKey("posts.id"), nullable=True, index=True)
     kind: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     original_name: Mapped[str] = mapped_column(String(255), nullable=False)
     mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
     file_ext: Mapped[str] = mapped_column(String(16), nullable=False)
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
     storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
-    public_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    parse_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    parse_error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    public_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    parse_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    parse_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    extracted_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-    post: Mapped[Post | None] = relationship(back_populates="assets", foreign_keys=[post_id])
+    post: Mapped[Optional["Post"]] = relationship(back_populates="assets", foreign_keys=[post_id])
 
 
 class Collection(TimestampMixin, Base):
@@ -114,8 +115,8 @@ class Collection(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(120), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    cover_asset_id: Mapped[int | None] = mapped_column(ForeignKey("assets.id"), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    cover_asset_id: Mapped[Optional[int]] = mapped_column(ForeignKey("assets.id"), nullable=True)
     visibility: Mapped[str] = mapped_column(String(20), default="public", nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False, index=True)
     item_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -161,7 +162,7 @@ class Comment(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     post_id: Mapped[int] = mapped_column(ForeignKey("posts.id"), nullable=False, index=True)
     author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
-    parent_id: Mapped[int | None] = mapped_column(ForeignKey("comments.id"), nullable=True, index=True)
+    parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("comments.id"), nullable=True, index=True)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="published", nullable=False, index=True)
 

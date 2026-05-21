@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends
 
 from ..auth import get_current_user
@@ -35,7 +37,7 @@ def update_me(
 
 @router.get("/me/posts", response_model=PageResponse)
 def get_my_posts(
-    status: str | None = None,
+    status: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
     current_user: User = Depends(get_current_user),

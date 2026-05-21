@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, Depends, status
 
@@ -32,7 +33,7 @@ def create_collection(
 
 @router.get("", response_model=PageResponse)
 def list_collections(
-    owner_id: int | None = None, page: int = 1, page_size: int = 20
+    owner_id: Optional[int] = None, page: int = 1, page_size: int = 20
 ) -> PageResponse:
     return PageResponse(items=[], page=page, page_size=page_size, total=0)
 
