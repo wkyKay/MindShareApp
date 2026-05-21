@@ -10,7 +10,7 @@ export function HomeScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.pageContent}>
-      <Text style={styles.logo}>同人小站</Text>
+      <Text style={styles.logo}>博客小站</Text>
       <TextInput style={styles.searchInput} placeholder="搜索作品、作者、合集" placeholderTextColor="#9a8f8a" />
 
       <View style={styles.segmentedControl}>

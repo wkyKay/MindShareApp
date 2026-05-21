@@ -1,8 +1,10 @@
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { PostCard } from '../components/PostCard';
 import { samplePosts } from '../components/samplePosts';
 import { styles } from '../components/styles';
+import { clearAuthSession, refreshAuthSession, type AuthSession } from '../services/authSession';
 
 
 type ProfileScreenProps = {
@@ -10,9 +12,47 @@ type ProfileScreenProps = {
 };
 
 export function ProfileScreen({ onOpenAuth }: ProfileScreenProps) {
-  const isLoggedIn = false;
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!isLoggedIn) {
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadProfile() {
+      try {
+        const refreshedSession = await refreshAuthSession();
+        if (isMounted) {
+          setSession(refreshedSession);
+        }
+      } catch {
+        await clearAuthSession();
+        if (isMounted) {
+          setSession(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  if (isLoading) {
+    return (
+      <ScrollView contentContainerStyle={styles.pageContent}>
+        <Text style={styles.pageTitle}>我的主页</Text>
+        <Text style={styles.profileBio}>正在加载账号信息...</Text>
+      </ScrollView>
+    );
+  }
+
+  if (!session) {
     return (
       <ScrollView contentContainerStyle={styles.pageContent}>
         <View style={styles.profileHeader}>
@@ -36,21 +76,37 @@ export function ProfileScreen({ onOpenAuth }: ProfileScreenProps) {
     );
   }
 
-  return <LoggedInProfile />;
+  return <LoggedInProfile session={session} onLoggedOut={() => setSession(null)} />;
 }
 
-function LoggedInProfile() {
+type LoggedInProfileProps = {
+  session: AuthSession;
+  onLoggedOut: () => void;
+};
+
+function LoggedInProfile({ session, onLoggedOut }: LoggedInProfileProps) {
+  async function logout() {
+    await clearAuthSession();
+    onLoggedOut();
+  }
+
+  const avatarText = session.user.display_name.slice(0, 1) || session.user.username.slice(0, 1) || '我';
+
   return (
     <ScrollView contentContainerStyle={styles.pageContent}>
       <View style={styles.profileHeader}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>我</Text>
+          <Text style={styles.avatarText}>{avatarText}</Text>
         </View>
         <View>
-          <Text style={styles.pageTitle}>我的主页</Text>
-          <Text style={styles.profileBio}>管理发布、收藏与合集</Text>
+          <Text style={styles.pageTitle}>{session.user.display_name}</Text>
+          <Text style={styles.profileBio}>{session.user.bio || `@${session.user.username} · ${session.user.email}`}</Text>
         </View>
       </View>
+
+      <Pressable style={styles.backButton} onPress={logout}>
+        <Text style={styles.backButtonText}>退出登录</Text>
+      </Pressable>
 
       <View style={styles.profileStats}>
         <View style={styles.profileStatItem}>

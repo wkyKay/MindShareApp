@@ -10,6 +10,8 @@
 - 所有需要登录的写操作通过 JWT 鉴权。
 - 验证码、文件类型、文件大小、文档解析必须在服务端校验。
 - 删除用户内容默认软删除或状态变更，避免误删关联数据。
+- 第一版不使用数据库外键约束，所有 `*_id` 字段只保存业务关联 ID，由服务层负责存在性、权限和删除影响校验。
+- 数据表和字段必须写清楚注释；代码中的 SQLAlchemy `comment` 是数据库结构说明的一部分，不只是代码注释。
 - 点赞、收藏等关系表用唯一约束防止重复关系。
 
 ## 数据库表设计
@@ -25,7 +27,7 @@
 | email | varchar(255) | unique, not null | 邮箱 |
 | password_hash | varchar(255) | not null | 密码哈希 |
 | display_name | varchar(64) | not null | 展示昵称 |
-| avatar_asset_id | integer | FK assets.id, nullable | 头像资源 |
+| avatar_asset_id | integer | nullable | 头像资源 ID，对应 `assets.id`，无数据库外键 |
 | bio | text | nullable | 个人简介 |
 | status | varchar(20) | not null, default `active` | `active`、`disabled`、`deleted` |
 | created_at | datetime | not null | 创建时间 |
@@ -65,11 +67,11 @@
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
 | id | integer | PK | 博客 ID |
-| author_id | integer | FK users.id, not null | 作者 |
+| author_id | integer | not null | 作者用户 ID，对应 `users.id`，无数据库外键 |
 | title | varchar(120) | not null | 标题 |
 | body | text | not null | 正文，第一版可存 Markdown 文本 |
 | summary | varchar(300) | nullable | 摘要，用于列表和搜索结果 |
-| cover_asset_id | integer | FK assets.id, nullable | 封面图 |
+| cover_asset_id | integer | nullable | 封面资源 ID，对应 `assets.id`，无数据库外键 |
 | visibility | varchar(20) | not null, default `public` | `public`、`followers`、`private` |
 | status | varchar(20) | not null, default `published` | `draft`、`published`、`archived`、`deleted` |
 | like_count | integer | not null, default 0 | 点赞数缓存 |
@@ -106,8 +108,8 @@
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
-| post_id | integer | PK, FK posts.id | 博客 ID |
-| tag_id | integer | PK, FK tags.id | 标签 ID |
+| post_id | integer | PK | 博客 ID，对应 `posts.id`，无数据库外键 |
+| tag_id | integer | PK | 标签 ID，对应 `tags.id`，无数据库外键 |
 
 约束：
 
@@ -120,8 +122,8 @@
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
 | id | integer | PK | 资源 ID |
-| uploader_id | integer | FK users.id, not null | 上传用户 |
-| post_id | integer | FK posts.id, nullable | 关联博客，可后绑定 |
+| uploader_id | integer | not null | 上传用户 ID，对应 `users.id`，无数据库外键 |
+| post_id | integer | nullable | 关联博客 ID，对应 `posts.id`，可后绑定，无数据库外键 |
 | kind | varchar(20) | not null | `image`、`document`、`avatar`、`cover` |
 | original_name | varchar(255) | not null | 原始文件名 |
 | mime_type | varchar(100) | not null | MIME 类型 |
@@ -146,10 +148,10 @@
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
 | id | integer | PK | 合集 ID |
-| owner_id | integer | FK users.id, not null | 创建者 |
+| owner_id | integer | not null | 创建者用户 ID，对应 `users.id`，无数据库外键 |
 | title | varchar(120) | not null | 合集标题 |
 | description | text | nullable | 合集简介 |
-| cover_asset_id | integer | FK assets.id, nullable | 合集封面 |
+| cover_asset_id | integer | nullable | 合集封面资源 ID，对应 `assets.id`，无数据库外键 |
 | visibility | varchar(20) | not null, default `public` | `public`、`private` |
 | status | varchar(20) | not null, default `active` | `active`、`deleted` |
 | item_count | integer | not null, default 0 | 内容数量缓存 |
@@ -167,8 +169,8 @@
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
-| collection_id | integer | PK, FK collections.id | 合集 ID |
-| post_id | integer | PK, FK posts.id | 博客 ID |
+| collection_id | integer | PK | 合集 ID，对应 `collections.id`，无数据库外键 |
+| post_id | integer | PK | 博客 ID，对应 `posts.id`，无数据库外键 |
 | sort_order | integer | not null, default 0 | 合集内排序 |
 | added_at | datetime | not null | 加入时间 |
 
@@ -184,8 +186,8 @@
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
 | id | integer | PK | 点赞 ID |
-| user_id | integer | FK users.id, not null | 用户 |
-| post_id | integer | FK posts.id, not null | 博客 |
+| user_id | integer | not null | 用户 ID，对应 `users.id`，无数据库外键 |
+| post_id | integer | not null | 博客 ID，对应 `posts.id`，无数据库外键 |
 | created_at | datetime | not null | 点赞时间 |
 
 约束：
@@ -200,8 +202,8 @@
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
 | id | integer | PK | 收藏 ID |
-| user_id | integer | FK users.id, not null | 用户 |
-| post_id | integer | FK posts.id, not null | 博客 |
+| user_id | integer | not null | 用户 ID，对应 `users.id`，无数据库外键 |
+| post_id | integer | not null | 博客 ID，对应 `posts.id`，无数据库外键 |
 | created_at | datetime | not null | 收藏时间 |
 
 约束：
@@ -216,9 +218,9 @@
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
 | id | integer | PK | 评论 ID |
-| post_id | integer | FK posts.id, not null | 所属博客 |
-| author_id | integer | FK users.id, not null | 评论作者 |
-| parent_id | integer | FK comments.id, nullable | 父评论，用于回复 |
+| post_id | integer | not null | 所属博客 ID，对应 `posts.id`，无数据库外键 |
+| author_id | integer | not null | 评论作者用户 ID，对应 `users.id`，无数据库外键 |
+| parent_id | integer | nullable | 父评论 ID，对应 `comments.id`，用于回复，无数据库外键 |
 | body | text | not null | 评论正文 |
 | status | varchar(20) | not null, default `published` | `published`、`deleted`、`hidden` |
 | created_at | datetime | not null | 创建时间 |
@@ -238,6 +240,7 @@
 - 一个 `collection` 可以包含多个 `posts`。
 - 一个 `user` 对同一篇 `post` 最多只能有一个 `like` 和一个 `favorite`。
 - `comments.parent_id` 支持二级或多级回复，第一版接口可以只展示两级。
+- 上述关系全部通过普通 ID 字段表达，不创建数据库外键；写入和删除时必须在服务层显式校验引用对象是否存在。
 
 ## API 设计约定
 
@@ -899,8 +902,8 @@ Response:
 
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
-| follower_id | integer | PK, FK users.id | 发起关注的用户 |
-| following_id | integer | PK, FK users.id | 被关注用户 |
+| follower_id | integer | PK | 发起关注的用户 ID，对应 `users.id`，无数据库外键 |
+| following_id | integer | PK | 被关注用户 ID，对应 `users.id`，无数据库外键 |
 | created_at | datetime | not null | 关注时间 |
 
 约束：

@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from . import models
@@ -8,6 +9,15 @@ from .routers import auth, collections, comments, posts, search, uploads, users
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Tongren Forum API", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8081", "http://localhost:19006"],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1|172\.16\.62\.172):\d+",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

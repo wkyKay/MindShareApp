@@ -1,9 +1,12 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
+from ..database import get_db
 from ..models import User
 from ..schemas import CaptchaResponse, LoginRequest, RegisterRequest, TokenResponse, UserPrivate
 
@@ -34,36 +37,42 @@ def get_captcha(purpose: str) -> CaptchaResponse:
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-def register(payload: RegisterRequest) -> TokenResponse:
+def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> TokenResponse:
     # TODO: Validate captcha, hash password, persist user, and issue JWT.
-    now_id = int(datetime.utcnow().timestamp())
-    return TokenResponse(
-        user=UserPrivate(
-            id=now_id,
-            username=payload.username,
-            email=payload.email,
-            display_name=payload.display_name,
-            avatar_url=None,
-            bio=None,
-        ),
-        access_token="development-token",
+    existing_user = (
+        db.query(User)
+        .filter(or_(User.username == payload.username, User.email == payload.email))
+        .first()
     )
+    if existing_user:
+        raise HTTPException(status_code=400, detail="用户名或邮箱已存在")
+
+    user = User(
+        username=payload.username,
+        email=payload.email,
+        password_hash=f"development-password:{payload.password}",
+        display_name=payload.display_name,
+        status="active",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return TokenResponse(user=_user_response(user), access_token=f"development-token:{user.id}")
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest) -> TokenResponse:
+def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
     # TODO: Validate captcha, verify password, and issue JWT.
-    return TokenResponse(
-        user=UserPrivate(
-            id=1,
-            username=payload.account.split("@")[0],
-            email=payload.account if "@" in payload.account else "user@example.com",
-            display_name=payload.account.split("@")[0],
-            avatar_url=None,
-            bio=None,
-        ),
-        access_token="development-token",
+    user = (
+        db.query(User)
+        .filter(or_(User.username == payload.account, User.email == payload.account))
+        .first()
     )
+    if user is None:
+        raise HTTPException(status_code=401, detail="账号或密码错误")
+
+    return TokenResponse(user=_user_response(user), access_token=f"development-token:{user.id}")
 
 
 @router.get("/me", response_model=UserPrivate)
