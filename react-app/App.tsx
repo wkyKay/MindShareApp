@@ -34,11 +34,16 @@ export default function App() {
     switchTab('profile');
   }
 
+  function finishUpload() {
+    setProfileRefreshKey((value) => value + 1);
+    switchTab('profile');
+  }
+
   return (
     <View style={styles.shell}>
       <View style={styles.app}>
         {page === 'home' && <HomeScreen />}
-        {page === 'upload' && <UploadScreen onCancel={goBack} onSaved={() => switchTab('home')} />}
+        {page === 'upload' && <UploadScreen session={authSession} onCancel={goBack} onSaved={finishUpload} />}
         {page === 'profile' && (
           <ProfileScreen
             initialSession={authSession}

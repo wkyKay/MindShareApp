@@ -7,6 +7,7 @@ export type PostCardPost = {
   title: string;
   summary?: string | null;
   author?: string | { display_name: string };
+  status?: string;
   like_count?: number;
   comment_count?: number;
   favorite_count?: number;
@@ -21,8 +22,10 @@ type PostCardProps = {
 
 export function PostCard({ post, showAuthor = false, showStats = false, onPress }: PostCardProps) {
   const author = typeof post.author === 'string' ? post.author : post.author?.display_name;
+  const isDraft = post.status === 'draft';
   const content = (
     <>
+      {isDraft && <Text style={styles.draftBadge}>草稿</Text>}
       <Text style={styles.cardTitle}>{post.title}</Text>
       {showAuthor && !!author && <Text style={styles.cardMeta}>作者：{author}</Text>}
       {!!post.summary && <Text style={styles.cardSummary}>{post.summary}</Text>}
@@ -38,14 +41,14 @@ export function PostCard({ post, showAuthor = false, showStats = false, onPress 
 
   if (onPress) {
     return (
-      <Pressable style={styles.card} onPress={onPress}>
+      <Pressable style={[styles.card, isDraft && styles.draftCard]} onPress={onPress}>
         {content}
       </Pressable>
     );
   }
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, isDraft && styles.draftCard]}>
       {content}
     </View>
   );

@@ -77,6 +77,21 @@ export const styles = StyleSheet.create({
     marginBottom: 14,
     padding: 16,
   },
+  draftCard: {
+    backgroundColor: '#fff8d7',
+    borderColor: '#e1b84c',
+  },
+  draftBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#e1b84c',
+    borderRadius: 999,
+    color: '#5c4310',
+    fontSize: 12,
+    fontWeight: '900',
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
   cardTitle: {
     color: '#2f2320',
     fontSize: 18,
@@ -139,6 +154,9 @@ export const styles = StyleSheet.create({
   bodyInput: {
     minHeight: 180,
   },
+  longBodyInput: {
+    minHeight: 340,
+  },
   uploadBox: {
     backgroundColor: '#fffdfb',
     borderColor: '#e9bfc4',
@@ -158,6 +176,57 @@ export const styles = StyleSheet.create({
     lineHeight: 21,
     marginTop: 8,
   },
+  tagPanel: {
+    backgroundColor: '#fffdfb',
+    borderColor: '#f0d7cf',
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 16,
+    padding: 16,
+  },
+  tagInputRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  tagInput: {
+    backgroundColor: '#ffffff',
+    borderColor: '#f0d7cf',
+    borderRadius: 14,
+    borderWidth: 1,
+    color: '#2f2320',
+    flex: 1,
+    fontSize: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  tagAddButton: {
+    backgroundColor: '#2f2320',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  tagAddButtonText: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
+  tagList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 14,
+  },
+  tagChip: {
+    backgroundColor: '#f3ded7',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  tagChipText: {
+    color: '#a05d6f',
+    fontWeight: '700',
+  },
   primaryButton: {
     alignItems: 'center',
     backgroundColor: '#d94f70',
@@ -169,6 +238,20 @@ export const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  draftButton: {
+    alignItems: 'center',
+    backgroundColor: '#fff1b8',
+    borderColor: '#e1b84c',
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 12,
+    paddingVertical: 15,
+  },
+  draftButtonText: {
+    color: '#7a5814',
+    fontSize: 16,
+    fontWeight: '800',
   },
   authHero: {
     backgroundColor: '#2f2320',

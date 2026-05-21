@@ -29,6 +29,7 @@ def _post_item(post: Post, author: User, db: Session, current_user: User) -> Pos
         summary=post.summary,
         cover_url=cover_url,
         tags=[tag[0] for tag in tags],
+        status=post.status,
         author=AuthorSummary(id=author.id, display_name=author.display_name, avatar_url=None),
         like_count=post.like_count,
         comment_count=post.comment_count,

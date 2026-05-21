@@ -115,6 +115,7 @@ class PostListItem(BaseModel):
     summary: Optional[str] = None
     cover_url: Optional[str] = None
     tags: list[str]
+    status: str
     author: AuthorSummary
     like_count: int
     comment_count: int

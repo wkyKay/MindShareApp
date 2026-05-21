@@ -46,6 +46,7 @@ def _post_detail(post: Post, author: User, db: Session) -> PostDetail:
         summary=post.summary,
         cover_url=cover_url,
         tags=[tag[0] for tag in tags],
+        status=post.status,
         author=AuthorSummary(id=author.id, display_name=author.display_name, avatar_url=None),
         like_count=post.like_count,
         comment_count=post.comment_count,
@@ -60,13 +61,56 @@ def _post_detail(post: Post, author: User, db: Session) -> PostDetail:
 
 
 @router.post("", response_model=PostCreated, status_code=status.HTTP_201_CREATED)
-def create_post(payload: PostCreate, current_user: User = Depends(get_current_user)) -> PostCreated:
-    return PostCreated(
-        id=1,
-        title=payload.title,
-        status=payload.status,
+def create_post(
+    payload: PostCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PostCreated:
+    title = payload.title.strip()
+    body = payload.body.strip()
+    if not title or not body:
+        raise HTTPException(status_code=400, detail="标题和正文不能为空")
+    if payload.status not in {"published", "draft"}:
+        raise HTTPException(status_code=400, detail="文章状态无效")
+    if payload.visibility not in {"public", "private", "followers"}:
+        raise HTTPException(status_code=400, detail="可见性无效")
+
+    post = Post(
+        author_id=current_user.id,
+        title=title,
+        body=body,
+        summary=payload.summary.strip() if payload.summary else None,
+        cover_asset_id=payload.cover_asset_id,
         visibility=payload.visibility,
-        created_at=datetime.utcnow(),
+        status=payload.status,
+        published_at=datetime.utcnow() if payload.status == "published" else None,
+    )
+    db.add(post)
+    db.flush()
+
+    normalized_tags = []
+    for tag_name in payload.tags:
+        tag_name = tag_name.strip()
+        if tag_name and tag_name not in normalized_tags:
+            normalized_tags.append(tag_name)
+
+    for tag_name in normalized_tags:
+        tag = db.query(Tag).filter(Tag.name == tag_name).first()
+        if tag is None:
+            tag = Tag(name=tag_name)
+            db.add(tag)
+            db.flush()
+        db.add(PostTag(post_id=post.id, tag_id=tag.id))
+
+    db.commit()
+    db.refresh(post)
+
+    return PostCreated(
+        id=post.id,
+        title=post.title,
+        status=post.status,
+        visibility=post.visibility,
+        created_at=post.created_at,
     )
 
 
