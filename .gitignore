@@ -2,7 +2,7 @@ venv/
 node_modules/
 backend-server/venv/
 react-app/node_modules/
-
+react-app/.expo/
 
 
 __pycache__/
