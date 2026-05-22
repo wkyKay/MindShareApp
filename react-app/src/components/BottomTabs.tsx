@@ -5,8 +5,8 @@ import { styles } from './styles';
 export type Page = 'home' | 'upload' | 'profile' | 'auth';
 
 type BottomTabsProps = {
-  activePage: Page;
-  onChangePage: (page: Page) => void;
+  activePage: Exclude<Page, 'auth'>;
+  onChangePage: (page: Exclude<Page, 'auth'>) => void;
 };
 
 export function BottomTabs({ activePage, onChangePage }: BottomTabsProps) {
