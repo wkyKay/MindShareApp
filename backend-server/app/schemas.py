@@ -122,6 +122,8 @@ class PostListItem(BaseModel):
     favorite_count: int
     is_liked: bool
     is_favorited: bool
+    is_deleted: bool = False
+    is_owner: bool = False
     created_at: datetime
 
 

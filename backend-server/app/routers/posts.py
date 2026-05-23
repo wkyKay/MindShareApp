@@ -4,9 +4,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..auth import get_current_user
+from ..auth import get_current_user, get_optional_current_user
 from ..database import get_db
-from ..models import Asset, Post, PostTag, Tag, User
+from ..models import Asset, Favorite, Like, Post, PostTag, Tag, User
 from ..schemas import (
     AuthorSummary,
     FavoriteRequest,
@@ -23,7 +23,7 @@ from ..schemas import (
 router = APIRouter()
 
 
-def _post_detail(post: Post, author: User, db: Session) -> PostDetail:
+def _post_detail(post: Post, author: User, db: Session, current_user: Optional[User] = None) -> PostDetail:
     tags = (
         db.query(Tag.name)
         .join(PostTag, PostTag.tag_id == Tag.id)
@@ -51,8 +51,12 @@ def _post_detail(post: Post, author: User, db: Session) -> PostDetail:
         like_count=post.like_count,
         comment_count=post.comment_count,
         favorite_count=post.favorite_count,
-        is_liked=False,
-        is_favorited=False,
+        is_liked=current_user is not None
+        and db.query(Like.id).filter(Like.user_id == current_user.id, Like.post_id == post.id).first() is not None,
+        is_favorited=current_user is not None
+        and db.query(Favorite.id).filter(Favorite.user_id == current_user.id, Favorite.post_id == post.id).first() is not None,
+        is_deleted=post.status == "deleted",
+        is_owner=current_user is not None and post.author_id == current_user.id,
         created_at=post.created_at,
         body=post.body,
         image_urls=image_urls,
@@ -121,46 +125,165 @@ def list_posts(
     author_id: Optional[int] = None,
     page: int = 1,
     page_size: int = 20,
+    seed: int = 1,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
 ) -> PageResponse:
-    return PageResponse(items=[], page=page, page_size=page_size, total=0)
+    if tab == "following":
+        # 关注关系尚未建模，关注流必须保持为空，避免和发现页展示相同内容。
+        return PageResponse(items=[], page=page, page_size=page_size, total=0)
+
+    query = db.query(Post, User).join(User, User.id == Post.author_id).filter(
+        Post.status == "published", Post.visibility == "public"
+    )
+    if author_id:
+        query = query.filter(Post.author_id == author_id)
+    if tag:
+        query = query.join(PostTag, PostTag.post_id == Post.id).join(Tag, Tag.id == PostTag.tag_id).filter(Tag.name == tag)
+    total = query.with_entities(Post.id).count()
+    random_order = ((Post.id * 1103515245 + seed) % 2147483647)
+    rows = query.order_by(random_order, Post.id).offset((page - 1) * page_size).limit(page_size).all()
+    return PageResponse(
+        items=[_post_detail(post, author, db, current_user) for post, author in rows],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 @router.get("/{post_id}", response_model=PostDetail)
-def get_post(post_id: int, db: Session = Depends(get_db)) -> PostDetail:
+def get_post(
+    post_id: int,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> PostDetail:
     row = db.query(Post, User).join(User, User.id == Post.author_id).filter(Post.id == post_id).first()
     if row is None:
         raise HTTPException(status_code=404, detail="博客不存在")
     post, author = row
-    return _post_detail(post, author, db)
+    if post.status == "deleted" and (current_user is None or current_user.id != post.author_id):
+        raise HTTPException(status_code=404, detail="博客已删除")
+    if post.visibility == "private" and (current_user is None or current_user.id != post.author_id):
+        raise HTTPException(status_code=403, detail="无权查看该博客")
+    return _post_detail(post, author, db, current_user)
 
 
 @router.patch("/{post_id}", response_model=PostCreated)
 def update_post(
-    post_id: int, payload: PostUpdate, current_user: User = Depends(get_current_user)
+    post_id: int,
+    payload: PostUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> PostCreated:
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if post is None or post.status == "deleted":
+        raise HTTPException(status_code=404, detail="博客不存在")
+    if post.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="只能编辑自己的博客")
+    if payload.title is not None:
+        title = payload.title.strip()
+        if not title:
+            raise HTTPException(status_code=400, detail="标题不能为空")
+        post.title = title
+    if payload.body is not None:
+        body = payload.body.strip()
+        if not body:
+            raise HTTPException(status_code=400, detail="正文不能为空")
+        post.body = body
+    if payload.summary is not None:
+        post.summary = payload.summary.strip() or None
+    if payload.cover_asset_id is not None:
+        post.cover_asset_id = payload.cover_asset_id
+    if payload.visibility is not None:
+        if payload.visibility not in {"public", "private", "followers"}:
+            raise HTTPException(status_code=400, detail="可见性无效")
+        post.visibility = payload.visibility
+    if payload.status is not None:
+        if payload.status not in {"published", "draft", "archived"}:
+            raise HTTPException(status_code=400, detail="文章状态无效")
+        post.status = payload.status
+        if payload.status == "published" and post.published_at is None:
+            post.published_at = datetime.utcnow()
+    if payload.tags is not None:
+        db.query(PostTag).filter(PostTag.post_id == post.id).delete()
+        normalized_tags = []
+        for tag_name in payload.tags:
+            tag_name = tag_name.strip()
+            if tag_name and tag_name not in normalized_tags:
+                normalized_tags.append(tag_name)
+        for tag_name in normalized_tags:
+            tag = db.query(Tag).filter(Tag.name == tag_name).first()
+            if tag is None:
+                tag = Tag(name=tag_name)
+                db.add(tag)
+                db.flush()
+            db.add(PostTag(post_id=post.id, tag_id=tag.id))
+    db.commit()
+    db.refresh(post)
     return PostCreated(
-        id=post_id,
-        title=payload.title or "示例博客",
-        status=payload.status or "published",
-        visibility=payload.visibility or "public",
-        created_at=datetime.utcnow(),
+        id=post.id,
+        title=post.title,
+        status=post.status,
+        visibility=post.visibility,
+        created_at=post.created_at,
     )
 
 
 @router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(post_id: int, current_user: User = Depends(get_current_user)) -> None:
+def delete_post(
+    post_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if post is None or post.status == "deleted":
+        raise HTTPException(status_code=404, detail="博客不存在")
+    if post.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="只能删除自己的博客")
+    post.status = "deleted"
+    db.commit()
     return None
 
 
 @router.post("/{post_id}/like", response_model=LikeResponse)
 def toggle_like(
-    post_id: int, payload: LikeRequest, current_user: User = Depends(get_current_user)
+    post_id: int,
+    payload: LikeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> LikeResponse:
-    return LikeResponse(liked=payload.liked, like_count=1 if payload.liked else 0)
+    post = db.query(Post).filter(Post.id == post_id, Post.status != "deleted").first()
+    if post is None:
+        raise HTTPException(status_code=404, detail="博客不存在")
+    like = db.query(Like).filter(Like.user_id == current_user.id, Like.post_id == post_id).first()
+    if payload.liked and like is None:
+        db.add(Like(user_id=current_user.id, post_id=post_id))
+        post.like_count += 1
+    elif not payload.liked and like is not None:
+        db.delete(like)
+        post.like_count = max(0, post.like_count - 1)
+    db.commit()
+    db.refresh(post)
+    return LikeResponse(liked=payload.liked, like_count=post.like_count)
 
 
 @router.post("/{post_id}/favorite", response_model=FavoriteResponse)
 def toggle_favorite(
-    post_id: int, payload: FavoriteRequest, current_user: User = Depends(get_current_user)
+    post_id: int,
+    payload: FavoriteRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> FavoriteResponse:
-    return FavoriteResponse(favorited=payload.favorited, favorite_count=1 if payload.favorited else 0)
+    post = db.query(Post).filter(Post.id == post_id, Post.status != "deleted").first()
+    if post is None:
+        raise HTTPException(status_code=404, detail="博客不存在")
+    favorite = db.query(Favorite).filter(Favorite.user_id == current_user.id, Favorite.post_id == post_id).first()
+    if payload.favorited and favorite is None:
+        db.add(Favorite(user_id=current_user.id, post_id=post_id))
+        post.favorite_count += 1
+    elif not payload.favorited and favorite is not None:
+        db.delete(favorite)
+        post.favorite_count = max(0, post.favorite_count - 1)
+    db.commit()
+    db.refresh(post)
+    return FavoriteResponse(favorited=payload.favorited, favorite_count=post.favorite_count)

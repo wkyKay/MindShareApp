@@ -6,13 +6,33 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
 from ..database import get_db
-from ..models import Asset, Collection, Favorite, Post, PostTag, Tag, User
+from ..models import Asset, Collection, Favorite, Like, Post, PostTag, Tag, User
 from ..schemas import AuthorSummary, PageResponse, PostListItem, UserPrivate, UserPublic, UserUpdate
 
 router = APIRouter()
 
 
 def _post_item(post: Post, author: User, db: Session, current_user: User) -> PostListItem:
+    is_deleted = post.status == "deleted"
+    if is_deleted:
+        return PostListItem(
+            id=post.id,
+            title="该博客已删除",
+            summary=None,
+            cover_url=None,
+            tags=[],
+            status=post.status,
+            author=AuthorSummary(id=author.id, display_name="已删除", avatar_url=None),
+            like_count=0,
+            comment_count=0,
+            favorite_count=0,
+            is_liked=False,
+            is_favorited=True,
+            is_deleted=True,
+            is_owner=post.author_id == current_user.id,
+            created_at=post.created_at,
+        )
+
     tags = (
         db.query(Tag.name)
         .join(PostTag, PostTag.tag_id == Tag.id)
@@ -34,11 +54,16 @@ def _post_item(post: Post, author: User, db: Session, current_user: User) -> Pos
         like_count=post.like_count,
         comment_count=post.comment_count,
         favorite_count=post.favorite_count,
-        is_liked=False,
+        is_liked=db.query(Like.id)
+        .filter(Like.user_id == current_user.id, Like.post_id == post.id)
+        .first()
+        is not None,
         is_favorited=db.query(Favorite.id)
         .filter(Favorite.user_id == current_user.id, Favorite.post_id == post.id)
         .first()
         is not None,
+        is_deleted=False,
+        is_owner=post.author_id == current_user.id,
         created_at=post.created_at,
     )
 
@@ -96,7 +121,7 @@ def get_my_favorites(
         db.query(Post, User)
         .join(Favorite, Favorite.post_id == Post.id)
         .join(User, User.id == Post.author_id)
-        .filter(Favorite.user_id == current_user.id, Post.status == "published")
+        .filter(Favorite.user_id == current_user.id, Post.status.in_(["published", "deleted"]))
     )
     total = query.with_entities(func.count(Post.id)).scalar() or 0
     rows = (

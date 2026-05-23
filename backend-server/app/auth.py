@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import os
+from typing import Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -12,6 +13,7 @@ from . import models
 from .database import get_db
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
@@ -58,4 +60,26 @@ def get_current_user(
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if user is None or user.status != "active":
         raise credentials_error
+    return user
+
+
+def get_optional_current_user(
+    token: Optional[str] = Depends(optional_oauth2_scheme), db: Session = Depends(get_db)
+) -> Optional[models.User]:
+    if not token:
+        return None
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        subject = payload.get("sub")
+        user_id = int(subject) if subject else None
+    except (JWTError, ValueError):
+        return None
+
+    if user_id is None:
+        return None
+
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user is None or user.status != "active":
+        return None
     return user

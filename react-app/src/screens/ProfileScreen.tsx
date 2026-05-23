@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { CollectionCard } from '../components/CollectionCard';
 import { PostCard } from '../components/PostCard';
@@ -19,49 +20,69 @@ type ProfileTab = 'posts' | 'favorites' | 'collections';
 
 type ProfileScreenProps = {
   initialSession: AuthSession | null;
-  refreshKey: number;
   onOpenAuth: () => void;
+  onOpenPost: (postId: number) => void;
   onSessionChange: (session: AuthSession | null) => void;
 };
 
-export function ProfileScreen({ initialSession, refreshKey, onOpenAuth, onSessionChange }: ProfileScreenProps) {
+export function ProfileScreen({ initialSession, onOpenAuth, onOpenPost, onSessionChange }: ProfileScreenProps) {
   const [session, setSession] = useState<AuthSession | null>(initialSession);
   const [isLoading, setIsLoading] = useState(true);
+  const initialRef = useRef(initialSession);
+  const onChangeRef = useRef(onSessionChange);
+  initialRef.current = initialSession;
+  onChangeRef.current = onSessionChange;
+  const hasLoaded = useRef(false);
 
   useEffect(() => {
-    let isMounted = true;
+    setSession(initialSession);
+    if (initialSession) {
+      setIsLoading(false);
+      hasLoaded.current = false;
+    }
+  }, [initialSession]);
 
-    async function loadProfile() {
-      if (initialSession && isMounted) {
-        setSession(initialSession);
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      if (hasLoaded.current) {
         setIsLoading(false);
+        return;
       }
+      hasLoaded.current = true;
 
-      try {
-        const refreshedSession = await refreshAuthSession();
-        if (isMounted) {
-          setSession(refreshedSession);
-          onSessionChange(refreshedSession);
-        }
-      } catch {
-        await clearAuthSession();
-        if (isMounted) {
-          setSession(null);
-          onSessionChange(null);
-        }
-      } finally {
-        if (isMounted) {
+      async function loadProfile() {
+        if (initialRef.current && isMounted) {
+          setSession(initialRef.current);
           setIsLoading(false);
         }
+
+        try {
+          const refreshedSession = await refreshAuthSession();
+          if (isMounted && refreshedSession) {
+            setSession(refreshedSession);
+            onChangeRef.current(refreshedSession);
+          }
+        } catch {
+          await clearAuthSession();
+          if (isMounted) {
+            setSession(null);
+            onChangeRef.current(null);
+          }
+        } finally {
+          if (isMounted) {
+            setIsLoading(false);
+          }
+        }
       }
-    }
 
-    void loadProfile();
+      void loadProfile();
 
-    return () => {
-      isMounted = false;
-    };
-  }, [onSessionChange, refreshKey]);
+      return () => {
+        isMounted = false;
+      };
+    }, [])
+  );
 
   if (isLoading) {
     return (
@@ -99,6 +120,7 @@ export function ProfileScreen({ initialSession, refreshKey, onOpenAuth, onSessio
   return (
     <LoggedInProfile
       session={session}
+      onOpenPost={onOpenPost}
       onLoggedOut={() => {
         setSession(null);
         onSessionChange(null);
@@ -109,10 +131,11 @@ export function ProfileScreen({ initialSession, refreshKey, onOpenAuth, onSessio
 
 type LoggedInProfileProps = {
   session: AuthSession;
+  onOpenPost: (postId: number) => void;
   onLoggedOut: () => void;
 };
 
-function LoggedInProfile({ session, onLoggedOut }: LoggedInProfileProps) {
+function LoggedInProfile({ session, onOpenPost, onLoggedOut }: LoggedInProfileProps) {
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
   const [posts, setPosts] = useState<ProfilePost[]>([]);
   const [favorites, setFavorites] = useState<ProfilePost[]>([]);
@@ -122,49 +145,45 @@ function LoggedInProfile({ session, onLoggedOut }: LoggedInProfileProps) {
   const [isContentLoading, setIsContentLoading] = useState(false);
   const [contentMessage, setContentMessage] = useState('');
 
-  useEffect(() => {
-    let isMounted = true;
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
 
-    async function loadContent() {
-      setIsContentLoading(true);
-      setContentMessage('');
-      setSelectedCollection(null);
-      setCollectionPosts([]);
+      async function loadContent() {
+        setIsContentLoading(true);
+        setContentMessage('');
+        setSelectedCollection(null);
+        setCollectionPosts([]);
 
-      try {
-        if (activeTab === 'posts') {
-          const data = await getMyPosts(session.accessToken);
+        try {
+          const [postsData, favoritesData, collectionsData] = await Promise.all([
+            getMyPosts(session.accessToken),
+            getMyFavorites(session.accessToken),
+            getMyCollections(session.accessToken),
+          ]);
           if (isMounted) {
-            setPosts(data.items);
+            setPosts(postsData.items);
+            setFavorites(favoritesData.items);
+            setCollections(collectionsData.items);
           }
-        } else if (activeTab === 'favorites') {
-          const data = await getMyFavorites(session.accessToken);
+        } catch (error) {
           if (isMounted) {
-            setFavorites(data.items);
+            setContentMessage(error instanceof Error ? error.message : '内容加载失败，请稍后重试。');
           }
-        } else {
-          const data = await getMyCollections(session.accessToken);
+        } finally {
           if (isMounted) {
-            setCollections(data.items);
+            setIsContentLoading(false);
           }
-        }
-      } catch (error) {
-        if (isMounted) {
-          setContentMessage(error instanceof Error ? error.message : '内容加载失败，请稍后重试。');
-        }
-      } finally {
-        if (isMounted) {
-          setIsContentLoading(false);
         }
       }
-    }
 
-    void loadContent();
+      void loadContent();
 
-    return () => {
-      isMounted = false;
-    };
-  }, [activeTab, session.accessToken]);
+      return () => {
+        isMounted = false;
+      };
+    }, [session.accessToken])
+  );
 
   async function logout() {
     await clearAuthSession();
@@ -205,13 +224,13 @@ function LoggedInProfile({ session, onLoggedOut }: LoggedInProfileProps) {
       return <Text style={[styles.authApiHint, { color: '#a05d6f' }]}>{contentMessage}</Text>;
     }
     if (selectedCollection) {
-      return collectionPosts.map((post) => <PostCard key={post.id} post={post} showAuthor showStats />);
+      return collectionPosts.map((post) => <PostCard key={post.id} post={post} showAuthor showStats onPress={() => onOpenPost(post.id)} />);
     }
     if (activeTab === 'posts') {
-      return posts.map((post) => <PostCard key={post.id} post={post} showStats />);
+      return posts.map((post) => <PostCard key={post.id} post={post} showStats onPress={() => onOpenPost(post.id)} />);
     }
     if (activeTab === 'favorites') {
-      return favorites.map((post) => <PostCard key={post.id} post={post} showAuthor showStats />);
+      return favorites.map((post) => <PostCard key={post.id} post={post} showAuthor showStats onPress={() => onOpenPost(post.id)} />);
     }
     return collections.map((collection) => (
       <CollectionCard key={collection.id} collection={collection} onPress={() => openCollection(collection)} />

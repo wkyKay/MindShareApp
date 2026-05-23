@@ -4,6 +4,7 @@ export const styles = StyleSheet.create({
   shell: {
     flex: 1,
     backgroundColor: '#fff7f3',
+    paddingTop: 40,
   },
   app: {
     flex: 1,
@@ -81,6 +82,11 @@ export const styles = StyleSheet.create({
     backgroundColor: '#fff8d7',
     borderColor: '#e1b84c',
   },
+  deletedCard: {
+    backgroundColor: '#ece8e5',
+    borderColor: '#d1cac5',
+    opacity: 0.72,
+  },
   draftBadge: {
     alignSelf: 'flex-start',
     backgroundColor: '#e1b84c',
@@ -92,10 +98,24 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
+  deletedBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#8d8580',
+    borderRadius: 999,
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '900',
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
   cardTitle: {
     color: '#2f2320',
     fontSize: 18,
     fontWeight: '700',
+  },
+  deletedText: {
+    color: '#756d68',
   },
   cardMeta: {
     color: '#8d7b75',
@@ -252,6 +272,47 @@ export const styles = StyleSheet.create({
     color: '#7a5814',
     fontSize: 16,
     fontWeight: '800',
+  },
+  dangerButton: {
+    alignItems: 'center',
+    backgroundColor: '#7b2c3a',
+    borderRadius: 16,
+    marginTop: 12,
+    paddingVertical: 15,
+  },
+  dangerButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 18,
+    justifyContent: 'flex-end',
+  },
+  actionButton: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderColor: '#f0d7cf',
+    borderRadius: 16,
+    borderWidth: 1,
+    flex: 1,
+    paddingVertical: 13,
+  },
+  actionButtonActive: {
+    backgroundColor: '#ffe1e8',
+    borderColor: '#d94f70',
+  },
+  actionButtonText: {
+    color: '#a05d6f',
+    fontWeight: '800',
+  },
+  blogBody: {
+    color: '#3d302c',
+    fontSize: 16,
+    lineHeight: 26,
+    marginTop: 20,
   },
   authHero: {
     backgroundColor: '#2f2320',

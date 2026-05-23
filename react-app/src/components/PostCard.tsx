@@ -11,6 +11,7 @@ export type PostCardPost = {
   like_count?: number;
   comment_count?: number;
   favorite_count?: number;
+  is_deleted?: boolean;
 };
 
 type PostCardProps = {
@@ -21,15 +22,18 @@ type PostCardProps = {
 };
 
 export function PostCard({ post, showAuthor = false, showStats = false, onPress }: PostCardProps) {
+  const isDeleted = post.is_deleted || post.status === 'deleted';
   const author = typeof post.author === 'string' ? post.author : post.author?.display_name;
   const isDraft = post.status === 'draft';
+  const cardStyle = [styles.card, isDraft && styles.draftCard, isDeleted && styles.deletedCard];
   const content = (
     <>
+      {isDeleted && <Text style={styles.deletedBadge}>已删除</Text>}
       {isDraft && <Text style={styles.draftBadge}>草稿</Text>}
-      <Text style={styles.cardTitle}>{post.title}</Text>
-      {showAuthor && !!author && <Text style={styles.cardMeta}>作者：{author}</Text>}
-      {!!post.summary && <Text style={styles.cardSummary}>{post.summary}</Text>}
-      {showStats && (
+      <Text style={[styles.cardTitle, isDeleted && styles.deletedText]}>{isDeleted ? '该博客已删除' : post.title}</Text>
+      {!isDeleted && showAuthor && !!author && <Text style={styles.cardMeta}>作者：{author}</Text>}
+      {!isDeleted && !!post.summary && <Text style={styles.cardSummary}>{post.summary}</Text>}
+      {!isDeleted && showStats && (
         <View style={styles.cardStats}>
           <Text style={styles.statText}>点赞 {post.like_count ?? 0}</Text>
           <Text style={styles.statText}>评论 {post.comment_count ?? 0}</Text>
@@ -39,16 +43,16 @@ export function PostCard({ post, showAuthor = false, showStats = false, onPress 
     </>
   );
 
-  if (onPress) {
+  if (onPress && !isDeleted) {
     return (
-      <Pressable style={[styles.card, isDraft && styles.draftCard]} onPress={onPress}>
+      <Pressable style={cardStyle} onPress={onPress}>
         {content}
       </Pressable>
     );
   }
 
   return (
-    <View style={[styles.card, isDraft && styles.draftCard]}>
+    <View style={cardStyle}>
       {content}
     </View>
   );

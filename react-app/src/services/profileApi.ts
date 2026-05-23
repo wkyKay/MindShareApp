@@ -24,6 +24,8 @@ export type ProfilePost = {
   favorite_count: number;
   is_liked: boolean;
   is_favorited: boolean;
+  is_deleted: boolean;
+  is_owner: boolean;
   created_at: string;
 };
 
