@@ -38,6 +38,40 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
   },
+  suggestionPanel: {
+    backgroundColor: '#ffffff',
+    borderColor: '#f0d7cf',
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    borderBottomColor: '#f6e7e2',
+    borderBottomWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  suggestionText: {
+    color: '#a05d6f',
+    fontWeight: '800',
+  },
+  selectedTagRow: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderColor: '#f0d7cf',
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  selectedTagText: {
+    color: '#d94f70',
+    fontSize: 17,
+    fontWeight: '900',
+  },
   segmentedControl: {
     backgroundColor: '#f3ded7',
     borderRadius: 16,
@@ -119,6 +153,10 @@ export const styles = StyleSheet.create({
   },
   cardMeta: {
     color: '#8d7b75',
+    marginTop: 6,
+  },
+  cardAuthor: {
+    color: '#a05d6f',
     marginTop: 6,
   },
   cardSummary: {
@@ -444,6 +482,7 @@ export const styles = StyleSheet.create({
     borderRadius: 20,
     flexDirection: 'row',
     marginTop: 22,
+    marginBottom: 16,
     paddingVertical: 18,
   },
   profileStatItem: {

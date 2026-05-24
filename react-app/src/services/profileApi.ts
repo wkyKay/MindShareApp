@@ -37,6 +37,15 @@ export type ProfileCollection = {
   item_count?: number;
 };
 
+export type FollowingUser = {
+  id: number;
+  username: string;
+  display_name: string;
+  avatar_url?: string | null;
+  bio?: string | null;
+  is_following: boolean;
+};
+
 export type CollectionDetail = ProfileCollection & {
   owner: {
     id: number;
@@ -81,6 +90,10 @@ export function getMyFavorites(accessToken: string) {
 
 export function getMyCollections(accessToken: string) {
   return profileRequest<PageResponse<ProfileCollection>>('/users/me/collections', accessToken);
+}
+
+export function getMyFollowing(accessToken: string) {
+  return profileRequest<PageResponse<FollowingUser>>('/users/me/following', accessToken);
 }
 
 export function getCollectionDetail(collectionId: number, accessToken: string) {

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_current_user, get_optional_current_user
 from ..database import get_db
-from ..models import Asset, Favorite, Like, Post, PostTag, Tag, User
+from ..models import Asset, Favorite, Follow, Like, Post, PostTag, Tag, User
 from ..schemas import (
     AuthorSummary,
     FavoriteRequest,
@@ -130,8 +130,26 @@ def list_posts(
     db: Session = Depends(get_db),
 ) -> PageResponse:
     if tab == "following":
-        # 关注关系尚未建模，关注流必须保持为空，避免和发现页展示相同内容。
-        return PageResponse(items=[], page=page, page_size=page_size, total=0)
+        if current_user is None:
+            return PageResponse(items=[], page=page, page_size=page_size, total=0)
+        query = (
+            db.query(Post, User)
+            .join(Follow, Follow.following_id == Post.author_id)
+            .join(User, User.id == Post.author_id)
+            .filter(
+                Follow.follower_id == current_user.id,
+                Post.status == "published",
+                Post.visibility.in_(["public", "followers"]),
+            )
+        )
+        total = query.with_entities(Post.id).count()
+        rows = query.order_by(Post.created_at.desc(), Post.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+        return PageResponse(
+            items=[_post_detail(post, author, db, current_user) for post, author in rows],
+            page=page,
+            page_size=page_size,
+            total=total,
+        )
 
     query = db.query(Post, User).join(User, User.id == Post.author_id).filter(
         Post.status == "published", Post.visibility == "public"

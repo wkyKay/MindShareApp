@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { CollectionCard } from '../components/CollectionCard';
@@ -10,22 +10,26 @@ import {
   getCollectionDetail,
   getMyCollections,
   getMyFavorites,
+  getMyFollowing,
   getMyPosts,
   getPostDetail,
+  type FollowingUser,
   type ProfileCollection,
   type ProfilePost,
 } from '../services/profileApi';
 
-type ProfileTab = 'posts' | 'favorites' | 'collections';
+type ProfileTab = 'posts' | 'favorites' | 'collections' | 'following';
 
 type ProfileScreenProps = {
   initialSession: AuthSession | null;
   onOpenAuth: () => void;
   onOpenPost: (postId: number) => void;
+  onOpenAuthor: (authorId: number) => void;
+  onOpenTag: (tag: string) => void;
   onSessionChange: (session: AuthSession | null) => void;
 };
 
-export function ProfileScreen({ initialSession, onOpenAuth, onOpenPost, onSessionChange }: ProfileScreenProps) {
+export function ProfileScreen({ initialSession, onOpenAuth, onOpenPost, onOpenAuthor, onOpenTag, onSessionChange }: ProfileScreenProps) {
   const [session, setSession] = useState<AuthSession | null>(initialSession);
   const [isLoading, setIsLoading] = useState(true);
   const initialRef = useRef(initialSession);
@@ -121,6 +125,8 @@ export function ProfileScreen({ initialSession, onOpenAuth, onOpenPost, onSessio
     <LoggedInProfile
       session={session}
       onOpenPost={onOpenPost}
+      onOpenAuthor={onOpenAuthor}
+      onOpenTag={onOpenTag}
       onLoggedOut={() => {
         setSession(null);
         onSessionChange(null);
@@ -132,14 +138,17 @@ export function ProfileScreen({ initialSession, onOpenAuth, onOpenPost, onSessio
 type LoggedInProfileProps = {
   session: AuthSession;
   onOpenPost: (postId: number) => void;
+  onOpenAuthor: (authorId: number) => void;
+  onOpenTag: (tag: string) => void;
   onLoggedOut: () => void;
 };
 
-function LoggedInProfile({ session, onOpenPost, onLoggedOut }: LoggedInProfileProps) {
+function LoggedInProfile({ session, onOpenPost, onOpenAuthor, onOpenTag, onLoggedOut }: LoggedInProfileProps) {
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
   const [posts, setPosts] = useState<ProfilePost[]>([]);
   const [favorites, setFavorites] = useState<ProfilePost[]>([]);
   const [collections, setCollections] = useState<ProfileCollection[]>([]);
+  const [following, setFollowing] = useState<FollowingUser[]>([]);
   const [selectedCollection, setSelectedCollection] = useState<ProfileCollection | null>(null);
   const [collectionPosts, setCollectionPosts] = useState<ProfilePost[]>([]);
   const [isContentLoading, setIsContentLoading] = useState(false);
@@ -156,15 +165,17 @@ function LoggedInProfile({ session, onOpenPost, onLoggedOut }: LoggedInProfilePr
         setCollectionPosts([]);
 
         try {
-          const [postsData, favoritesData, collectionsData] = await Promise.all([
+          const [postsData, favoritesData, collectionsData, followingData] = await Promise.all([
             getMyPosts(session.accessToken),
             getMyFavorites(session.accessToken),
             getMyCollections(session.accessToken),
+            getMyFollowing(session.accessToken),
           ]);
           if (isMounted) {
             setPosts(postsData.items);
             setFavorites(favoritesData.items);
             setCollections(collectionsData.items);
+            setFollowing(followingData.items);
           }
         } catch (error) {
           if (isMounted) {
@@ -216,38 +227,30 @@ function LoggedInProfile({ session, onOpenPost, onLoggedOut }: LoggedInProfilePr
     setActiveTab(tab);
   }
 
-  function renderContent() {
-    if (isContentLoading) {
-      return <Text style={styles.profileBio}>正在加载内容...</Text>;
-    }
-    if (contentMessage) {
-      return <Text style={[styles.authApiHint, { color: '#a05d6f' }]}>{contentMessage}</Text>;
-    }
-    if (selectedCollection) {
-      return collectionPosts.map((post) => <PostCard key={post.id} post={post} showAuthor showStats onPress={() => onOpenPost(post.id)} />);
-    }
-    if (activeTab === 'posts') {
-      return posts.map((post) => <PostCard key={post.id} post={post} showStats onPress={() => onOpenPost(post.id)} />);
-    }
-    if (activeTab === 'favorites') {
-      return favorites.map((post) => <PostCard key={post.id} post={post} showAuthor showStats onPress={() => onOpenPost(post.id)} />);
-    }
-    return collections.map((collection) => (
-      <CollectionCard key={collection.id} collection={collection} onPress={() => openCollection(collection)} />
-    ));
-  }
-
-  const avatarText = session.user.display_name.slice(0, 1) || session.user.username.slice(0, 1) || '我';
   const sectionTitle = selectedCollection
     ? selectedCollection.title
     : activeTab === 'posts'
       ? '我的发布'
       : activeTab === 'favorites'
         ? '我的收藏'
-        : '我的合集';
+        : activeTab === 'following'
+          ? '我的关注'
+          : '我的合集';
 
-  return (
-    <ScrollView contentContainerStyle={styles.pageContent}>
+  const avatarText = session.user.display_name.slice(0, 1) || session.user.username.slice(0, 1) || '我';
+
+  const currentData: (ProfilePost | ProfileCollection | FollowingUser)[] = selectedCollection
+    ? collectionPosts
+    : activeTab === 'collections'
+      ? collections
+      : activeTab === 'following'
+        ? following
+      : activeTab === 'favorites'
+        ? favorites
+        : posts;
+
+  const header = (
+    <>
       <View style={styles.profileHeader}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{avatarText}</Text>
@@ -275,6 +278,10 @@ function LoggedInProfile({ session, onOpenPost, onLoggedOut }: LoggedInProfilePr
           <Text style={styles.profileStatNumber}>{collections.length}</Text>
           <Text style={[styles.profileStatLabel, activeTab === 'collections' && styles.segmentTextActive]}>合集</Text>
         </Pressable>
+        <Pressable style={styles.profileStatItem} onPress={() => selectTab('following')}>
+          <Text style={styles.profileStatNumber}>{following.length}</Text>
+          <Text style={[styles.profileStatLabel, activeTab === 'following' && styles.segmentTextActive]}>关注</Text>
+        </Pressable>
       </View>
 
       {selectedCollection && (
@@ -283,7 +290,55 @@ function LoggedInProfile({ session, onOpenPost, onLoggedOut }: LoggedInProfilePr
         </Pressable>
       )}
       <Text style={styles.sectionTitle}>{sectionTitle}</Text>
-      {renderContent()}
-    </ScrollView>
+    </>
+  );
+
+  const footer = () => {
+    if (isContentLoading) {
+      return <Text style={[styles.profileBio, { padding: 16, textAlign: 'center' }]}>正在加载内容...</Text>;
+    }
+    if (contentMessage) {
+      return <Text style={[styles.authApiHint, { color: '#a05d6f', textAlign: 'center', padding: 16 }]}>{contentMessage}</Text>;
+    }
+    return null;
+  };
+
+  const renderItem = ({ item }: { item: ProfilePost | ProfileCollection | FollowingUser }) => {
+    if (activeTab === 'collections' && !selectedCollection) {
+      return <CollectionCard key={item.id} collection={item as ProfileCollection} onPress={() => openCollection(item as ProfileCollection)} />;
+    }
+    if (activeTab === 'following' && !selectedCollection) {
+      const user = item as FollowingUser;
+      const avatarText = user.display_name.slice(0, 1) || user.username.slice(0, 1) || '关';
+      return (
+        <Pressable style={styles.card} onPress={() => onOpenAuthor(user.id)}>
+          <View style={styles.profileHeader}>
+            <View style={styles.avatarMuted}>
+              <Text style={styles.avatarText}>{avatarText}</Text>
+            </View>
+            <View>
+              <Text style={styles.cardTitle}>{user.display_name}</Text>
+              <Text style={styles.profileBio}>@{user.username}</Text>
+              {user.bio ? <Text style={styles.cardSummary}>{user.bio}</Text> : null}
+            </View>
+          </View>
+        </Pressable>
+      );
+    }
+    const showAuthor = !selectedCollection && activeTab === 'favorites';
+    return <PostCard key={item.id} post={item as ProfilePost} showAuthor={showAuthor} showStats onPress={() => onOpenPost(item.id)} onOpenTag={onOpenTag} />;
+  };
+
+  return (
+    <FlatList
+      contentContainerStyle={styles.pageContent}
+      data={currentData}
+      renderItem={renderItem}
+      keyExtractor={(item) => String(item.id)}
+      ListHeaderComponent={header}
+      ListFooterComponent={footer}
+      ListEmptyComponent={!isContentLoading && !contentMessage ? <Text style={[styles.profileBio, { textAlign: 'center', padding: 16 }]}>暂无内容</Text> : null}
+      showsVerticalScrollIndicator={false}
+    />
   );
 }

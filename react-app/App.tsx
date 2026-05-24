@@ -12,13 +12,15 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { UploadScreen } from './src/screens/UploadScreen';
 import type { AuthSession } from './src/services/authSession';
+import { AuthorScreen } from './src/screens/AuthorScreen';
 
 type RootStackParamList = {
-  home: undefined;
+  home: { tag?: string } | undefined;
   upload: undefined;
   profile: undefined;
   auth: undefined;
   blog: { postId: number };
+  author: { authorId: number };
 };
 
 type AppScreenProps<RouteName extends keyof RootStackParamList> = NativeStackScreenProps<RootStackParamList, RouteName>;
@@ -50,10 +52,12 @@ export default function App() {
           <Stack.Navigator initialRouteName="home" screenOptions={{ headerShown: false }}>
             
             <Stack.Screen name="home">
-              {({ navigation }: AppScreenProps<'home'>) => (
+              {({ navigation, route }: AppScreenProps<'home'>) => (
                 <HomeScreen
                   session={authSession}
+                  selectedRouteTag={route.params?.tag}
                   onOpenPost={(postId) => navigation.navigate('blog', { postId })}
+                  onOpenTag={(tag) => navigation.navigate('home', { tag: tag || undefined })}
                 />
               )}
             </Stack.Screen>
@@ -76,6 +80,8 @@ export default function App() {
                   initialSession={authSession}
                   onOpenAuth={() => navigation.navigate('auth')}
                   onOpenPost={(postId) => navigation.navigate('blog', { postId })}
+                  onOpenAuthor={(authorId) => navigation.navigate('author', { authorId })}
+                  onOpenTag={(tag) => navigation.navigate('home', { tag })}
                   onSessionChange={updateSession}
                 />
               )}
@@ -103,6 +109,21 @@ export default function App() {
                     navigation.navigate('profile');
                   }}
                   onRequireAuth={() => navigation.navigate('auth')}
+                  onOpenAuthor={(authorId) => navigation.navigate('author', { authorId })}
+                  onOpenTag={(tag) => navigation.navigate('home', { tag })}
+                />
+              )}
+            </Stack.Screen>
+
+            <Stack.Screen name="author">
+              {({ navigation, route }: AppScreenProps<'author'>) => (
+                <AuthorScreen
+                  onBack={() => navigation.goBack()}
+                  author_id={route.params.authorId}
+                  session={authSession}
+                  onRequireAuth={() => navigation.navigate('auth')}
+                  onOpenPost={(postId) => navigation.navigate('blog', { postId })}
+                  onOpenTag={(tag) => navigation.navigate('home', { tag })}
                 />
               )}
             </Stack.Screen>

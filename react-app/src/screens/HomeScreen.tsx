@@ -4,17 +4,22 @@ import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from 'r
 import { PostCard } from '../components/PostCard';
 import { styles } from '../components/styles';
 import type { AuthSession } from '../services/authSession';
-import { getDiscoverPosts, getFollowingPosts, type Post } from '../services/homeApi';
+import { getDiscoverPosts, getFollowingPosts, getTagSuggestions, type Post } from '../services/homeApi';
 
 type HomeScreenProps = {
   onOpenPost: (postId: number) => void;
+  onOpenTag: (tag: string) => void;
   session: AuthSession | null;
+  selectedRouteTag?: string;
 };
 
 const PAGE_SIZE = 10;
 
-export function HomeScreen({ onOpenPost, session }: HomeScreenProps) {
+export function HomeScreen({ onOpenPost, onOpenTag, session, selectedRouteTag }: HomeScreenProps) {
   const [section, setSection] = useState<'discover' | 'following'>('discover');
+  const [selectedTag, setSelectedTag] = useState<string | null>(selectedRouteTag ?? null);
+  const [tagQuery, setTagQuery] = useState('');
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [discoverPosts, setDiscoverPosts] = useState<Post[]>([]);
   const [followingPosts, setFollowingPosts] = useState<Post[]>([]);
   const [discoverPage, setDiscoverPage] = useState(0);
@@ -32,8 +37,40 @@ export function HomeScreen({ onOpenPost, session }: HomeScreenProps) {
   const hasMore = isDiscover ? discoverHasMore : followingHasMore;
 
   useEffect(() => {
-    void loadDiscoverPage(1, true);
+    void loadDiscoverPage(1, true, selectedRouteTag ?? null);
   }, []);
+
+  useEffect(() => {
+    const nextTag = selectedRouteTag ?? null;
+    if (nextTag !== selectedTag) {
+      void applyTag(nextTag);
+    }
+  }, [selectedRouteTag]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const query = tagQuery.trim();
+    if (!query || selectedTag) {
+      setTagSuggestions([]);
+      return;
+    }
+    async function loadSuggestions() {
+      try {
+        const data = await getTagSuggestions(query);
+        if (isMounted) {
+          setTagSuggestions(data);
+        }
+      } catch {
+        if (isMounted) {
+          setTagSuggestions([]);
+        }
+      }
+    }
+    void loadSuggestions();
+    return () => {
+      isMounted = false;
+    };
+  }, [tagQuery, selectedTag]);
 
   useEffect(() => {
     if (section === 'following' && session?.accessToken && followingPage === 0) {
@@ -41,9 +78,9 @@ export function HomeScreen({ onOpenPost, session }: HomeScreenProps) {
     }
   }, [section, session, followingPage]);
 
-  async function loadDiscoverPage(nextPage: number, replace = false) {
+  async function loadDiscoverPage(nextPage: number, replace = false, tagName = selectedTag) {
     setContentMessage('');
-    const data = await getDiscoverPosts(nextPage, PAGE_SIZE, discoverSeed.current);
+    const data = await getDiscoverPosts(nextPage, PAGE_SIZE, discoverSeed.current, tagName);
     setDiscoverPosts((currentPosts) => (replace ? data.items : appendUniquePosts(currentPosts, data.items)));
     setDiscoverHasMore(nextPage * PAGE_SIZE < data.total);
     setDiscoverPage(nextPage);
@@ -82,7 +119,7 @@ export function HomeScreen({ onOpenPost, session }: HomeScreenProps) {
     try {
       if (isDiscover) {
         discoverSeed.current = Date.now();
-        await loadDiscoverPage(1, true);
+        await loadDiscoverPage(1, true, selectedTag);
       } else if (session?.accessToken) {
         await loadFollowingPage(1, session.accessToken, true);
       }
@@ -96,6 +133,41 @@ export function HomeScreen({ onOpenPost, session }: HomeScreenProps) {
   function switchSection(nextSection: 'discover' | 'following') {
     setContentMessage('');
     setSection(nextSection);
+    if (nextSection === 'following') {
+      setFollowingPosts([]);
+      setFollowingPage(0);
+      setFollowingHasMore(true);
+      if (session?.accessToken) {
+        void loadFollowingPage(1, session.accessToken, true);
+      }
+    }
+  }
+
+  async function applyTag(tagName: string | null) {
+    const normalized = tagName?.trim() || null;
+    setSection('discover');
+    setSelectedTag(normalized);
+    setTagQuery('');
+    setTagSuggestions([]);
+    setDiscoverPosts([]);
+    setDiscoverPage(0);
+    setDiscoverHasMore(true);
+    discoverSeed.current = Date.now();
+    try {
+      await loadDiscoverPage(1, true, normalized);
+    } catch (error) {
+      setContentMessage(error instanceof Error ? error.message : '内容加载失败');
+    }
+  }
+
+  function selectTag(tagName: string) {
+    onOpenTag(tagName);
+    void applyTag(tagName);
+  }
+
+  function clearTag() {
+    onOpenTag('');
+    void applyTag(null);
   }
 
   function renderFooter() {
@@ -106,11 +178,7 @@ export function HomeScreen({ onOpenPost, session }: HomeScreenProps) {
       return <Text style={[styles.authApiHint, { color: '#a05d6f', padding: 16 }]}>{contentMessage}</Text>;
     }
     if (posts.length === 0) {
-      return (
-        <Text style={[styles.authApiHint, { padding: 16 }]}>
-          {isDiscover ? '暂无推荐博客。' : '关注功能尚未开放，当前没有关注动态。'}
-        </Text>
-      );
+      return isDiscover ? <Text style={[styles.authApiHint, { padding: 16 }]}>{selectedTag ? '该标签下暂无博客。' : '暂无推荐博客。'}</Text> : null;
     }
     if (!hasMore) {
       return <Text style={[styles.authApiHint, { padding: 16 }]}>没有更多内容了</Text>;
@@ -135,32 +203,56 @@ export function HomeScreen({ onOpenPost, session }: HomeScreenProps) {
         </Pressable>
       </View>
 
-      {!isDiscover ? (
-        <View style={{ flex: 1 }} />
-      ) : (
-        <FlatList
-          key={section}
-          contentContainerStyle={styles.pageContent}
-          data={posts}
-          renderItem={({ item }) => (
-            <PostCard post={item} showAuthor showStats onPress={() => onOpenPost(item.id)} />
-          )}
-          keyExtractor={(item) => String(item.id)}
-          ListHeaderComponent={
+      <FlatList
+        key={section}
+        contentContainerStyle={styles.pageContent}
+        data={posts}
+        renderItem={({ item }) => (
+          <PostCard post={item} showAuthor showStats onPress={() => onOpenPost(item.id)} onOpenTag={selectTag} />
+        )}
+        keyExtractor={(item) => String(item.id)}
+        ListHeaderComponent={
+          isDiscover ? (
             <>
               <Text style={styles.logo}>博客小站</Text>
-              <TextInput style={styles.searchInput} placeholder="搜索作品、作者、合集" placeholderTextColor="#9a8f8a" />
-              <Text style={styles.sectionTitle}>{isDiscover ? '今日推荐' : '关注更新'}</Text>
+              {selectedTag ? (
+                <View style={styles.selectedTagRow}>
+                  <Text style={styles.selectedTagText}>#{selectedTag}</Text>
+                  <Pressable onPress={clearTag}>
+                    <Text style={styles.backButtonText}>清除</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <>
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="输入 tag 搜索博客"
+                    placeholderTextColor="#9a8f8a"
+                    value={tagQuery}
+                    onChangeText={setTagQuery}
+                  />
+                  {tagSuggestions.length > 0 && (
+                    <View style={styles.suggestionPanel}>
+                      {tagSuggestions.map((tag) => (
+                        <Pressable key={tag} style={styles.suggestionItem} onPress={() => selectTag(tag)}>
+                          <Text style={styles.suggestionText}>#{tag}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                </>
+              )}
+              <Text style={styles.sectionTitle}>{selectedTag ? '标签博客' : '今日推荐'}</Text>
             </>
-          }
-          ListFooterComponent={renderFooter}
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.35}
-          refreshing={isRefreshing}
-          onRefresh={refresh}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+          ) : null
+        }
+        ListFooterComponent={renderFooter}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.35}
+        refreshing={isRefreshing}
+        onRefresh={refresh}
+        showsVerticalScrollIndicator={false}
+      />
     </View>
   );
 }

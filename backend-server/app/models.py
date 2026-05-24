@@ -172,6 +172,19 @@ class Favorite(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), comment="收藏时间")
 
 
+class Follow(Base):
+    __tablename__ = "follows"
+    __table_args__ = (
+        UniqueConstraint("follower_id", "following_id", name="uq_follows_follower_following"),
+        {"comment": "用户关注关系"},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="关注 ID")
+    follower_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="关注者用户 ID")
+    following_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="被关注用户 ID")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), comment="关注时间")
+
+
 class Comment(TimestampMixin, Base):
     __tablename__ = "comments"
     __table_args__ = {"comment": "博客评论和回复"}

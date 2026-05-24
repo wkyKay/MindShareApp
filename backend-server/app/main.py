@@ -12,7 +12,7 @@ app = FastAPI(title="Tongren Forum API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:8081", "http://localhost:19006"],
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1|172\.16\.62\.172):\d+",
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1|10\.32\.233\.242|192\.168\.\d+\.\d+):\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

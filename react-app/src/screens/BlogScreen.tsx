@@ -19,9 +19,11 @@ type BlogScreenProps = {
   onBack: () => void;
   onDeleted: () => void;
   onRequireAuth: () => void;
+  onOpenAuthor: (authorId: number) => void;
+  onOpenTag: (tag: string) => void;
 };
 
-export function BlogScreen({ postId, session, onBack, onDeleted, onRequireAuth }: BlogScreenProps) {
+export function BlogScreen({ postId, session, onOpenAuthor, onOpenTag, onBack, onDeleted, onRequireAuth }: BlogScreenProps) {
   const [currentSession, setCurrentSession] = useState<AuthSession | null>(session);
   const [post, setPost] = useState<PostDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -185,7 +187,19 @@ export function BlogScreen({ postId, session, onBack, onDeleted, onRequireAuth }
       ) : (
         <>
           <Text style={styles.pageTitle}>{post.title}</Text>
-          <Text style={styles.cardMeta}>作者：{post.author.display_name}</Text>
+          <Pressable onPress={() => onOpenAuthor(post.author.id)}>
+            <Text style={styles.cardAuthor}>{post.author.display_name}</Text>
+          </Pressable>
+          <Text style={styles.cardMeta}>发布时间：{post.created_at}</Text>
+          {post.tags.length > 0 && (
+            <View style={styles.tagList}>
+              {post.tags.map((tag) => (
+                <Pressable key={tag} style={styles.tagChip} onPress={() => onOpenTag(tag)}>
+                  <Text style={styles.tagChipText}>#{tag}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
           <Text style={styles.blogBody}>{post.body}</Text>
 
           <View style={styles.actionRow}>

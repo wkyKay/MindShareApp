@@ -15,6 +15,7 @@ class UserPublic(BaseModel):
     display_name: str
     avatar_url: Optional[str] = None
     bio: Optional[str] = None
+    is_following: bool = False
 
 
 class UserPrivate(UserPublic):
@@ -149,6 +150,14 @@ class FavoriteRequest(BaseModel):
 class FavoriteResponse(BaseModel):
     favorited: bool
     favorite_count: int
+
+
+class FollowRequest(BaseModel):
+    following: bool
+
+
+class FollowResponse(BaseModel):
+    following: bool
 
 
 class CommentCreate(BaseModel):

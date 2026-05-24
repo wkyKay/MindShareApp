@@ -12,6 +12,7 @@ export type PostCardPost = {
   comment_count?: number;
   favorite_count?: number;
   is_deleted?: boolean;
+  tags?: string[];
 };
 
 type PostCardProps = {
@@ -19,9 +20,10 @@ type PostCardProps = {
   showAuthor?: boolean;
   showStats?: boolean;
   onPress?: () => void;
+  onOpenTag?: (tag: string) => void;
 };
 
-export function PostCard({ post, showAuthor = false, showStats = false, onPress }: PostCardProps) {
+export function PostCard({ post, showAuthor = false, showStats = false, onPress, onOpenTag }: PostCardProps) {
   const isDeleted = post.is_deleted || post.status === 'deleted';
   const author = typeof post.author === 'string' ? post.author : post.author?.display_name;
   const isDraft = post.status === 'draft';
@@ -33,6 +35,15 @@ export function PostCard({ post, showAuthor = false, showStats = false, onPress 
       <Text style={[styles.cardTitle, isDeleted && styles.deletedText]}>{isDeleted ? '该博客已删除' : post.title}</Text>
       {!isDeleted && showAuthor && !!author && <Text style={styles.cardMeta}>作者：{author}</Text>}
       {!isDeleted && !!post.summary && <Text style={styles.cardSummary}>{post.summary}</Text>}
+      {!isDeleted && !!post.tags?.length && (
+        <View style={styles.tagList}>
+          {post.tags.map((tag) => (
+            <Pressable key={tag} style={styles.tagChip} onPress={() => onOpenTag?.(tag)}>
+              <Text style={styles.tagChipText}>#{tag}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
       {!isDeleted && showStats && (
         <View style={styles.cardStats}>
           <Text style={styles.statText}>点赞 {post.like_count ?? 0}</Text>

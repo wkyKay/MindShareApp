@@ -43,14 +43,23 @@ async function readErrorMessage(response: Response) {
   return '请求失败，请稍后重试。';
 }
 
-export async function getDiscoverPosts(page: number = 1, pageSize: number = 10, seed: number = 1) {
+export async function getDiscoverPosts(page: number = 1, pageSize: number = 10, seed: number = 1, tag?: string | null) {
+  const tagParam = tag ? `&tag=${encodeURIComponent(tag)}` : '';
   const response = await fetch(
-    `${API_V1_BASE_URL}/posts?tab=discover&page=${page}&page_size=${pageSize}&seed=${seed}`
+    `${API_V1_BASE_URL}/posts?tab=discover&page=${page}&page_size=${pageSize}&seed=${seed}${tagParam}`
   );
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }
   return (await response.json()) as PageResponse;
+}
+
+export async function getTagSuggestions(query: string) {
+  const response = await fetch(`${API_V1_BASE_URL}/search/tags?q=${encodeURIComponent(query)}`);
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+  return (await response.json()) as string[];
 }
 
 export async function getFollowingPosts(page: number = 1, accessToken: string, pageSize: number = 10) {
