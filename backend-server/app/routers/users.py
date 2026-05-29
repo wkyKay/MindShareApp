@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_current_user, get_optional_current_user
 from ..database import get_db
-from ..models import Asset, Collection, Favorite, Follow, Like, Post, PostTag, Tag, User
+from ..models import Asset, Collection, CollectionFavorite, Favorite, Follow, Like, Post, PostTag, Tag, User
 from ..schemas import AuthorSummary, FollowRequest, FollowResponse, PageResponse, PostListItem, UserPrivate, UserPublic, UserUpdate
 
 router = APIRouter()
@@ -117,21 +117,47 @@ def get_my_favorites(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PageResponse:
-    query = (
+    post_query = (
         db.query(Post, User)
         .join(Favorite, Favorite.post_id == Post.id)
         .join(User, User.id == Post.author_id)
         .filter(Favorite.user_id == current_user.id, Post.status.in_(["published", "deleted"]))
     )
-    total = query.with_entities(func.count(Post.id)).scalar() or 0
-    rows = (
-        query.order_by(Favorite.created_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-        .all()
+    collection_query = (
+        db.query(Collection, User)
+        .join(CollectionFavorite, CollectionFavorite.collection_id == Collection.id)
+        .join(User, User.id == Collection.owner_id)
+        .filter(CollectionFavorite.user_id == current_user.id, Collection.status != "deleted")
     )
+    post_rows = [(favorite.created_at, "post", post, author) for post, author, favorite in post_query.add_entity(Favorite).all()]
+    collection_rows = [
+        (favorite.created_at, "collection", collection, owner)
+        for collection, owner, favorite in collection_query.add_entity(CollectionFavorite).all()
+    ]
+    rows = sorted([*post_rows, *collection_rows], key=lambda row: row[0], reverse=True)
+    total = len(rows)
+    page_rows = rows[(page - 1) * page_size : page * page_size]
+    items = []
+    for _, item_type, item, owner in page_rows:
+        if item_type == "post":
+            post_item = _post_item(item, owner, db, current_user).model_dump()
+            post_item["favorite_type"] = "post"
+            items.append(post_item)
+        else:
+            items.append(
+                {
+                    "favorite_type": "collection",
+                    "id": item.id,
+                    "title": item.title,
+                    "description": item.description,
+                    "cover_url": None,
+                    "item_count": item.item_count,
+                    "is_favorited": True,
+                    "owner": {"id": owner.id, "display_name": owner.display_name, "avatar_url": None},
+                }
+            )
     return PageResponse(
-        items=[_post_item(post, author, db, current_user) for post, author in rows],
+        items=items,
         page=page,
         page_size=page_size,
         total=total,
@@ -161,6 +187,10 @@ def get_my_collections(
                 "description": collection.description,
                 "cover_url": None,
                 "item_count": collection.item_count,
+                "is_favorited": db.query(CollectionFavorite.id).filter(
+                    CollectionFavorite.user_id == current_user.id,
+                    CollectionFavorite.collection_id == collection.id,
+                ).first() is not None,
             }
             for collection in collections
         ],
@@ -286,6 +316,7 @@ def get_user_collections(
     page: int = 1,
     page_size: int = 20,
     db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ) -> PageResponse:
     user = db.query(User).filter(User.id == user_id, User.status == "active").first()
     if not user:
@@ -310,6 +341,10 @@ def get_user_collections(
                 "description": collection.description,
                 "cover_url": None,
                 "item_count": collection.item_count,
+                "is_favorited": current_user is not None and db.query(CollectionFavorite.id).filter(
+                    CollectionFavorite.user_id == current_user.id,
+                    CollectionFavorite.collection_id == collection.id,
+                ).first() is not None,
             }
             for collection in collections
         ],

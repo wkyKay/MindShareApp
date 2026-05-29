@@ -146,6 +146,19 @@ class CollectionItem(Base):
     added_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), comment="加入时间")
 
 
+class CollectionFavorite(Base):
+    __tablename__ = "collection_favorites"
+    __table_args__ = (
+        UniqueConstraint("user_id", "collection_id", name="uq_collection_favorites_user_collection"),
+        {"comment": "合集收藏关系"},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="合集收藏 ID")
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="用户 ID，对应 users.id")
+    collection_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="合集 ID，对应 collections.id")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), comment="收藏时间")
+
+
 class Like(Base):
     __tablename__ = "likes"
     __table_args__ = (
@@ -197,3 +210,17 @@ class Comment(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(
         String(20), default="published", nullable=False, index=True, comment="评论状态：published、deleted、hidden"
     )
+    like_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False, comment="评论点赞数缓存")
+
+
+class CommentLike(Base):
+    __tablename__ = "comment_likes"
+    __table_args__ = (
+        UniqueConstraint("user_id", "comment_id", name="uq_comment_likes_user_comment"),
+        {"comment": "评论点赞关系"},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="评论点赞 ID")
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="用户 ID，对应 users.id")
+    comment_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="评论 ID，对应 comments.id")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), comment="点赞时间")

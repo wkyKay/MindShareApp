@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { styles } from '../components/styles';
+import { CommentSection } from '../components/CommentSection';
 import {
   deletePost,
   getPost,
@@ -237,6 +238,12 @@ export function BlogScreen({ postId, session, onOpenAuthor, onOpenTag, onBack, o
               </Pressable>
             </>
           )}
+          <CommentSection
+            postId={post.id}
+            session={currentSession}
+            onRequireAuth={onRequireAuth}
+            onCommentCountChange={(commentCount) => setPost((currentPost) => currentPost ? { ...currentPost, comment_count: commentCount } : currentPost)}
+          />
         </>
       )}
 

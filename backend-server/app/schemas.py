@@ -152,6 +152,14 @@ class FavoriteResponse(BaseModel):
     favorite_count: int
 
 
+class CollectionFavoriteRequest(BaseModel):
+    favorited: bool
+
+
+class CollectionFavoriteResponse(BaseModel):
+    favorited: bool
+
+
 class FollowRequest(BaseModel):
     following: bool
 
@@ -171,6 +179,17 @@ class CommentResponse(BaseModel):
     author: Optional[AuthorSummary] = None
     parent_id: Optional[int] = None
     created_at: datetime
+    like_count: int = 0
+    is_liked: bool = False
+
+
+class CommentLikeRequest(BaseModel):
+    liked: bool
+
+
+class CommentLikeResponse(BaseModel):
+    liked: bool
+    like_count: int
 
 
 class CollectionCreate(BaseModel):

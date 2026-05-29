@@ -35,7 +35,17 @@ export type ProfileCollection = {
   description?: string | null;
   cover_url?: string | null;
   item_count?: number;
+  is_favorited?: boolean;
+  favorite_type?: 'collection';
+  owner?: {
+    id: number;
+    display_name: string;
+    avatar_url?: string | null;
+  };
 };
+
+export type FavoritePost = ProfilePost & { favorite_type?: 'post' };
+export type ProfileFavorite = FavoritePost | ProfileCollection;
 
 export type FollowingUser = {
   id: number;
@@ -68,14 +78,19 @@ async function readErrorMessage(response: Response) {
   }
 }
 
-async function profileRequest<T>(path: string, accessToken: string) {
+async function profileRequest<T>(path: string, accessToken: string, options: RequestInit = {}) {
   const response = await fetch(`${API_V1_BASE_URL}${path}`, {
+    ...options,
     headers: {
+      ...(options.headers || {}),
       Authorization: `Bearer ${accessToken}`,
     },
   });
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
+  }
+  if (response.status === 204) {
+    return undefined as T;
   }
   return (await response.json()) as T;
 }
@@ -85,7 +100,7 @@ export function getMyPosts(accessToken: string) {
 }
 
 export function getMyFavorites(accessToken: string) {
-  return profileRequest<PageResponse<ProfilePost>>('/users/me/favorites', accessToken);
+  return profileRequest<PageResponse<ProfileFavorite>>('/users/me/favorites', accessToken);
 }
 
 export function getMyCollections(accessToken: string) {
@@ -100,6 +115,66 @@ export function getCollectionDetail(collectionId: number, accessToken: string) {
   return profileRequest<CollectionDetail>(`/collections/${collectionId}`, accessToken);
 }
 
+export async function getPublicCollectionDetail(collectionId: number, accessToken?: string) {
+  const response = await fetch(`${API_V1_BASE_URL}/collections/${collectionId}`, {
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+  return (await response.json()) as CollectionDetail;
+}
+
 export function getPostDetail(postId: number, accessToken: string) {
   return profileRequest<ProfilePost>(`/posts/${postId}`, accessToken);
+}
+
+export async function getPublicPostDetail(postId: number, accessToken?: string) {
+  const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}`, {
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+  return (await response.json()) as ProfilePost;
+}
+
+export function createCollection(title: string, description: string, accessToken: string) {
+  return profileRequest<ProfileCollection>('/collections', accessToken, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, description: description || null, visibility: 'public' }),
+  });
+}
+
+export function updateCollection(collectionId: number, title: string, description: string, accessToken: string) {
+  return profileRequest<ProfileCollection>(`/collections/${collectionId}`, accessToken, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, description: description || null }),
+  });
+}
+
+export function deleteCollection(collectionId: number, accessToken: string) {
+  return profileRequest<void>(`/collections/${collectionId}`, accessToken, { method: 'DELETE' });
+}
+
+export function addPostToCollection(collectionId: number, postId: number, accessToken: string) {
+  return profileRequest<{ collection_id: number; post_id: number; sort_order: number }>(`/collections/${collectionId}/items`, accessToken, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ post_id: postId, sort_order: 0 }),
+  });
+}
+
+export function removePostFromCollection(collectionId: number, postId: number, accessToken: string) {
+  return profileRequest<void>(`/collections/${collectionId}/items/${postId}`, accessToken, { method: 'DELETE' });
+}
+
+export function setCollectionFavorited(collectionId: number, favorited: boolean, accessToken: string) {
+  return profileRequest<{ favorited: boolean }>(`/collections/${collectionId}/favorite`, accessToken, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ favorited }),
+  });
 }

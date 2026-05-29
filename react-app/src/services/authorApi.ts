@@ -60,8 +60,10 @@ export async function getAuthorPosts(authorId: number, page: number = 1, pageSiz
   return (await response.json()) as PageResponse<ProfilePost>;
 }
 
-export async function getAuthorCollections(authorId: number) {
-  const response = await fetch(`${API_V1_BASE_URL}/users/${authorId}/collections`);
+export async function getAuthorCollections(authorId: number, accessToken?: string) {
+  const response = await fetch(`${API_V1_BASE_URL}/users/${authorId}/collections`, {
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+  });
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }

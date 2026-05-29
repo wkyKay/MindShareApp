@@ -6,6 +6,7 @@ import { styles } from '../components/styles';
 import { getAuthorPosts, getAuthorCollections, getAuthorInfo, setAuthorFollowing } from '../services/authorApi';
 import type { AuthorInfo, ProfilePost, ProfileCollection } from '../services/authorApi';
 import type { AuthSession } from '../services/authSession';
+import { getPublicCollectionDetail, getPublicPostDetail, setCollectionFavorited } from '../services/profileApi';
 
 type AuthorTab = 'posts' | 'collections';
 const PAGE_SIZE = 20;
@@ -27,6 +28,8 @@ export function AuthorScreen({ author_id, onOpenPost, onBack, onRequireAuth, onO
     const [postTotal, setPostTotal] = useState(0);
     const [postHasMore, setPostHasMore] = useState(true);
     const [collections, setCollections] = useState<ProfileCollection[]>([]);
+    const [selectedCollection, setSelectedCollection] = useState<ProfileCollection | null>(null);
+    const [collectionPosts, setCollectionPosts] = useState<ProfilePost[]>([]);
     const [author, setAuthor] = useState<AuthorInfo | null>(null);
     const [message, setMessage] = useState('');
 
@@ -40,17 +43,19 @@ export function AuthorScreen({ author_id, onOpenPost, onBack, onRequireAuth, onO
                  setPostPage(0);
                  setPostTotal(0);
                  setPostHasMore(true);
-                 const [authorData, postsData, collectionsData] = await Promise.all([
-                     getAuthorInfo(author_id, session?.accessToken),
-                     getAuthorPosts(author_id, 1, PAGE_SIZE),
-                     getAuthorCollections(author_id),
-                 ]);
+                  const [authorData, postsData, collectionsData] = await Promise.all([
+                      getAuthorInfo(author_id, session?.accessToken),
+                      getAuthorPosts(author_id, 1, PAGE_SIZE),
+                      getAuthorCollections(author_id, session?.accessToken),
+                  ]);
                  if (!isMounted) return;
                  setPosts(postsData.items);
                  setPostPage(1);
                  setPostTotal(postsData.total);
                  setPostHasMore(PAGE_SIZE < postsData.total);
-                 setCollections(collectionsData);
+                  setCollections(collectionsData);
+                  setSelectedCollection(null);
+                  setCollectionPosts([]);
                  setAuthor(authorData);
              }catch(error){
                  if (isMounted) {
@@ -103,8 +108,45 @@ export function AuthorScreen({ author_id, onOpenPost, onBack, onRequireAuth, onO
         }
     }
 
+    async function openCollection(collection: ProfileCollection) {
+        setIsLoading(true);
+        setMessage('');
+        setSelectedCollection(collection);
+        setCollectionPosts([]);
+        try {
+            const detail = await getPublicCollectionDetail(collection.id, session?.accessToken);
+            const detailPosts = await Promise.all(
+                detail.items.map((item) => getPublicPostDetail(item.post_id, session?.accessToken))
+            );
+            setSelectedCollection(detail);
+            setCollectionPosts(detailPosts);
+        } catch (error) {
+            setMessage(error instanceof Error ? error.message : '合集加载失败');
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
+    async function toggleCollectionFavorite(collection: ProfileCollection) {
+        if (!session) {
+            onRequireAuth();
+            return;
+        }
+        const nextFavorited = !collection.is_favorited;
+        setMessage('');
+        try {
+            await setCollectionFavorited(collection.id, nextFavorited, session.accessToken);
+            setCollections((current) => current.map((item) => item.id === collection.id ? { ...item, is_favorited: nextFavorited } : item));
+            if (selectedCollection?.id === collection.id) {
+                setSelectedCollection({ ...selectedCollection, is_favorited: nextFavorited });
+            }
+        } catch (error) {
+            setMessage(error instanceof Error ? error.message : '合集收藏失败');
+        }
+    }
+
     const avatarText = author?.display_name.slice(0, 1) || author?.username.slice(0, 1) || '我';
-    const currentData: (ProfilePost | ProfileCollection)[] = activeTab === 'posts' ? posts : collections;
+    const currentData: (ProfilePost | ProfileCollection)[] = selectedCollection ? collectionPosts : activeTab === 'posts' ? posts : collections;
 
     const header = (
         <>
@@ -134,15 +176,24 @@ export function AuthorScreen({ author_id, onOpenPost, onBack, onRequireAuth, onO
             {message ? <Text style={styles.authApiHint}>{message}</Text> : null}
 
             <View style={styles.profileStats}>
-            <Pressable style={styles.profileStatItem} onPress={() => setActiveTab('posts')}>
+            <Pressable style={styles.profileStatItem} onPress={() => { setSelectedCollection(null); setActiveTab('posts'); }}>
             <Text style={styles.profileStatNumber}>{postTotal}</Text>
             <Text style={[styles.profileStatLabel, activeTab === 'posts' && styles.segmentTextActive]}>发布</Text>
             </Pressable>
-            <Pressable style={styles.profileStatItem} onPress={() => setActiveTab('collections')}>
+            <Pressable style={styles.profileStatItem} onPress={() => { setSelectedCollection(null); setActiveTab('collections'); }}>
             <Text style={styles.profileStatNumber}>{collections.length}</Text>
             <Text style={[styles.profileStatLabel, activeTab === 'collections' && styles.segmentTextActive]}>合集</Text>
             </Pressable>
         </View>
+        {selectedCollection ? (
+            <>
+                <Pressable style={styles.backButton} onPress={() => setSelectedCollection(null)}>
+                    <Text style={styles.backButtonText}>‹ 返回合集</Text>
+                </Pressable>
+                <Text style={styles.sectionTitle}>{selectedCollection.title}</Text>
+                {!!selectedCollection.description && <Text style={styles.profileBio}>{selectedCollection.description}</Text>}
+            </>
+        ) : null}
       </>
     )
 
@@ -161,10 +212,16 @@ export function AuthorScreen({ author_id, onOpenPost, onBack, onRequireAuth, onO
         contentContainerStyle={styles.pageContent}
         data={currentData}
         renderItem={({ item }) =>
-          activeTab === 'posts' ? (
+          activeTab === 'posts' || selectedCollection ? (
             <PostCard post={item as ProfilePost} showStats onPress={() => onOpenPost(item.id)} onOpenTag={onOpenTag} />
           ) : (
-            <CollectionCard collection={item as ProfileCollection} onPress={() => {}} />
+            <CollectionCard
+                collection={item as ProfileCollection}
+                onPress={() => openCollection(item as ProfileCollection)}
+                actions={author?.id === session?.user.id ? [] : [
+                    { label: (item as ProfileCollection).is_favorited ? '取消收藏' : '收藏合集', onPress: () => toggleCollectionFavorite(item as ProfileCollection) },
+                ]}
+            />
           )
         }
         keyExtractor={(item) => String(item.id)}
