@@ -11,7 +11,8 @@ import {
   updatePost,
   type PostDetail,
 } from '../services/postApi';
-import { loadAuthSession, type AuthSession } from '../services/authSession';
+import type { AuthSession } from '../services/authSession';
+import { useAuthStore } from '../stores/authStore';
 import { Ionicons } from '@expo/vector-icons';
 
 type BlogScreenProps = {
@@ -25,7 +26,9 @@ type BlogScreenProps = {
 };
 
 export function BlogScreen({ postId, session, onOpenAuthor, onOpenTag, onBack, onDeleted, onRequireAuth }: BlogScreenProps) {
-  const [currentSession, setCurrentSession] = useState<AuthSession | null>(session);
+  const storeSession = useAuthStore((state) => state.session);
+  const requireAuthSession = useAuthStore((state) => state.requireSession);
+  const currentSession = storeSession ?? session;
   const [post, setPost] = useState<PostDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -40,10 +43,8 @@ export function BlogScreen({ postId, session, onOpenAuthor, onOpenTag, onBack, o
       setIsLoading(true);
       setMessage('');
       try {
-        const storedSession = session ?? (await loadAuthSession());
-        const data = await getPost(postId, storedSession?.accessToken);
+        const data = await getPost(postId, currentSession?.accessToken);
         if (isMounted) {
-          setCurrentSession(storedSession);
           setPost(data);
           setTitle(data.title);
           setBody(data.body);
@@ -64,15 +65,14 @@ export function BlogScreen({ postId, session, onOpenAuthor, onOpenTag, onBack, o
     return () => {
       isMounted = false;
     };
-  }, [postId, session]);
+  }, [postId, currentSession?.accessToken]);
 
   async function requireSession() {
-    const activeSession = currentSession ?? (await loadAuthSession());
+    const activeSession = await requireAuthSession();
     if (!activeSession) {
       onRequireAuth();
       return null;
     }
-    setCurrentSession(activeSession);
     return activeSession;
   }
 
@@ -240,7 +240,6 @@ export function BlogScreen({ postId, session, onOpenAuthor, onOpenTag, onBack, o
           )}
           <CommentSection
             postId={post.id}
-            session={currentSession}
             onRequireAuth={onRequireAuth}
             onCommentCountChange={(commentCount) => setPost((currentPost) => currentPost ? { ...currentPost, comment_count: commentCount } : currentPost)}
           />

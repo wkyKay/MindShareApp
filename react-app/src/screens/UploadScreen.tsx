@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { styles } from '../components/styles';
 import { createPost, type CreatePostPayload } from '../services/postApi';
-import { loadAuthSession, type AuthSession } from '../services/authSession';
+import type { AuthSession } from '../services/authSession';
+import { useAuthStore } from '../stores/authStore';
 
 type UploadScreenProps = {
   session: AuthSession | null;
@@ -12,34 +13,15 @@ type UploadScreenProps = {
 };
 
 export function UploadScreen({ session, onCancel, onSaved }: UploadScreenProps) {
-  const [currentSession, setCurrentSession] = useState<AuthSession | null>(session);
+  const storeSession = useAuthStore((state) => state.session);
+  const requireAuthSession = useAuthStore((state) => state.requireSession);
+  const currentSession = storeSession ?? session;
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadSession() {
-      if (session) {
-        setCurrentSession(session);
-        return;
-      }
-      const storedSession = await loadAuthSession();
-      if (isMounted) {
-        setCurrentSession(storedSession);
-      }
-    }
-
-    void loadSession();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [session]);
 
   function addTag() {
     const tag = tagInput.trim();
@@ -54,7 +36,8 @@ export function UploadScreen({ session, onCancel, onSaved }: UploadScreenProps) 
   async function submitPost(status: CreatePostPayload['status']) {
     setMessage('');
 
-    if (!currentSession) {
+    const activeSession = currentSession ?? (await requireAuthSession());
+    if (!activeSession) {
       setMessage('请先登录后再发布。');
       return;
     }
@@ -74,7 +57,7 @@ export function UploadScreen({ session, onCancel, onSaved }: UploadScreenProps) 
           visibility: status === 'draft' ? 'private' : 'public',
           status,
         },
-        currentSession.accessToken
+        activeSession.accessToken
       );
       onSaved();
     } catch (error) {

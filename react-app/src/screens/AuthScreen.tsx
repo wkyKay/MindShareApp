@@ -6,7 +6,8 @@ import { CaptchaField } from '../components/auth/CaptchaField';
 import { styles } from '../components/styles';
 import { API_BASE_URL } from '../config/api';
 import { getCaptcha, login, register, type AuthMode, type CaptchaResponse } from '../services/authApi';
-import { saveAuthSession, type AuthSession } from '../services/authSession';
+import type { AuthSession } from '../services/authSession';
+import { useAuthStore } from '../stores/authStore';
 
 type AuthScreenProps = {
   onBack: () => void;
@@ -14,6 +15,7 @@ type AuthScreenProps = {
 };
 
 export function AuthScreen({ onBack, onDone }: AuthScreenProps) {
+  const setAuthFromToken = useAuthStore((state) => state.setFromToken);
   const [mode, setMode] = useState<AuthMode>('login');
   const [captchaTick, setCaptchaTick] = useState(1);
   const [captcha, setCaptcha] = useState<CaptchaResponse | null>(null);
@@ -101,7 +103,7 @@ export function AuthScreen({ onBack, onDone }: AuthScreenProps) {
             captcha_key: captcha.captcha_key,
             captcha_code: captchaCode.trim(),
           });
-      const session = await saveAuthSession(data);
+      const session = await setAuthFromToken(data);
       setMessage(`${session.user.display_name}，欢迎进入创作者空间。`);
       onDone(session);
     } catch (error) {

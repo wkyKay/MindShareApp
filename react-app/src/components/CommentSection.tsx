@@ -2,19 +2,22 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { loadAuthSession, type AuthSession } from '../services/authSession';
+import type { AuthSession } from '../services/authSession';
 import { createComment, deleteComment, getComments, setCommentLiked, type CommentItem } from '../services/commentsApi';
+import { useAuthStore } from '../stores/authStore';
 import { styles } from './styles';
 
 type CommentSectionProps = {
   postId: number;
-  session: AuthSession | null;
+  session?: AuthSession | null;
   onRequireAuth: () => void;
   onCommentCountChange: (count: number) => void;
 };
 
 export function CommentSection({ postId, session, onRequireAuth, onCommentCountChange }: CommentSectionProps) {
-  const [currentSession, setCurrentSession] = useState<AuthSession | null>(session);
+  const storeSession = useAuthStore((state) => state.session);
+  const requireAuthSession = useAuthStore((state) => state.requireSession);
+  const currentSession = storeSession ?? session;
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [body, setBody] = useState('');
   const [replyBody, setReplyBody] = useState('');
@@ -29,10 +32,8 @@ export function CommentSection({ postId, session, onRequireAuth, onCommentCountC
       setIsLoading(true);
       setMessage('');
       try {
-        const storedSession = session ?? (await loadAuthSession());
-        const data = await getComments(postId, storedSession?.accessToken);
+        const data = await getComments(postId, currentSession?.accessToken);
         if (isMounted) {
-          setCurrentSession(storedSession);
           setComments(data.items);
           onCommentCountChange(data.total);
         }
@@ -50,7 +51,7 @@ export function CommentSection({ postId, session, onRequireAuth, onCommentCountC
     return () => {
       isMounted = false;
     };
-  }, [postId, session]);
+  }, [postId, currentSession?.accessToken]);
 
   const { roots, repliesByRoot } = useMemo(() => {
     const byId = new Map(comments.map((comment) => [comment.id, comment]));
@@ -83,12 +84,11 @@ export function CommentSection({ postId, session, onRequireAuth, onCommentCountC
   const commentsById = useMemo(() => new Map(comments.map((comment) => [comment.id, comment])), [comments]);
 
   async function requireSession() {
-    const activeSession = currentSession ?? (await loadAuthSession());
+    const activeSession = await requireAuthSession();
     if (!activeSession) {
       onRequireAuth();
       return null;
     }
-    setCurrentSession(activeSession);
     return activeSession;
   }
 

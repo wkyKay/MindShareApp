@@ -5,7 +5,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { CollectionCard } from '../components/CollectionCard';
 import { PostCard } from '../components/PostCard';
 import { styles } from '../components/styles';
-import { clearAuthSession, refreshAuthSession, type AuthSession } from '../services/authSession';
+import type { AuthSession } from '../services/authSession';
+import { useAuthStore } from '../stores/authStore';
 import {
   getCollectionDetail,
   addPostToCollection,
@@ -28,62 +29,29 @@ import {
 type ProfileTab = 'posts' | 'favorites' | 'collections' | 'following';
 
 type ProfileScreenProps = {
-  initialSession: AuthSession | null;
   onOpenAuth: () => void;
   onOpenPost: (postId: number) => void;
   onOpenAuthor: (authorId: number) => void;
   onOpenTag: (tag: string) => void;
-  onSessionChange: (session: AuthSession | null) => void;
 };
 
-export function ProfileScreen({ initialSession, onOpenAuth, onOpenPost, onOpenAuthor, onOpenTag, onSessionChange }: ProfileScreenProps) {
-  const [session, setSession] = useState<AuthSession | null>(initialSession);
-  const [isLoading, setIsLoading] = useState(true);
-  const initialRef = useRef(initialSession);
-  const onChangeRef = useRef(onSessionChange);
-  initialRef.current = initialSession;
-  onChangeRef.current = onSessionChange;
+export function ProfileScreen({ onOpenAuth, onOpenPost, onOpenAuthor, onOpenTag }: ProfileScreenProps) {
+  const session = useAuthStore((state) => state.session);
+  const isAuthLoading = useAuthStore((state) => state.isLoading);
+  const refreshAuth = useAuthStore((state) => state.refresh);
   const hasLoaded = useRef(false);
-
-  useEffect(() => {
-    setSession(initialSession);
-    if (initialSession) {
-      setIsLoading(false);
-      hasLoaded.current = false;
-    }
-  }, [initialSession]);
 
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
       if (hasLoaded.current) {
-        setIsLoading(false);
         return;
       }
       hasLoaded.current = true;
 
       async function loadProfile() {
-        if (initialRef.current && isMounted) {
-          setSession(initialRef.current);
-          setIsLoading(false);
-        }
-
-        try {
-          const refreshedSession = await refreshAuthSession();
-          if (isMounted && refreshedSession) {
-            setSession(refreshedSession);
-            onChangeRef.current(refreshedSession);
-          }
-        } catch {
-          await clearAuthSession();
-          if (isMounted) {
-            setSession(null);
-            onChangeRef.current(null);
-          }
-        } finally {
-          if (isMounted) {
-            setIsLoading(false);
-          }
+        if (isMounted) {
+          await refreshAuth();
         }
       }
 
@@ -92,10 +60,10 @@ export function ProfileScreen({ initialSession, onOpenAuth, onOpenPost, onOpenAu
       return () => {
         isMounted = false;
       };
-    }, [])
+    }, [refreshAuth])
   );
 
-  if (isLoading) {
+  if (isAuthLoading) {
     return (
       <ScrollView contentContainerStyle={styles.pageContent}>
         <Text style={styles.pageTitle}>我的主页</Text>
@@ -134,10 +102,6 @@ export function ProfileScreen({ initialSession, onOpenAuth, onOpenPost, onOpenAu
       onOpenPost={onOpenPost}
       onOpenAuthor={onOpenAuthor}
       onOpenTag={onOpenTag}
-      onLoggedOut={() => {
-        setSession(null);
-        onSessionChange(null);
-      }}
     />
   );
 }
@@ -147,10 +111,10 @@ type LoggedInProfileProps = {
   onOpenPost: (postId: number) => void;
   onOpenAuthor: (authorId: number) => void;
   onOpenTag: (tag: string) => void;
-  onLoggedOut: () => void;
 };
 
-function LoggedInProfile({ session, onOpenPost, onOpenAuthor, onOpenTag, onLoggedOut }: LoggedInProfileProps) {
+function LoggedInProfile({ session, onOpenPost, onOpenAuthor, onOpenTag }: LoggedInProfileProps) {
+  const logoutAuth = useAuthStore((state) => state.logout);
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
   const [posts, setPosts] = useState<ProfilePost[]>([]);
   const [favorites, setFavorites] = useState<ProfileFavorite[]>([]);
@@ -209,8 +173,7 @@ function LoggedInProfile({ session, onOpenPost, onOpenAuthor, onOpenTag, onLogge
   );
 
   async function logout() {
-    await clearAuthSession();
-    onLoggedOut();
+    await logoutAuth();
   }
 
   async function openCollection(collection: ProfileCollection) {

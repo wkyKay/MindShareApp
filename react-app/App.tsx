@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -11,8 +11,8 @@ import { BlogScreen } from './src/screens/BlogScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { UploadScreen } from './src/screens/UploadScreen';
-import type { AuthSession } from './src/services/authSession';
 import { AuthorScreen } from './src/screens/AuthorScreen';
+import { useAuthStore } from './src/stores/authStore';
 
 type RootStackParamList = {
   home: { tag?: string } | undefined;
@@ -30,12 +30,13 @@ const tabPages = new Set<string>(['home', 'upload', 'profile']);
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 export default function App() {
-  const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const [activePage, setActivePage] = useState<keyof RootStackParamList>('home');
+  const authSession = useAuthStore((state) => state.session);
+  const hydrateAuth = useAuthStore((state) => state.hydrate);
 
-  const updateSession = useCallback((session: AuthSession | null) => {
-    setAuthSession(session);
-  }, []);
+  useEffect(() => {
+    void hydrateAuth();
+  }, [hydrateAuth]);
 
   return (
     <NavigationContainer
@@ -77,12 +78,10 @@ export default function App() {
             <Stack.Screen name="profile">
               {({ navigation }: AppScreenProps<'profile'>) => (
                 <ProfileScreen
-                  initialSession={authSession}
                   onOpenAuth={() => navigation.navigate('auth')}
                   onOpenPost={(postId) => navigation.navigate('blog', { postId })}
                   onOpenAuthor={(authorId) => navigation.navigate('author', { authorId })}
                   onOpenTag={(tag) => navigation.navigate('home', { tag })}
-                  onSessionChange={updateSession}
                 />
               )}
             </Stack.Screen>
@@ -91,8 +90,7 @@ export default function App() {
               {({ navigation }: AppScreenProps<'auth'>) => (
                 <AuthScreen
                   onBack={() => navigation.goBack()}
-                  onDone={(session) => {
-                    setAuthSession(session);
+                  onDone={() => {
                     navigation.navigate('profile');
                   }}
                 />
