@@ -217,6 +217,35 @@ export const styles = StyleSheet.create({
   compactDangerText: {
     color: '#7b2c3a',
   },
+  movePostPanel: {
+    backgroundColor: '#fffaf6',
+    borderColor: '#f1c8b6',
+    borderRadius: 16,
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    marginBottom: 14,
+    marginTop: -6,
+    padding: 12,
+  },
+  movePostPanelOpen: {
+    backgroundColor: '#fff4ec',
+  },
+  movePostTitle: {
+    color: '#8d4b3c',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 10,
+  },
+  movePostHint: {
+    color: '#9b756b',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  movePostCollectionList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   pageTitle: {
     color: '#2f2320',
     fontSize: 26,
