@@ -19,11 +19,12 @@ type PostCardProps = {
   post: PostCardPost;
   showAuthor?: boolean;
   showStats?: boolean;
+  hasCommentNotification?: boolean;
   onPress?: () => void;
   onOpenTag?: (tag: string) => void;
 };
 
-export function PostCard({ post, showAuthor = false, showStats = false, onPress, onOpenTag }: PostCardProps) {
+export function PostCard({ post, showAuthor = false, showStats = false, hasCommentNotification = false, onPress, onOpenTag }: PostCardProps) {
   const isDeleted = post.is_deleted || post.status === 'deleted';
   const author = typeof post.author === 'string' ? post.author : post.author?.display_name;
   const isDraft = post.status === 'draft';
@@ -32,7 +33,10 @@ export function PostCard({ post, showAuthor = false, showStats = false, onPress,
     <>
       {isDeleted && <Text style={styles.deletedBadge}>已删除</Text>}
       {isDraft && <Text style={styles.draftBadge}>草稿</Text>}
-      <Text style={[styles.cardTitle, isDeleted && styles.deletedText]}>{isDeleted ? '该博客已删除' : post.title}</Text>
+      <View style={styles.cardTitleRow}>
+        <Text style={[styles.cardTitle, isDeleted && styles.deletedText]}>{isDeleted ? '该博客已删除' : post.title}</Text>
+        {hasCommentNotification ? <View style={styles.cardNotificationDot} /> : null}
+      </View>
       {!isDeleted && showAuthor && !!author && <Text style={styles.cardMeta}>作者：{author}</Text>}
       {!isDeleted && !!post.summary && <Text style={styles.cardSummary}>{post.summary}</Text>}
       {!isDeleted && !!post.tags?.length && (

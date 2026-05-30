@@ -39,3 +39,8 @@ def _ensure_sqlite_schema_updates() -> None:
         columns = {row[1] for row in connection.execute(text("PRAGMA table_info(comments)"))}
         if columns and "like_count" not in columns:
             connection.execute(text("ALTER TABLE comments ADD COLUMN like_count INTEGER NOT NULL DEFAULT 0"))
+        notification_tables = {row[0] for row in connection.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))}
+        if "notifications" in notification_tables:
+            notification_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(notifications)"))}
+            if "parent_comment_id" not in notification_columns:
+                connection.execute(text("ALTER TABLE notifications ADD COLUMN parent_comment_id INTEGER"))

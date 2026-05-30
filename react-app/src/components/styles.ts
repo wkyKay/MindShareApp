@@ -104,6 +104,49 @@ export const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 24,
   },
+  sectionTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  commentNotificationHint: {
+    color: '#a05d6f',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  notificationCard: {
+    backgroundColor: '#fff8fb',
+    borderColor: '#efc6d2',
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 16,
+  },
+  notificationCardRead: {
+    backgroundColor: '#f1efee',
+    borderColor: '#d8d2cf',
+  },
+  notificationTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  notificationTitle: {
+    color: '#2f2320',
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  notificationMeta: {
+    color: '#a05d6f',
+    fontSize: 12,
+    marginTop: 8,
+  },
+  notificationMetaRead: {
+    color: '#8d8580',
+  },
   card: {
     backgroundColor: '#ffffff',
     borderColor: '#f2ddd6',
@@ -147,6 +190,17 @@ export const styles = StyleSheet.create({
     color: '#2f2320',
     fontSize: 18,
     fontWeight: '700',
+  },
+  cardTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cardNotificationDot: {
+    backgroundColor: '#d94f70',
+    borderRadius: 5,
+    height: 10,
+    width: 10,
   },
   deletedText: {
     color: '#756d68',
@@ -609,6 +663,17 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  profileStatLabelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  profileStatBadge: {
+    backgroundColor: '#d94f70',
+    borderRadius: 5,
+    height: 10,
+    width: 10,
+  },
   profileStatNumber: {
     color: '#2f2320',
     fontSize: 22,
@@ -638,6 +703,18 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     paddingVertical: 10,
+    position: 'relative',
+  },
+  tabBadge: {
+    backgroundColor: '#d94f70',
+    borderColor: '#ffffff',
+    borderRadius: 5,
+    borderWidth: 2,
+    height: 10,
+    position: 'absolute',
+    right: 18,
+    top: 8,
+    width: 10,
   },
   tabText: {
     color: '#8a7771',

@@ -25,6 +25,7 @@ import {
   type ProfilePost,
 } from '../../services/profileApi';
 import { useAuthStore } from '../../stores/authStore';
+import { useNotificationStore } from '../../stores/notificationStore';
 import { CollectionForm } from './CollectionForm';
 import { MovePostPanel } from './MovePostPanel';
 import { ProfileStats, type ProfileTab } from './ProfileStats';
@@ -40,6 +41,7 @@ type LoggedInProfileScreenProps = {
 
 export function LoggedInProfileScreen({ session, onOpenPost, onOpenAuthor, onOpenTag }: LoggedInProfileScreenProps) {
   const logoutAuth = useAuthStore((state) => state.logout);
+  const unreadByPostId = useNotificationStore((state) => state.unreadByPostId);
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
   const [posts, setPosts] = useState<ProfilePost[]>([]);
   const [favorites, setFavorites] = useState<ProfileFavorite[]>([]);
@@ -249,6 +251,7 @@ export function LoggedInProfileScreen({ session, onOpenPost, onOpenAuthor, onOpe
           : '我的合集';
 
   const avatarText = session.user.display_name.slice(0, 1) || session.user.username.slice(0, 1) || '我';
+  const postsBadgeCount = posts.reduce((count, post) => count + (unreadByPostId[post.id] || 0), 0);
 
   const currentData: (ProfilePost | ProfileCollection | FollowingUser | ProfileFavorite)[] = selectedCollection
     ? collectionPosts
@@ -296,6 +299,7 @@ export function LoggedInProfileScreen({ session, onOpenPost, onOpenAuthor, onOpe
         favoritesCount={favorites.length}
         collectionsCount={collections.length}
         followingCount={following.length}
+        postsBadgeCount={postsBadgeCount}
         onSelectTab={selectTab}
       />
 
@@ -336,9 +340,18 @@ export function LoggedInProfileScreen({ session, onOpenPost, onOpenAuthor, onOpe
     }
     const showAuthor = !selectedCollection && activeTab === 'favorites';
     const post = item as ProfilePost;
+    const hasCommentNotification = (unreadByPostId[post.id] || 0) > 0;
     return (
       <View>
-        <PostCard key={post.id} post={post} showAuthor={showAuthor} showStats onPress={() => onOpenPost(post.id)} onOpenTag={onOpenTag} />
+        <PostCard
+          key={post.id}
+          post={post}
+          showAuthor={showAuthor}
+          showStats
+          hasCommentNotification={activeTab === 'posts' && !selectedCollection && hasCommentNotification}
+          onPress={() => onOpenPost(post.id)}
+          onOpenTag={onOpenTag}
+        />
         {activeTab === 'posts' && !selectedCollection ? (
           <MovePostPanel
             post={post}

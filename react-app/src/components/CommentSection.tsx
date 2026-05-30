@@ -5,6 +5,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import type { AuthSession } from '../services/authSession';
 import { createComment, deleteComment, getComments, setCommentLiked, type CommentItem } from '../services/commentsApi';
 import { useAuthStore } from '../stores/authStore';
+import { useNotificationStore } from '../stores/notificationStore';
 import { styles } from './styles';
 
 type CommentSectionProps = {
@@ -17,6 +18,8 @@ type CommentSectionProps = {
 export function CommentSection({ postId, session, onRequireAuth, onCommentCountChange }: CommentSectionProps) {
   const storeSession = useAuthStore((state) => state.session);
   const requireAuthSession = useAuthStore((state) => state.requireSession);
+  const unreadCount = useNotificationStore((state) => state.unreadByPostId[postId] || 0);
+  const markPostRead = useNotificationStore((state) => state.markPostRead);
   const currentSession = storeSession ?? session;
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [body, setBody] = useState('');
@@ -52,6 +55,13 @@ export function CommentSection({ postId, session, onRequireAuth, onCommentCountC
       isMounted = false;
     };
   }, [postId, currentSession?.accessToken]);
+
+  useEffect(() => {
+    if (!currentSession) {
+      return;
+    }
+    void markPostRead(currentSession, postId);
+  }, [currentSession, markPostRead, postId]);
 
   const { roots, repliesByRoot } = useMemo(() => {
     const byId = new Map(comments.map((comment) => [comment.id, comment]));
@@ -231,7 +241,11 @@ export function CommentSection({ postId, session, onRequireAuth, onCommentCountC
 
   return (
     <View style={styles.commentSection}>
-      <Text style={styles.sectionTitle}>评论区</Text>
+      <View style={styles.sectionTitleRow}>
+        <Text style={styles.sectionTitle}>评论区</Text>
+        {unreadCount > 0 ? <View style={styles.cardNotificationDot} /> : null}
+      </View>
+      {unreadCount > 0 ? <Text style={styles.commentNotificationHint}>有新的评论或回复</Text> : null}
       <View style={styles.commentComposer}>
         <TextInput
           style={[styles.input, styles.commentInput]}

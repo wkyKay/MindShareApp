@@ -224,3 +224,17 @@ class CommentLike(Base):
     user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="用户 ID，对应 users.id")
     comment_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="评论 ID，对应 comments.id")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), comment="点赞时间")
+
+
+class Notification(TimestampMixin, Base):
+    __tablename__ = "notifications"
+    __table_args__ = {"comment": "用户通知，当前用于评论和回复提醒"}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="通知 ID")
+    recipient_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="接收通知的用户 ID")
+    actor_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="触发通知的用户 ID")
+    post_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="关联博客 ID")
+    comment_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="关联评论 ID")
+    parent_comment_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True, comment="被回复评论 ID")
+    type: Mapped[str] = mapped_column(String(30), nullable=False, index=True, comment="通知类型：comment_created、comment_reply")
+    is_read: Mapped[bool] = mapped_column(default=False, nullable=False, index=True, comment="是否已读")

@@ -10,14 +10,18 @@ type ProfileStatsProps = {
   favoritesCount: number;
   collectionsCount: number;
   followingCount: number;
+  postsBadgeCount?: number;
   onSelectTab: (tab: ProfileTab) => void;
 };
 
-export function ProfileStats({ activeTab, postsCount, favoritesCount, collectionsCount, followingCount, onSelectTab }: ProfileStatsProps) {
+export function ProfileStats({ activeTab, postsCount, favoritesCount, collectionsCount, followingCount, postsBadgeCount = 0, onSelectTab }: ProfileStatsProps) {
   return (
     <View style={styles.profileStats}>
       <Pressable style={styles.profileStatItem} onPress={() => onSelectTab('posts')}>
-        <Text style={styles.profileStatNumber}>{postsCount}</Text>
+        <View style={styles.profileStatLabelRow}>
+          <Text style={styles.profileStatNumber}>{postsCount}</Text>
+          {postsBadgeCount > 0 ? <View style={styles.profileStatBadge} /> : null}
+        </View>
         <Text style={[styles.profileStatLabel, activeTab === 'posts' && styles.segmentTextActive]}>发布</Text>
       </Pressable>
       <Pressable style={styles.profileStatItem} onPress={() => onSelectTab('favorites')}>

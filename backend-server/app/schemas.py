@@ -192,6 +192,31 @@ class CommentLikeResponse(BaseModel):
     like_count: int
 
 
+class NotificationOut(BaseModel):
+    id: int
+    type: str
+    recipient_id: int
+    actor: AuthorSummary
+    post_id: int
+    comment_id: int
+    parent_comment_id: Optional[int] = None
+    is_read: bool
+    created_at: datetime
+
+
+class NotificationUnreadCount(BaseModel):
+    unread_count: int
+
+
+class NotificationReadRequest(BaseModel):
+    post_id: Optional[int] = None
+
+
+class NotificationPostUnreadCount(BaseModel):
+    post_id: int
+    unread_count: int
+
+
 class CollectionCreate(BaseModel):
     title: str = Field(max_length=120)
     description: Optional[str] = None

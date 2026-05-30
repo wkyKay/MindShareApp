@@ -1,7 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
+import { createNavigationContainerRef, NavigationContainer, type NavigationProp } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { BottomTabs, type Page } from './src/components/BottomTabs';
@@ -9,14 +9,17 @@ import { styles } from './src/components/styles';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { BlogScreen } from './src/screens/BlogScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { NotificationScreen } from './src/screens/NotificationScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { UploadScreen } from './src/screens/UploadScreen';
 import { AuthorScreen } from './src/screens/AuthorScreen';
 import { useAuthStore } from './src/stores/authStore';
+import { useNotificationStore } from './src/stores/notificationStore';
 
 type RootStackParamList = {
   home: { tag?: string } | undefined;
   upload: undefined;
+  notifications: undefined;
   profile: undefined;
   auth: undefined;
   blog: { postId: number };
@@ -26,17 +29,30 @@ type RootStackParamList = {
 type AppScreenProps<RouteName extends keyof RootStackParamList> = NativeStackScreenProps<RootStackParamList, RouteName>;
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const tabPages = new Set<string>(['home', 'upload', 'profile']);
+const tabPages = new Set<string>(['home', 'upload', 'notifications', 'profile']);
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 export default function App() {
   const [activePage, setActivePage] = useState<keyof RootStackParamList>('home');
   const authSession = useAuthStore((state) => state.session);
   const hydrateAuth = useAuthStore((state) => state.hydrate);
+  const hydrateNotifications = useNotificationStore((state) => state.hydrate);
+
+  function openAuthorProfileAware(navigation: NavigationProp<RootStackParamList>, authorId: number) {
+    if (authSession?.user.id === authorId) {
+      navigation.navigate('profile');
+      return;
+    }
+    navigation.navigate('author', { authorId });
+  }
 
   useEffect(() => {
     void hydrateAuth();
   }, [hydrateAuth]);
+
+  useEffect(() => {
+    void hydrateNotifications(authSession);
+  }, [authSession, hydrateNotifications]);
 
   return (
     <NavigationContainer
@@ -75,12 +91,21 @@ export default function App() {
               )}
             </Stack.Screen>
 
+            <Stack.Screen name="notifications">
+              {({ navigation }: AppScreenProps<'notifications'>) => (
+                <NotificationScreen
+                  onOpenAuth={() => navigation.navigate('auth')}
+                  onOpenPost={(postId) => navigation.navigate('blog', { postId })}
+                />
+              )}
+            </Stack.Screen>
+
             <Stack.Screen name="profile">
               {({ navigation }: AppScreenProps<'profile'>) => (
                 <ProfileScreen
                   onOpenAuth={() => navigation.navigate('auth')}
                   onOpenPost={(postId) => navigation.navigate('blog', { postId })}
-                  onOpenAuthor={(authorId) => navigation.navigate('author', { authorId })}
+                  onOpenAuthor={(authorId) => openAuthorProfileAware(navigation, authorId)}
                   onOpenTag={(tag) => navigation.navigate('home', { tag })}
                 />
               )}
@@ -107,7 +132,7 @@ export default function App() {
                     navigation.navigate('profile');
                   }}
                   onRequireAuth={() => navigation.navigate('auth')}
-                  onOpenAuthor={(authorId) => navigation.navigate('author', { authorId })}
+                  onOpenAuthor={(authorId) => openAuthorProfileAware(navigation, authorId)}
                   onOpenTag={(tag) => navigation.navigate('home', { tag })}
                 />
               )}

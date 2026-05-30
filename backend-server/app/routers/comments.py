@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_current_user, get_optional_current_user
 from ..database import get_db
-from ..models import Comment, CommentLike, Post, User
+from ..models import Comment, CommentLike, Notification, Post, User
+from ..realtime import realtime_manager
 from ..schemas import AuthorSummary, CommentCreate, CommentLikeRequest, CommentLikeResponse, CommentResponse, PageResponse
 
 router = APIRouter()
@@ -68,8 +69,12 @@ def create_comment(
     comment = Comment(post_id=post_id, author_id=current_user.id, parent_id=payload.parent_id, body=body)
     db.add(comment)
     post.comment_count += 1
+    db.flush()
+    for notification in _build_comment_notifications(post, comment, current_user, db):
+        db.add(notification)
     db.commit()
     db.refresh(comment)
+    _push_comment_notifications(post, comment, current_user, db)
     return _comment_response(comment, current_user, db, current_user)
 
 
@@ -153,3 +158,61 @@ def _collect_comment_descendants(db: Session, comment: Comment) -> list[Comment]
         collected.extend(children)
         pending_ids = [child.id for child in children]
     return collected
+
+
+def _build_comment_notifications(post: Post, comment: Comment, current_user: User, db: Session) -> list[Notification]:
+    notifications: list[Notification] = []
+    recipient_ids: set[int] = set()
+    if post.author_id != current_user.id:
+        recipient_ids.add(post.author_id)
+        notifications.append(
+            Notification(
+                recipient_id=post.author_id,
+                actor_id=current_user.id,
+                post_id=post.id,
+                comment_id=comment.id,
+                parent_comment_id=comment.parent_id,
+                type="comment_created" if comment.parent_id is None else "comment_reply",
+            )
+        )
+    if comment.parent_id is not None:
+        parent_author_id = db.query(Comment.author_id).filter(Comment.id == comment.parent_id).scalar()
+        if parent_author_id and parent_author_id != current_user.id and parent_author_id not in recipient_ids:
+            notifications.append(
+                Notification(
+                    recipient_id=parent_author_id,
+                    actor_id=current_user.id,
+                    post_id=post.id,
+                    comment_id=comment.id,
+                    parent_comment_id=comment.parent_id,
+                    type="comment_reply",
+                )
+            )
+    return notifications
+
+
+def _push_comment_notifications(post: Post, comment: Comment, current_user: User, db: Session) -> None:
+    actor = AuthorSummary(id=current_user.id, display_name=current_user.display_name, avatar_url=None)
+    notifications = db.query(Notification).filter(Notification.comment_id == comment.id).all()
+    for notification in notifications:
+        event = {
+            "type": "notification.created",
+            "notification": {
+                "id": notification.id,
+                "type": notification.type,
+                "recipient_id": notification.recipient_id,
+                "actor": actor.model_dump(),
+                "post_id": post.id,
+                "comment_id": comment.id,
+                "parent_comment_id": comment.parent_id,
+                "is_read": notification.is_read,
+                "created_at": notification.created_at.isoformat() if notification.created_at else None,
+            },
+        }
+        import asyncio
+
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(realtime_manager.send_to_user(notification.recipient_id, event))
+        except RuntimeError:
+            pass
