@@ -7,9 +7,40 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_user, get_optional_current_user
 from ..database import get_db
 from ..models import Asset, Collection, CollectionFavorite, Favorite, Follow, Like, Post, PostTag, Tag, User
-from ..schemas import AuthorSummary, FollowRequest, FollowResponse, PageResponse, PostListItem, UserPrivate, UserPublic, UserUpdate
+from ..notification_service import create_notification, delete_unread_notification, push_notification
+from ..schemas import AuthorSummary, FollowRequest, FollowResponse, PageResponse, PostListItem, UserPrivate, UserPublic, UserSearchResult, UserUpdate
 
 router = APIRouter()
+
+
+@router.get("/search", response_model=list[UserSearchResult])
+def search_users(
+    q: str = "",
+    limit: int = 20,
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+) -> list[UserSearchResult]:
+    query = db.query(User).filter(User.status == "active")
+    normalized = q.strip().lower()
+    if normalized:
+        query = query.filter(
+            (func.lower(User.username).contains(normalized)) | (func.lower(User.display_name).contains(normalized))
+        )
+    rows = query.order_by(User.created_at.desc()).limit(limit).all()
+    return [
+        UserSearchResult(
+            id=user.id,
+            username=user.username,
+            display_name=user.display_name,
+            avatar_url=None,
+            bio=user.bio,
+            is_following=current_user is not None and db.query(Follow.id).filter(
+                Follow.follower_id == current_user.id,
+                Follow.following_id == user.id,
+            ).first() is not None,
+        )
+        for user in rows
+    ]
 
 
 def _post_item(post: Post, author: User, db: Session, current_user: Optional[User]) -> PostListItem:
@@ -272,11 +303,28 @@ def toggle_follow(
         Follow.follower_id == current_user.id,
         Follow.following_id == user_id,
     ).first()
+    notification = None
     if payload.following and follow is None:
         db.add(Follow(follower_id=current_user.id, following_id=user_id))
+        notification = create_notification(
+            db,
+            recipient_id=user_id,
+            actor_id=current_user.id,
+            type="user_followed",
+            target_user_id=user_id,
+        )
     elif not payload.following and follow is not None:
         db.delete(follow)
+        delete_unread_notification(
+            db,
+            recipient_id=user_id,
+            actor_id=current_user.id,
+            type="user_followed",
+            target_user_id=user_id,
+        )
     db.commit()
+    if notification is not None:
+        push_notification(notification, current_user)
     return FollowResponse(following=payload.following)
 
 

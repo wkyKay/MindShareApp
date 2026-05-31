@@ -7,6 +7,7 @@ import { getAuthorPosts, getAuthorCollections, getAuthorInfo, setAuthorFollowing
 import type { AuthorInfo, ProfilePost, ProfileCollection } from '../services/authorApi';
 import type { AuthSession } from '../services/authSession';
 import { getPublicCollectionDetail, getPublicPostDetail, setCollectionFavorited } from '../services/profileApi';
+import { createOrGetConversation } from '../services/messagesApi';
 
 type AuthorTab = 'posts' | 'collections';
 const PAGE_SIZE = 20;
@@ -14,12 +15,13 @@ const PAGE_SIZE = 20;
 type AuthorProps = {
   author_id: number;
   onOpenPost: (postId: number) => void;
+  onOpenMessage: (conversationId: number, partnerId: number, partnerName: string) => void;
   onBack: () => void;
   onRequireAuth: () => void;
   onOpenTag: (tag: string) => void;
   session: AuthSession | null;
 };
-export function AuthorScreen({ author_id, onOpenPost, onBack, onRequireAuth, onOpenTag, session }: AuthorProps) {
+export function AuthorScreen({ author_id, onOpenPost, onOpenMessage, onBack, onRequireAuth, onOpenTag, session }: AuthorProps) {
     const [activeTab, setActiveTab] = useState<AuthorTab>('posts');
     const [isLoading, setIsLoading] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -108,6 +110,20 @@ export function AuthorScreen({ author_id, onOpenPost, onBack, onRequireAuth, onO
         }
     }
 
+    async function openMessage() {
+        if (!session) {
+            onRequireAuth();
+            return;
+        }
+        if (!author) return;
+        try {
+            const conversation = await createOrGetConversation(session.accessToken, author.id);
+            onOpenMessage(conversation.id, author.id, author.display_name);
+        } catch (error) {
+            setMessage(error instanceof Error ? error.message : '私信打开失败');
+        }
+    }
+
     async function openCollection(collection: ProfileCollection) {
         setIsLoading(true);
         setMessage('');
@@ -171,6 +187,11 @@ export function AuthorScreen({ author_id, onOpenPost, onBack, onRequireAuth, onO
                     <Text style={author.is_following ? styles.actionButtonText : styles.primaryButtonText}>
                         {author.is_following ? '已关注，点击取消' : '关注作者'}
                     </Text>
+                </Pressable>
+            ) : null}
+            {author && author.id !== session?.user.id ? (
+                <Pressable style={styles.secondaryButton} onPress={openMessage}>
+                    <Text style={styles.secondaryButtonText}>私信</Text>
                 </Pressable>
             ) : null}
             {message ? <Text style={styles.authApiHint}>{message}</Text> : null}

@@ -198,8 +198,10 @@ class NotificationOut(BaseModel):
     recipient_id: int
     actor: AuthorSummary
     post_id: int
+    post_title: Optional[str] = None
     comment_id: int
     parent_comment_id: Optional[int] = None
+    target_user_id: Optional[int] = None
     is_read: bool
     created_at: datetime
 
@@ -210,11 +212,118 @@ class NotificationUnreadCount(BaseModel):
 
 class NotificationReadRequest(BaseModel):
     post_id: Optional[int] = None
+    notification_id: Optional[int] = None
 
 
 class NotificationPostUnreadCount(BaseModel):
     post_id: int
     unread_count: int
+
+
+class MessageUserSummary(BaseModel):
+    id: int
+    username: str
+    display_name: str
+    avatar_url: Optional[str] = None
+
+
+class MessageOut(BaseModel):
+    id: int
+    conversation_id: int
+    sender: MessageUserSummary
+    body: str
+    status: str
+    created_at: datetime
+
+
+class ConversationListItem(BaseModel):
+    id: int
+    partner: MessageUserSummary
+    last_message: Optional[MessageOut] = None
+    unread_count: int = 0
+    updated_at: datetime
+
+
+class ConversationOut(BaseModel):
+    id: int
+    partner: MessageUserSummary
+    unread_count: int = 0
+
+
+class ConversationCreate(BaseModel):
+    partner_id: int
+
+
+class MessageCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=2000)
+
+
+class MessageReadRequest(BaseModel):
+    message_id: Optional[int] = None
+
+
+class ConversationUnreadCount(BaseModel):
+    unread_count: int
+
+
+class UserSearchResult(BaseModel):
+    id: int
+    username: str
+    display_name: str
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
+    is_following: bool = False
+
+
+class ConversationUserSummary(BaseModel):
+    id: int
+    username: str
+    display_name: str
+    avatar_url: Optional[str] = None
+
+
+class ConversationCreate(BaseModel):
+    partner_id: int
+
+
+class MessageCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=2000)
+
+
+class MessageOut(BaseModel):
+    id: int
+    conversation_id: int
+    sender: ConversationUserSummary
+    body: str
+    status: str
+    created_at: datetime
+
+
+class ConversationListItem(BaseModel):
+    id: int
+    partner: ConversationUserSummary
+    last_message: Optional[MessageOut] = None
+    unread_count: int = 0
+    updated_at: datetime
+
+
+class ConversationOut(BaseModel):
+    id: int
+    partner: ConversationUserSummary
+    unread_count: int = 0
+
+
+class MessageReadRequest(BaseModel):
+    message_id: Optional[int] = None
+
+
+class UserSearchResult(BaseModel):
+    id: int
+    username: str
+    display_name: str
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
+    is_following: bool = False
 
 
 class CollectionCreate(BaseModel):

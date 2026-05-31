@@ -21,6 +21,7 @@ type NotificationStore = {
   disconnect: () => void;
   refreshNotifications: (session: AuthSession | null) => Promise<void>;
   markPostRead: (session: AuthSession | null, postId: number) => Promise<void>;
+  markNotificationRead: (session: AuthSession | null, notificationId: number) => Promise<void>;
   consumeNotification: (notification: NotificationItem) => void;
 };
 
@@ -104,11 +105,28 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     if (!currentCount) {
       return;
     }
-    await markNotificationsRead(session.accessToken, postId);
+    await markNotificationsRead(session.accessToken, { postId });
     set((state) => ({
       unreadCount: Math.max(0, state.unreadCount - currentCount),
       unreadByPostId: { ...state.unreadByPostId, [postId]: 0 },
       notifications: state.notifications.map((item) => item.post_id === postId ? { ...item, is_read: true } : item),
+    }));
+  },
+  async markNotificationRead(session, notificationId) {
+    if (!session) {
+      return;
+    }
+    const notification = get().notifications.find((item) => item.id === notificationId);
+    if (!notification || notification.is_read) {
+      return;
+    }
+    await markNotificationsRead(session.accessToken, { notificationId });
+    set((state) => ({
+      unreadCount: Math.max(0, state.unreadCount - 1),
+      unreadByPostId: notification.post_id > 0
+        ? { ...state.unreadByPostId, [notification.post_id]: Math.max(0, (state.unreadByPostId[notification.post_id] || 0) - 1) }
+        : state.unreadByPostId,
+      notifications: state.notifications.map((item) => item.id === notificationId ? { ...item, is_read: true } : item),
     }));
   },
   consumeNotification(notification) {

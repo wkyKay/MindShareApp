@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 
 import type { AuthSession } from '../services/authSession';
 import { createComment, deleteComment, getComments, setCommentLiked, type CommentItem } from '../services/commentsApi';
@@ -11,11 +11,28 @@ import { styles } from './styles';
 type CommentSectionProps = {
   postId: number;
   session?: AuthSession | null;
+  focusCommentId?: number;
+  headerComponent?: React.ReactElement | null;
   onRequireAuth: () => void;
   onCommentCountChange: (count: number) => void;
 };
 
-export function CommentSection({ postId, session, onRequireAuth, onCommentCountChange }: CommentSectionProps) {
+type FlatCommentItem = {
+  id: string;
+  type: 'root' | 'reply';
+  comment: CommentItem;
+  rootId: number;
+  replyCount: number;
+};
+
+export function CommentSection({
+  postId,
+  session,
+  focusCommentId,
+  headerComponent = null,
+  onRequireAuth,
+  onCommentCountChange,
+}: CommentSectionProps) {
   const storeSession = useAuthStore((state) => state.session);
   const requireAuthSession = useAuthStore((state) => state.requireSession);
   const unreadCount = useNotificationStore((state) => state.unreadByPostId[postId] || 0);
@@ -26,16 +43,21 @@ export function CommentSection({ postId, session, onRequireAuth, onCommentCountC
   const [replyBody, setReplyBody] = useState('');
   const [replyingTo, setReplyingTo] = useState<CommentItem | null>(null);
   const [expandedRoots, setExpandedRoots] = useState<Set<number>>(new Set());
+  const [highlightedCommentId, setHighlightedCommentId] = useState<number | null>(null);
+  const [hasScrolledToFocus, setHasScrolledToFocus] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const listRef = useRef<FlatList<FlatCommentItem>>(null);
 
   useEffect(() => {
     let isMounted = true;
+    const accessToken = currentSession?.accessToken;
     async function loadComments() {
       setIsLoading(true);
       setMessage('');
+      setHasScrolledToFocus(false);
       try {
-        const data = await getComments(postId, currentSession?.accessToken);
+        const data = await getComments(postId, accessToken);
         if (isMounted) {
           setComments(data.items);
           onCommentCountChange(data.total);
@@ -54,7 +76,7 @@ export function CommentSection({ postId, session, onRequireAuth, onCommentCountC
     return () => {
       isMounted = false;
     };
-  }, [postId, currentSession?.accessToken]);
+  }, [currentSession?.accessToken, onCommentCountChange, postId]);
 
   useEffect(() => {
     if (!currentSession) {
@@ -63,35 +85,77 @@ export function CommentSection({ postId, session, onRequireAuth, onCommentCountC
     void markPostRead(currentSession, postId);
   }, [currentSession, markPostRead, postId]);
 
+  const commentsById = useMemo(() => new Map(comments.map((comment) => [comment.id, comment])), [comments]);
+
   const { roots, repliesByRoot } = useMemo(() => {
-    const byId = new Map(comments.map((comment) => [comment.id, comment]));
     const replyMap = new Map<number, CommentItem[]>();
     const rootItems: CommentItem[] = [];
 
-    function rootIdFor(comment: CommentItem): number {
-      let current = comment;
-      while (current.parent_id && byId.has(current.parent_id)) {
-        const parent = byId.get(current.parent_id)!;
-        if (!parent.parent_id) {
-          return parent.id;
-        }
-        current = parent;
-      }
-      return current.parent_id || current.id;
-    }
-
     for (const comment of comments) {
       if (comment.parent_id) {
-        const rootId = rootIdFor(comment);
+        const rootId = findRootId(comment, commentsById);
         replyMap.set(rootId, [...(replyMap.get(rootId) || []), comment]);
       } else {
         rootItems.push(comment);
       }
     }
-    return { roots: rootItems, repliesByRoot: replyMap };
-  }, [comments]);
 
-  const commentsById = useMemo(() => new Map(comments.map((comment) => [comment.id, comment])), [comments]);
+    return { roots: rootItems, repliesByRoot: replyMap };
+  }, [comments, commentsById]);
+
+  const flatComments = useMemo(() => {
+    const items: FlatCommentItem[] = [];
+    for (const root of roots) {
+      const replies = repliesByRoot.get(root.id) || [];
+      items.push({ id: `root-${root.id}`, type: 'root', comment: root, rootId: root.id, replyCount: replies.length });
+      if (expandedRoots.has(root.id)) {
+        for (const reply of replies) {
+          items.push({ id: `reply-${reply.id}`, type: 'reply', comment: reply, rootId: root.id, replyCount: 0 });
+        }
+      }
+    }
+    return items;
+  }, [expandedRoots, repliesByRoot, roots]);
+
+  useEffect(() => {
+    if (!focusCommentId || !commentsById.has(focusCommentId)) {
+      return;
+    }
+    const focusComment = commentsById.get(focusCommentId)!;
+    const rootId = findRootId(focusComment, commentsById);
+    setExpandedRoots((current) => {
+      if (current.has(rootId)) {
+        return current;
+      }
+      const next = new Set(current);
+      next.add(rootId);
+      return next;
+    });
+  }, [commentsById, focusCommentId]);
+
+  useEffect(() => {
+    if (!focusCommentId || hasScrolledToFocus || !flatComments.length) {
+      return;
+    }
+    const targetIndex = flatComments.findIndex((item) => item.comment.id === focusCommentId);
+    if (targetIndex < 0) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      listRef.current?.scrollToIndex({ index: targetIndex, animated: true, viewPosition: 0.28 });
+      setHighlightedCommentId(focusCommentId);
+      setHasScrolledToFocus(true);
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [flatComments, focusCommentId, hasScrolledToFocus]);
+
+  useEffect(() => {
+    if (!highlightedCommentId) {
+      return;
+    }
+    const timer = setTimeout(() => setHighlightedCommentId(null), 1800);
+    return () => clearTimeout(timer);
+  }, [highlightedCommentId]);
 
   async function requireSession() {
     const activeSession = await requireAuthSession();
@@ -171,99 +235,112 @@ export function CommentSection({ postId, session, onRequireAuth, onCommentCountC
     });
   }
 
-  function renderComment(comment: CommentItem, nested = false) {
-    const replies = nested ? [] : repliesByRoot.get(comment.id) || [];
-    const isExpanded = expandedRoots.has(comment.id);
+  function renderCommentItem({ item }: { item: FlatCommentItem }) {
+    const comment = item.comment;
+    const isReply = item.type === 'reply';
+    const isExpanded = expandedRoots.has(item.rootId);
     const replyTarget = comment.parent_id ? commentsById.get(comment.parent_id) : null;
-    return (
-      <View key={comment.id} style={[styles.commentCard, nested && styles.commentReplyCard]}>
-        <View style={styles.commentHeader}>
-          <Text style={styles.cardAuthor}>
-            {comment.author?.display_name || '匿名用户'}
-            {replyTarget ? ` 回复 ${replyTarget.author?.display_name || '匿名用户'}` : ''}
-          </Text>
-          <Text style={styles.cardMeta}>{comment.created_at}</Text>
-        </View>
-        <Text style={styles.commentBody}>{comment.body}</Text>
-        <View style={styles.compactActionRow}>
-          <Pressable style={styles.compactActionButton} onPress={() => toggleLike(comment)}>
-            <Ionicons name={comment.is_liked ? 'heart' : 'heart-outline'} size={14} color={comment.is_liked ? '#e74c3c' : '#a05d6f'} />
-            <Text style={styles.compactActionText}> {comment.like_count}</Text>
-          </Pressable>
-          <Pressable style={styles.compactActionButton} onPress={() => setReplyingTo(comment)}>
-            <Text style={styles.compactActionText}>回复</Text>
-          </Pressable>
-          {!nested && replies.length ? (
-            <Pressable style={styles.compactActionButton} onPress={() => toggleRoot(comment.id)}>
-              <Text style={styles.compactActionText}>{isExpanded ? '收起回复' : `展开 ${replies.length} 条回复`}</Text>
-            </Pressable>
-          ) : null}
-          {canDelete(comment) ? (
-            <Pressable style={[styles.compactActionButton, styles.compactDangerButton]} onPress={() => removeComment(comment)}>
-              <Text style={[styles.compactActionText, styles.compactDangerText]}>删除</Text>
-            </Pressable>
-          ) : null}
-        </View>
-        {replyingTo?.id === comment.id ? (
-          <View style={styles.replyComposer}>
-            <TextInput
-              style={[styles.input, styles.commentInput]}
-              multiline
-              placeholder={`回复 ${comment.author?.display_name || '评论'}`}
-              placeholderTextColor="#a89994"
-              value={replyBody}
-              onChangeText={setReplyBody}
-            />
-            <View style={styles.actionRow}>
-              <Pressable style={styles.actionButton} onPress={() => setReplyingTo(null)}>
-                <Text style={styles.actionButtonText}>取消</Text>
-              </Pressable>
-              <Pressable style={[styles.actionButton, styles.actionButtonActive]} onPress={() => submitComment(comment)}>
-                <Text style={styles.actionButtonText}>发送回复</Text>
-              </Pressable>
-            </View>
-          </View>
-        ) : null}
-      </View>
-    );
-  }
+    const isHighlighted = highlightedCommentId === comment.id;
 
-  function renderCommentThread(comment: CommentItem) {
-    const replies = repliesByRoot.get(comment.id) || [];
-    const isExpanded = expandedRoots.has(comment.id);
     return (
-      <View key={`thread-${comment.id}`} style={styles.commentThread}>
-        {renderComment(comment)}
-        {replies.length && isExpanded ? replies.map((reply) => renderComment(reply, true)) : null}
+      <View style={[styles.commentThread, isReply && styles.commentReplyThread]}>
+        <View style={[
+          styles.commentCard,
+          isReply && styles.commentReplyCard,
+          isHighlighted && styles.commentFocusedCard,
+        ]}>
+          <View style={styles.commentHeader}>
+            <Text style={styles.cardAuthor}>
+              {comment.author?.display_name || '匿名用户'}
+              {replyTarget ? ` 回复 ${replyTarget.author?.display_name || '匿名用户'}` : ''}
+            </Text>
+            <Text style={styles.cardMeta}>{comment.created_at}</Text>
+          </View>
+          <Text style={styles.commentBody}>{comment.body}</Text>
+          <View style={styles.compactActionRow}>
+            <Pressable style={styles.compactActionButton} onPress={() => toggleLike(comment)}>
+              <Ionicons name={comment.is_liked ? 'heart' : 'heart-outline'} size={14} color={comment.is_liked ? '#e74c3c' : '#a05d6f'} />
+              <Text style={styles.compactActionText}> {comment.like_count}</Text>
+            </Pressable>
+            <Pressable style={styles.compactActionButton} onPress={() => setReplyingTo(comment)}>
+              <Text style={styles.compactActionText}>回复</Text>
+            </Pressable>
+            {!isReply && item.replyCount > 0 ? (
+              <Pressable style={styles.compactActionButton} onPress={() => toggleRoot(comment.id)}>
+                <Text style={styles.compactActionText}>{isExpanded ? '收起回复' : `展开 ${item.replyCount} 条回复`}</Text>
+              </Pressable>
+            ) : null}
+            {canDelete(comment) ? (
+              <Pressable style={[styles.compactActionButton, styles.compactDangerButton]} onPress={() => removeComment(comment)}>
+                <Text style={[styles.compactActionText, styles.compactDangerText]}>删除</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {replyingTo?.id === comment.id ? (
+            <View style={styles.replyComposer}>
+              <TextInput
+                style={[styles.input, styles.commentInput]}
+                multiline
+                placeholder={`回复 ${comment.author?.display_name || '评论'}`}
+                placeholderTextColor="#a89994"
+                value={replyBody}
+                onChangeText={setReplyBody}
+              />
+              <View style={styles.actionRow}>
+                <Pressable style={styles.actionButton} onPress={() => setReplyingTo(null)}>
+                  <Text style={styles.actionButtonText}>取消</Text>
+                </Pressable>
+                <Pressable style={[styles.actionButton, styles.actionButtonActive]} onPress={() => submitComment(comment)}>
+                  <Text style={styles.actionButtonText}>发送回复</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.commentSection}>
-      <View style={styles.sectionTitleRow}>
-        <Text style={styles.sectionTitle}>评论区</Text>
-        {unreadCount > 0 ? <View style={styles.cardNotificationDot} /> : null}
-      </View>
-      {unreadCount > 0 ? <Text style={styles.commentNotificationHint}>有新的评论或回复</Text> : null}
-      <View style={styles.commentComposer}>
-        <TextInput
-          style={[styles.input, styles.commentInput]}
-          multiline
-          placeholder="写下你的评论..."
-          placeholderTextColor="#a89994"
-          value={body}
-          onChangeText={setBody}
-        />
-        <Pressable style={styles.primaryButton} onPress={() => submitComment()}>
-          <Text style={styles.primaryButtonText}>发布评论</Text>
-        </Pressable>
-      </View>
-      {isLoading ? <Text style={styles.profileBio}>正在加载评论...</Text> : null}
-      {message ? <Text style={[styles.authApiHint, { color: '#a05d6f' }]}>{message}</Text> : null}
-      {!isLoading && roots.length === 0 ? <Text style={styles.profileBio}>暂无评论，来抢第一条。</Text> : null}
-      {roots.map((comment) => renderCommentThread(comment))}
-    </View>
+    <FlatList
+      ref={listRef}
+      contentContainerStyle={styles.pageContent}
+      data={flatComments}
+      keyExtractor={(item) => item.id}
+      renderItem={renderCommentItem}
+      ListHeaderComponent={
+        <>
+          {headerComponent}
+          <View style={styles.commentSection}>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>评论区</Text>
+              {unreadCount > 0 ? <View style={styles.cardNotificationDot} /> : null}
+            </View>
+            {unreadCount > 0 ? <Text style={styles.commentNotificationHint}>有新的评论或回复</Text> : null}
+            <View style={styles.commentComposer}>
+              <TextInput
+                style={[styles.input, styles.commentInput]}
+                multiline
+                placeholder="写下你的评论..."
+                placeholderTextColor="#a89994"
+                value={body}
+                onChangeText={setBody}
+              />
+              <Pressable style={styles.primaryButton} onPress={() => submitComment()}>
+                <Text style={styles.primaryButtonText}>发布评论</Text>
+              </Pressable>
+            </View>
+            {isLoading ? <Text style={styles.profileBio}>正在加载评论...</Text> : null}
+            {message ? <Text style={[styles.authApiHint, { color: '#a05d6f' }]}>{message}</Text> : null}
+            {!isLoading && flatComments.length === 0 ? <Text style={styles.profileBio}>暂无评论，来抢第一条。</Text> : null}
+          </View>
+        </>
+      }
+      showsVerticalScrollIndicator={false}
+      onScrollToIndexFailed={({ index }) => {
+        setTimeout(() => listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.28 }), 120);
+      }}
+    />
   );
 }
 

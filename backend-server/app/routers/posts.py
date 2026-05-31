@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_user, get_optional_current_user
 from ..database import get_db
 from ..models import Asset, Favorite, Follow, Like, Post, PostTag, Tag, User
+from ..notification_service import create_notification, delete_unread_notification, push_notification
 from ..schemas import (
     AuthorSummary,
     FavoriteRequest,
@@ -277,11 +278,33 @@ def toggle_like(
     if payload.liked and like is None:
         db.add(Like(user_id=current_user.id, post_id=post_id))
         post.like_count += 1
+        notification = None
+        if post.author_id != current_user.id:
+            notification = create_notification(
+                db,
+                recipient_id=post.author_id,
+                actor_id=current_user.id,
+                type="post_liked",
+                post_id=post.id,
+                post_title=post.title,
+            )
     elif not payload.liked and like is not None:
         db.delete(like)
         post.like_count = max(0, post.like_count - 1)
+        delete_unread_notification(
+            db,
+            recipient_id=post.author_id,
+            actor_id=current_user.id,
+            type="post_liked",
+            post_id=post.id,
+        )
+        notification = None
+    else:
+        notification = None
     db.commit()
     db.refresh(post)
+    if notification is not None:
+        push_notification(notification, current_user)
     return LikeResponse(liked=payload.liked, like_count=post.like_count)
 
 
@@ -296,12 +319,31 @@ def toggle_favorite(
     if post is None:
         raise HTTPException(status_code=404, detail="博客不存在")
     favorite = db.query(Favorite).filter(Favorite.user_id == current_user.id, Favorite.post_id == post_id).first()
+    notification = None
     if payload.favorited and favorite is None:
         db.add(Favorite(user_id=current_user.id, post_id=post_id))
         post.favorite_count += 1
+        if post.author_id != current_user.id:
+            notification = create_notification(
+                db,
+                recipient_id=post.author_id,
+                actor_id=current_user.id,
+                type="post_favorited",
+                post_id=post.id,
+                post_title=post.title,
+            )
     elif not payload.favorited and favorite is not None:
         db.delete(favorite)
         post.favorite_count = max(0, post.favorite_count - 1)
+        delete_unread_notification(
+            db,
+            recipient_id=post.author_id,
+            actor_id=current_user.id,
+            type="post_favorited",
+            post_id=post.id,
+        )
     db.commit()
     db.refresh(post)
+    if notification is not None:
+        push_notification(notification, current_user)
     return FavoriteResponse(favorited=payload.favorited, favorite_count=post.favorite_count)

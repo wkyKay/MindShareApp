@@ -2,7 +2,7 @@ import { API_BASE_URL, API_V1_BASE_URL } from '../config/api';
 
 export type NotificationItem = {
   id: number;
-  type: 'comment_created' | 'comment_reply';
+  type: 'comment_created' | 'comment_reply' | 'comment_liked' | 'post_liked' | 'post_favorited' | 'collection_favorited' | 'user_followed';
   recipient_id: number;
   actor: {
     id: number;
@@ -10,8 +10,10 @@ export type NotificationItem = {
     avatar_url?: string | null;
   };
   post_id: number;
+  post_title?: string | null;
   comment_id: number;
   parent_comment_id?: number | null;
+  target_user_id?: number | null;
   is_read: boolean;
   created_at: string;
 };
@@ -67,14 +69,14 @@ export async function getPostUnreadCounts(accessToken: string) {
   return (await response.json()) as PostUnreadCount[];
 }
 
-export async function markNotificationsRead(accessToken: string, postId?: number) {
+export async function markNotificationsRead(accessToken: string, options: { postId?: number; notificationId?: number } = {}) {
   const response = await fetch(`${API_V1_BASE_URL}/notifications/read`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ post_id: postId ?? null }),
+    body: JSON.stringify({ post_id: options.postId ?? null, notification_id: options.notificationId ?? null }),
   });
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));

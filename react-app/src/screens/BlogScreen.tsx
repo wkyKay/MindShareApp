@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { styles } from '../components/styles';
 import { CommentSection } from '../components/CommentSection';
@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 type BlogScreenProps = {
   postId: number;
   session: AuthSession | null;
+  focusCommentId?: number;
   onBack: () => void;
   onDeleted: () => void;
   onRequireAuth: () => void;
@@ -25,7 +26,7 @@ type BlogScreenProps = {
   onOpenTag: (tag: string) => void;
 };
 
-export function BlogScreen({ postId, session, onOpenAuthor, onOpenTag, onBack, onDeleted, onRequireAuth }: BlogScreenProps) {
+export function BlogScreen({ postId, session, focusCommentId, onOpenAuthor, onOpenTag, onBack, onDeleted, onRequireAuth }: BlogScreenProps) {
   const storeSession = useAuthStore((state) => state.session);
   const requireAuthSession = useAuthStore((state) => state.requireSession);
   const currentSession = storeSession ?? session;
@@ -138,115 +139,122 @@ export function BlogScreen({ postId, session, onOpenAuthor, onOpenTag, onBack, o
     }
   }
 
+  const handleCommentCountChange = useCallback((commentCount: number) => {
+    setPost((currentPost) => currentPost ? { ...currentPost, comment_count: commentCount } : currentPost);
+  }, []);
+
   if (isLoading) {
     return (
-      <ScrollView contentContainerStyle={styles.pageContent}>
+      <View style={styles.pageContent}>
         <Pressable style={styles.backButton} onPress={onBack}>
           <Text style={styles.backButtonText}>‹ 返回</Text>
         </Pressable>
         <Text style={styles.profileBio}>正在加载博客...</Text>
-      </ScrollView>
+      </View>
     );
   }
 
   if (!post) {
     return (
-      <ScrollView contentContainerStyle={styles.pageContent}>
+      <View style={styles.pageContent}>
         <Pressable style={styles.backButton} onPress={onBack}>
           <Text style={styles.backButtonText}>‹ 返回</Text>
         </Pressable>
         <Text style={[styles.authApiHint, { color: '#a05d6f' }]}>{message || '博客不存在。'}</Text>
-      </ScrollView>
+      </View>
     );
   }
 
-  return (
-    <ScrollView contentContainerStyle={styles.pageContent}>
+  const content = isEditing ? (
+    <>
       <Pressable style={styles.backButton} onPress={onBack}>
         <Text style={styles.backButtonText}>‹ 返回</Text>
       </Pressable>
+      <TextInput style={styles.input} placeholder="标题" placeholderTextColor="#9a8f8a" value={title} onChangeText={setTitle} />
+      <TextInput
+        multiline
+        style={[styles.input, styles.bodyInput, styles.longBodyInput]}
+        placeholder="正文"
+        placeholderTextColor="#9a8f8a"
+        textAlignVertical="top"
+        value={body}
+        onChangeText={setBody}
+      />
+      <Pressable style={styles.primaryButton} onPress={saveEdit}>
+        <Text style={styles.primaryButtonText}>保存修改</Text>
+      </Pressable>
+      <Pressable style={styles.draftButton} onPress={() => setIsEditing(false)}>
+        <Text style={styles.draftButtonText}>取消编辑</Text>
+      </Pressable>
+    </>
+  ) : (
+    <>
+      <Pressable style={styles.backButton} onPress={onBack}>
+        <Text style={styles.backButtonText}>‹ 返回</Text>
+      </Pressable>
+      <Text style={styles.pageTitle}>{post.title}</Text>
+      <Pressable onPress={() => onOpenAuthor(post.author.id)}>
+        <Text style={styles.cardAuthor}>{post.author.display_name}</Text>
+      </Pressable>
+      <Text style={styles.cardMeta}>发布时间：{post.created_at}</Text>
+      {post.tags.length > 0 && (
+        <View style={styles.tagList}>
+          {post.tags.map((tag) => (
+            <Pressable key={tag} style={styles.tagChip} onPress={() => onOpenTag(tag)}>
+              <Text style={styles.tagChipText}>#{tag}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+      <Text style={styles.blogBody}>{post.body}</Text>
 
-      {isEditing ? (
+      <View style={styles.actionRow}>
+        <Text style={styles.statText}>点赞 {post.like_count}</Text>
+        <Text style={styles.statText}>评论 {post.comment_count}</Text>
+        <Text style={styles.statText}>收藏 {post.favorite_count}</Text>
+      </View>
+
+      {!post.is_owner && (
+        <View style={styles.actionRow}>
+          <Pressable onPress={toggleLike}>
+            <Ionicons
+              name={post.is_liked ? 'heart' : 'heart-outline'}
+              size={20}
+              color={post.is_liked ? '#e74c3c' : '#9a8f8a'}
+            />
+          </Pressable>
+
+          <Pressable onPress={toggleFavorite}>
+            <Ionicons
+              name={post.is_favorited ? 'star' : 'star-outline'}
+              size={20}
+              color={post.is_favorited ? '#f39c12' : '#9a8f8a'}
+            />
+          </Pressable>
+        </View>
+      )}
+      {post.is_owner && (
         <>
-          <TextInput style={styles.input} placeholder="标题" placeholderTextColor="#9a8f8a" value={title} onChangeText={setTitle} />
-          <TextInput
-            multiline
-            style={[styles.input, styles.bodyInput, styles.longBodyInput]}
-            placeholder="正文"
-            placeholderTextColor="#9a8f8a"
-            textAlignVertical="top"
-            value={body}
-            onChangeText={setBody}
-          />
-          <Pressable style={styles.primaryButton} onPress={saveEdit}>
-            <Text style={styles.primaryButtonText}>保存修改</Text>
+          <Pressable style={styles.primaryButton} onPress={() => setIsEditing(true)}>
+            <Text style={styles.primaryButtonText}>编辑</Text>
           </Pressable>
-          <Pressable style={styles.draftButton} onPress={() => setIsEditing(false)}>
-            <Text style={styles.draftButtonText}>取消编辑</Text>
+          <Pressable style={styles.dangerButton} onPress={removePost}>
+            <Text style={styles.dangerButtonText}>删除</Text>
           </Pressable>
-        </>
-      ) : (
-        <>
-          <Text style={styles.pageTitle}>{post.title}</Text>
-          <Pressable onPress={() => onOpenAuthor(post.author.id)}>
-            <Text style={styles.cardAuthor}>{post.author.display_name}</Text>
-          </Pressable>
-          <Text style={styles.cardMeta}>发布时间：{post.created_at}</Text>
-          {post.tags.length > 0 && (
-            <View style={styles.tagList}>
-              {post.tags.map((tag) => (
-                <Pressable key={tag} style={styles.tagChip} onPress={() => onOpenTag(tag)}>
-                  <Text style={styles.tagChipText}>#{tag}</Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-          <Text style={styles.blogBody}>{post.body}</Text>
-
-          <View style={styles.actionRow}>
-            <Text style={styles.statText}>点赞 {post.like_count}</Text>
-            <Text style={styles.statText}>评论 {post.comment_count}</Text>
-            <Text style={styles.statText}>收藏 {post.favorite_count}</Text>
-          </View>
-
-          {!post.is_owner && (
-            <View style={styles.actionRow}>
-              <Pressable onPress={toggleLike}>
-                <Ionicons
-                  name={post.is_liked ? 'heart' : 'heart-outline'}
-                  size={20}
-                  color={post.is_liked ? '#e74c3c' : '#9a8f8a'}
-                />
-              </Pressable>
-
-              <Pressable onPress={toggleFavorite}>
-                <Ionicons
-                  name={post.is_favorited ? 'star' : 'star-outline'}
-                  size={20}
-                  color={post.is_favorited ? '#f39c12' : '#9a8f8a'}
-                />
-              </Pressable>
-            </View>
-          )}
-          {post.is_owner && (
-            <>
-              <Pressable style={styles.primaryButton} onPress={() => setIsEditing(true)}>
-                <Text style={styles.primaryButtonText}>编辑</Text>
-              </Pressable>
-              <Pressable style={styles.dangerButton} onPress={removePost}>
-                <Text style={styles.dangerButtonText}>删除</Text>
-              </Pressable>
-            </>
-          )}
-          <CommentSection
-            postId={post.id}
-            onRequireAuth={onRequireAuth}
-            onCommentCountChange={(commentCount) => setPost((currentPost) => currentPost ? { ...currentPost, comment_count: commentCount } : currentPost)}
-          />
         </>
       )}
-
       {!!message && <Text style={[styles.authApiHint, { color: '#a05d6f' }]}>{message}</Text>}
-    </ScrollView>
+    </>
+  );
+
+  return (
+    <CommentSection
+      postId={post.id}
+      session={currentSession}
+      focusCommentId={focusCommentId}
+      headerComponent={content}
+      onRequireAuth={onRequireAuth}
+      onCommentCountChange={handleCommentCountChange}
+    />
   );
 }

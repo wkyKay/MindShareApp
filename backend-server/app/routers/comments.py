@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_user, get_optional_current_user
 from ..database import get_db
 from ..models import Comment, CommentLike, Notification, Post, User
-from ..realtime import realtime_manager
+from ..notification_service import create_notification, delete_unread_notification, push_notification
 from ..schemas import AuthorSummary, CommentCreate, CommentLikeRequest, CommentLikeResponse, CommentResponse, PageResponse
 
 router = APIRouter()
@@ -124,11 +124,38 @@ def toggle_comment_like(
     if payload.liked and like is None:
         db.add(CommentLike(user_id=current_user.id, comment_id=comment_id))
         comment.like_count += 1
+        if comment.author_id != current_user.id:
+            create_notification(
+                db,
+                recipient_id=comment.author_id,
+                actor_id=current_user.id,
+                type="comment_liked",
+                post_id=comment.post_id,
+                post_title=db.query(Post.title).filter(Post.id == comment.post_id).scalar(),
+                comment_id=comment.id,
+            )
     elif not payload.liked and like is not None:
         db.delete(like)
         comment.like_count = max(0, comment.like_count - 1)
+        delete_unread_notification(
+            db,
+            recipient_id=comment.author_id,
+            actor_id=current_user.id,
+            type="comment_liked",
+            post_id=comment.post_id,
+            comment_id=comment.id,
+        )
     db.commit()
     db.refresh(comment)
+    if payload.liked:
+        notifications = db.query(Notification).filter(
+            Notification.recipient_id == comment.author_id,
+            Notification.actor_id == current_user.id,
+            Notification.type == "comment_liked",
+            Notification.comment_id == comment.id,
+        ).order_by(Notification.id.desc()).all()
+        if notifications:
+            push_notification(notifications[0], current_user)
     return CommentLikeResponse(liked=payload.liked, like_count=comment.like_count)
 
 
@@ -165,54 +192,37 @@ def _build_comment_notifications(post: Post, comment: Comment, current_user: Use
     recipient_ids: set[int] = set()
     if post.author_id != current_user.id:
         recipient_ids.add(post.author_id)
-        notifications.append(
-            Notification(
-                recipient_id=post.author_id,
-                actor_id=current_user.id,
-                post_id=post.id,
-                comment_id=comment.id,
-                parent_comment_id=comment.parent_id,
-                type="comment_created" if comment.parent_id is None else "comment_reply",
-            )
+        notification = create_notification(
+            db,
+            recipient_id=post.author_id,
+            actor_id=current_user.id,
+            post_id=post.id,
+            post_title=post.title,
+            comment_id=comment.id,
+            parent_comment_id=comment.parent_id,
+            type="comment_created" if comment.parent_id is None else "comment_reply",
         )
+        if notification is not None:
+            notifications.append(notification)
     if comment.parent_id is not None:
         parent_author_id = db.query(Comment.author_id).filter(Comment.id == comment.parent_id).scalar()
         if parent_author_id and parent_author_id != current_user.id and parent_author_id not in recipient_ids:
-            notifications.append(
-                Notification(
-                    recipient_id=parent_author_id,
-                    actor_id=current_user.id,
-                    post_id=post.id,
-                    comment_id=comment.id,
-                    parent_comment_id=comment.parent_id,
-                    type="comment_reply",
-                )
+            notification = create_notification(
+                db,
+                recipient_id=parent_author_id,
+                actor_id=current_user.id,
+                post_id=post.id,
+                post_title=post.title,
+                comment_id=comment.id,
+                parent_comment_id=comment.parent_id,
+                type="comment_reply",
             )
+            if notification is not None:
+                notifications.append(notification)
     return notifications
 
 
 def _push_comment_notifications(post: Post, comment: Comment, current_user: User, db: Session) -> None:
-    actor = AuthorSummary(id=current_user.id, display_name=current_user.display_name, avatar_url=None)
     notifications = db.query(Notification).filter(Notification.comment_id == comment.id).all()
     for notification in notifications:
-        event = {
-            "type": "notification.created",
-            "notification": {
-                "id": notification.id,
-                "type": notification.type,
-                "recipient_id": notification.recipient_id,
-                "actor": actor.model_dump(),
-                "post_id": post.id,
-                "comment_id": comment.id,
-                "parent_comment_id": comment.parent_id,
-                "is_read": notification.is_read,
-                "created_at": notification.created_at.isoformat() if notification.created_at else None,
-            },
-        }
-        import asyncio
-
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(realtime_manager.send_to_user(notification.recipient_id, event))
-        except RuntimeError:
-            pass
+        push_notification(notification, current_user)

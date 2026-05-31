@@ -1,9 +1,10 @@
 import { Pressable, Text, View } from 'react-native';
 
 import { styles } from './styles';
+import { useMessageStore } from '../stores/messageStore';
 import { useNotificationStore } from '../stores/notificationStore';
 
-export type Page = 'home' | 'upload' | 'notifications' | 'profile' | 'auth';
+export type Page = 'home' | 'messages' | 'upload' | 'notifications' | 'profile' | 'auth';
 
 type BottomTabsProps = {
   activePage: Exclude<Page, 'auth'>;
@@ -11,11 +12,13 @@ type BottomTabsProps = {
 };
 
 export function BottomTabs({ activePage, onChangePage }: BottomTabsProps) {
+  const messageUnreadCount = useMessageStore((state) => state.unreadCount);
   const unreadCount = useNotificationStore((state) => state.unreadCount);
 
   return (
     <View style={styles.tabBar}>
       <TabButton active={activePage === 'home'} label="首页" onPress={() => onChangePage('home')} />
+      <TabButton active={activePage === 'messages'} label="私信" badgeCount={messageUnreadCount} onPress={() => onChangePage('messages')} />
       <Pressable style={styles.createButton} onPress={() => onChangePage('upload')}>
         <Text style={styles.createButtonText}>＋</Text>
       </Pressable>

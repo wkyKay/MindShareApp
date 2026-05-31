@@ -9,33 +9,39 @@ import { styles } from './src/components/styles';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { BlogScreen } from './src/screens/BlogScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { MessagesScreen } from './src/screens/MessagesScreen';
+import { ChatScreen } from './src/screens/ChatScreen';
 import { NotificationScreen } from './src/screens/NotificationScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { UploadScreen } from './src/screens/UploadScreen';
 import { AuthorScreen } from './src/screens/AuthorScreen';
 import { useAuthStore } from './src/stores/authStore';
+import { useMessageStore } from './src/stores/messageStore';
 import { useNotificationStore } from './src/stores/notificationStore';
 
 type RootStackParamList = {
   home: { tag?: string } | undefined;
+  messages: undefined;
   upload: undefined;
   notifications: undefined;
   profile: undefined;
   auth: undefined;
-  blog: { postId: number };
+  blog: { postId: number; focusCommentId?: number };
   author: { authorId: number };
+  chat: { conversationId: number; partnerId: number; partnerName: string };
 };
 
 type AppScreenProps<RouteName extends keyof RootStackParamList> = NativeStackScreenProps<RootStackParamList, RouteName>;
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const tabPages = new Set<string>(['home', 'upload', 'notifications', 'profile']);
+const tabPages = new Set<string>(['home', 'messages', 'upload', 'notifications', 'profile']);
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 export default function App() {
   const [activePage, setActivePage] = useState<keyof RootStackParamList>('home');
   const authSession = useAuthStore((state) => state.session);
   const hydrateAuth = useAuthStore((state) => state.hydrate);
+  const hydrateMessages = useMessageStore((state) => state.hydrate);
   const hydrateNotifications = useNotificationStore((state) => state.hydrate);
 
   function openAuthorProfileAware(navigation: NavigationProp<RootStackParamList>, authorId: number) {
@@ -51,8 +57,9 @@ export default function App() {
   }, [hydrateAuth]);
 
   useEffect(() => {
+    void hydrateMessages(authSession);
     void hydrateNotifications(authSession);
-  }, [authSession, hydrateNotifications]);
+  }, [authSession, hydrateMessages, hydrateNotifications]);
 
   return (
     <NavigationContainer
@@ -79,6 +86,15 @@ export default function App() {
               )}
             </Stack.Screen>
 
+            <Stack.Screen name="messages">
+              {({ navigation }: AppScreenProps<'messages'>) => (
+                <MessagesScreen
+                  onOpenAuth={() => navigation.navigate('auth')}
+                  onOpenChat={(conversationId, partnerId, partnerName) => navigation.navigate('chat', { conversationId, partnerId, partnerName })}
+                />
+              )}
+            </Stack.Screen>
+
             <Stack.Screen name="upload">
               {({ navigation }: AppScreenProps<'upload'>) => (
                 <UploadScreen
@@ -95,7 +111,8 @@ export default function App() {
               {({ navigation }: AppScreenProps<'notifications'>) => (
                 <NotificationScreen
                   onOpenAuth={() => navigation.navigate('auth')}
-                  onOpenPost={(postId) => navigation.navigate('blog', { postId })}
+                  onOpenPost={(postId, focusCommentId) => navigation.navigate('blog', { postId, focusCommentId })}
+                  onOpenAuthor={(authorId) => openAuthorProfileAware(navigation, authorId)}
                 />
               )}
             </Stack.Screen>
@@ -126,6 +143,7 @@ export default function App() {
               {({ navigation, route }: AppScreenProps<'blog'>) => (
                 <BlogScreen
                   postId={route.params.postId}
+                  focusCommentId={route.params.focusCommentId}
                   session={authSession}
                   onBack={() => navigation.goBack()}
                   onDeleted={() => {
@@ -147,6 +165,19 @@ export default function App() {
                   onRequireAuth={() => navigation.navigate('auth')}
                   onOpenPost={(postId) => navigation.navigate('blog', { postId })}
                   onOpenTag={(tag) => navigation.navigate('home', { tag })}
+                  onOpenMessage={(conversationId, partnerId, partnerName) => navigation.navigate('chat', { conversationId, partnerId, partnerName })}
+                />
+              )}
+            </Stack.Screen>
+
+            <Stack.Screen name="chat">
+              {({ navigation, route }: AppScreenProps<'chat'>) => (
+                <ChatScreen
+                  conversationId={route.params.conversationId}
+                  partnerId={route.params.partnerId}
+                  partnerName={route.params.partnerName}
+                  onBack={() => navigation.goBack()}
+                  onRequireAuth={() => navigation.navigate('auth')}
                 />
               )}
             </Stack.Screen>

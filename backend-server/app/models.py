@@ -236,5 +236,38 @@ class Notification(TimestampMixin, Base):
     post_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="关联博客 ID")
     comment_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="关联评论 ID")
     parent_comment_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True, comment="被回复评论 ID")
+    target_user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True, comment="关注类通知的目标用户 ID")
     type: Mapped[str] = mapped_column(String(30), nullable=False, index=True, comment="通知类型：comment_created、comment_reply")
     is_read: Mapped[bool] = mapped_column(default=False, nullable=False, index=True, comment="是否已读")
+
+
+class Conversation(TimestampMixin, Base):
+    __tablename__ = "conversations"
+    __table_args__ = {"comment": "一对一私信会话"}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="会话 ID")
+    last_message_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True, comment="最后一条消息 ID")
+
+
+class ConversationParticipant(TimestampMixin, Base):
+    __tablename__ = "conversation_participants"
+    __table_args__ = (
+        UniqueConstraint("conversation_id", "user_id", name="uq_conversation_participants_conversation_user"),
+        {"comment": "会话参与者"},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="参与记录 ID")
+    conversation_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="会话 ID")
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="用户 ID")
+    last_read_message_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True, comment="最后已读消息 ID")
+
+
+class Message(TimestampMixin, Base):
+    __tablename__ = "messages"
+    __table_args__ = {"comment": "私信消息"}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="消息 ID")
+    conversation_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="会话 ID")
+    sender_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="发送者用户 ID")
+    body: Mapped[str] = mapped_column(Text, nullable=False, comment="消息正文")
+    status: Mapped[str] = mapped_column(String(20), default="sent", nullable=False, index=True, comment="消息状态：sent、deleted")

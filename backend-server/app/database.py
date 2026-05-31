@@ -44,3 +44,5 @@ def _ensure_sqlite_schema_updates() -> None:
             notification_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(notifications)"))}
             if "parent_comment_id" not in notification_columns:
                 connection.execute(text("ALTER TABLE notifications ADD COLUMN parent_comment_id INTEGER"))
+            if "target_user_id" not in notification_columns:
+                connection.execute(text("ALTER TABLE notifications ADD COLUMN target_user_id INTEGER"))

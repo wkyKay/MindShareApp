@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from ..auth import ALGORITHM, SECRET_KEY, get_current_user
 from ..database import get_db
 from ..models import Notification, User
+from ..notification_service import attach_notification_post_titles
 from ..realtime import realtime_manager
 from ..schemas import AuthorSummary, NotificationOut, NotificationPostUnreadCount, NotificationReadRequest, NotificationUnreadCount, PageResponse
 
@@ -37,6 +38,7 @@ def list_notifications(
     )
     total = query.with_entities(func.count(Notification.id)).scalar() or 0
     rows = query.order_by(Notification.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    attach_notification_post_titles(db, [notification for notification, _actor in rows])
     return PageResponse(
         items=[_notification_out(notification, actor) for notification, actor in rows],
         page=page,
@@ -49,7 +51,7 @@ def list_notifications(
 def get_post_unread_counts(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> list[NotificationPostUnreadCount]:
     rows = (
         db.query(Notification.post_id, func.count(Notification.id))
-        .filter(Notification.recipient_id == current_user.id, Notification.is_read.is_(False))
+        .filter(Notification.recipient_id == current_user.id, Notification.is_read.is_(False), Notification.post_id > 0)
         .group_by(Notification.post_id)
         .all()
     )
@@ -63,6 +65,8 @@ def mark_notifications_read(
     db: Session = Depends(get_db),
 ) -> None:
     query = db.query(Notification).filter(Notification.recipient_id == current_user.id, Notification.is_read.is_(False))
+    if payload.notification_id is not None:
+        query = query.filter(Notification.id == payload.notification_id)
     if payload.post_id is not None:
         query = query.filter(Notification.post_id == payload.post_id)
     query.update({Notification.is_read: True}, synchronize_session=False)
@@ -94,8 +98,10 @@ def _notification_out(notification: Notification, actor: User) -> NotificationOu
         recipient_id=notification.recipient_id,
         actor=AuthorSummary(id=actor.id, display_name=actor.display_name, avatar_url=None),
         post_id=notification.post_id,
+        post_title=getattr(notification, "post_title", None),
         comment_id=notification.comment_id,
         parent_comment_id=notification.parent_comment_id,
+        target_user_id=notification.target_user_id,
         is_read=notification.is_read,
         created_at=notification.created_at,
     )

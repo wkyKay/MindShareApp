@@ -1,0 +1,107 @@
+import { useCallback, useEffect, useState } from 'react';
+import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+
+import { styles } from '../components/styles';
+import { useAuthStore } from '../stores/authStore';
+import { useMessageStore } from '../stores/messageStore';
+import { listMessages, markConversationRead, sendMessage, type Message } from '../services/messagesApi';
+
+type ChatScreenProps = {
+  conversationId: number;
+  partnerId: number;
+  partnerName: string;
+  onBack: () => void;
+  onRequireAuth: () => void;
+};
+
+export function ChatScreen({ conversationId, partnerId, partnerName, onBack, onRequireAuth }: ChatScreenProps) {
+  const session = useAuthStore((state) => state.session);
+  const latestMessage = useMessageStore((state) => state.latestMessageByConversation[conversationId]);
+  const markConversationReadLocal = useMessageStore((state) => state.markConversationRead);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [body, setBody] = useState('');
+  const [message, setMessage] = useState('');
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!session || !conversationId) return;
+      void loadMessages();
+      void markConversationRead(session.accessToken, conversationId);
+      void markConversationReadLocal(session, conversationId);
+    }, [conversationId, session])
+  );
+
+  useEffect(() => {
+    if (!latestMessage) {
+      return;
+    }
+    setMessages((current) => current.some((item) => item.id === latestMessage.id) ? current : [...current, latestMessage]);
+  }, [latestMessage]);
+
+  async function loadMessages() {
+    if (!session || !conversationId) return;
+    try {
+      const data = await listMessages(session.accessToken, conversationId);
+      setMessages(data);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '消息加载失败');
+    }
+  }
+
+  async function submit() {
+    if (!session) {
+      onRequireAuth();
+      return;
+    }
+    const text = body.trim();
+    if (!text) return;
+    try {
+      const created = await sendMessage(session.accessToken, conversationId, text);
+      setMessages((current) => [...current, created]);
+      setBody('');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '发送失败');
+    }
+  }
+
+  return (
+    <View style={styles.chatScreen}>
+      <View style={styles.chatHeader}>
+        <Pressable style={styles.backButtonCompact} onPress={onBack}>
+          <Text style={styles.backButtonText}>‹ 返回</Text>
+        </Pressable>
+        <Text style={styles.chatTitle}>{partnerName}</Text>
+        {/* <Text style={styles.chatSubtitle}>与 @{partnerId} 的对话</Text> */}
+      </View>
+
+      <FlatList
+        contentContainerStyle={styles.chatListContent}
+        data={messages}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={({ item }) => (
+          <View style={[styles.messageBubble, item.sender.id === session?.user.id ? styles.messageBubbleMine : styles.messageBubbleOther]}>
+            <Text style={styles.messageBubbleText}>{item.body}</Text>
+            <Text style={styles.messageBubbleMeta}>{item.created_at}</Text>
+          </View>
+        )}
+        showsVerticalScrollIndicator={false}
+      />
+
+      <View style={styles.chatComposerBar}>
+        <TextInput
+          style={styles.chatComposerInput}
+          multiline
+          placeholder="输入消息..."
+          placeholderTextColor="#9a8f8a"
+          value={body}
+          onChangeText={setBody}
+        />
+        <Pressable style={styles.chatSendButton} onPress={submit}>
+          <Text style={styles.primaryButtonText}>发送</Text>
+        </Pressable>
+      </View>
+      {message ? <Text style={[styles.authApiHint, styles.chatComposerHint, { color: '#a05d6f' }]}>{message}</Text> : null}
+    </View>
+  );
+}

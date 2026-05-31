@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .database import BASE_DIR, init_db
-from .routers import auth, collections, comments, notifications, posts, search, uploads, users
+from .routers import auth, collections, comments, messages, notifications, posts, search, uploads, users
 
 init_db()
 
@@ -27,6 +27,7 @@ app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(uploads.router, prefix="/api/v1/uploads", tags=["uploads"])
 app.include_router(posts.router, prefix="/api/v1/posts", tags=["posts"])
 app.include_router(comments.router, prefix="/api/v1", tags=["comments"])
+app.include_router(messages.router, prefix="/api/v1/messages", tags=["messages"])
 app.include_router(collections.router, prefix="/api/v1/collections", tags=["collections"])
 app.include_router(search.router, prefix="/api/v1/search", tags=["search"])
 app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["notifications"])

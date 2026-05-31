@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_user, get_optional_current_user
 from ..database import get_db
 from ..models import Asset, Collection, CollectionFavorite, CollectionItem, Post, User
+from ..notification_service import create_notification, delete_unread_notification, push_notification
 from ..schemas import (
     AuthorSummary,
     CollectionCreate,
@@ -252,11 +253,29 @@ def toggle_collection_favorite(
         CollectionFavorite.user_id == current_user.id,
         CollectionFavorite.collection_id == collection_id,
     ).first()
+    notification = None
     if payload.favorited and favorite is None:
         db.add(CollectionFavorite(user_id=current_user.id, collection_id=collection_id))
+        notification = create_notification(
+            db,
+            recipient_id=collection.owner_id,
+            actor_id=current_user.id,
+            type="collection_favorited",
+            post_id=0,
+            target_user_id=collection.id,
+        )
     elif not payload.favorited and favorite is not None:
         db.delete(favorite)
+        delete_unread_notification(
+            db,
+            recipient_id=collection.owner_id,
+            actor_id=current_user.id,
+            type="collection_favorited",
+            target_user_id=collection.id,
+        )
     db.commit()
+    if notification is not None:
+        push_notification(notification, current_user)
     return CollectionFavoriteResponse(favorited=payload.favorited)
 
 
