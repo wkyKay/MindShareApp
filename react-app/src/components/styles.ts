@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
+  
   shell: {
     flex: 1,
     backgroundColor: '#fff7f3',
@@ -219,6 +220,9 @@ export const styles = StyleSheet.create({
     lineHeight: 22,
     marginTop: 10,
   },
+  cardMarkdownSummary: {
+    marginTop: 10,
+  },
   cardStats: {
     flexDirection: 'row',
     gap: 14,
@@ -359,6 +363,71 @@ export const styles = StyleSheet.create({
     color: '#806f69',
     lineHeight: 21,
     marginTop: 8,
+  },
+  uploadStackedButton: {
+    marginTop: 10,
+  },
+  uploadPreviewPanel: {
+    backgroundColor: '#fffdfb',
+    borderColor: '#f0d7cf',
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 16,
+    padding: 16,
+  },
+  renderedParagraphCard: {
+    backgroundColor: '#ffffff',
+    borderColor: '#f0d7cf',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+  },
+  editingParagraphCard: {
+    backgroundColor: '#fff5f7',
+    borderColor: '#e9bfc4',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 12,
+  },
+  editingParagraphHint: {
+    color: '#a05d6f',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  rawPreviewText: {
+    color: '#5d4e49',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  inlineImageList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 14,
+  },
+  inlineImagePreview: {
+    backgroundColor: '#f4e3dc',
+    borderRadius: 16,
+    height: 92,
+    width: 92,
+  },
+  documentList: {
+    gap: 8,
+    marginTop: 14,
+  },
+  documentListItem: {
+    backgroundColor: '#fff7f3',
+    borderColor: '#f0d7cf',
+    borderRadius: 12,
+    borderWidth: 1,
+    color: '#5d4e49',
+    fontSize: 13,
+    fontWeight: '700',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   tagPanel: {
     backgroundColor: '#fffdfb',
@@ -629,6 +698,13 @@ export const styles = StyleSheet.create({
     lineHeight: 26,
     marginTop: 20,
   },
+  blogImage: {
+    alignSelf: 'center',
+    backgroundColor: '#f4e3dc',
+    borderRadius: 18,
+    maxHeight: 420,
+    width: '100%',
+  },
   commentSection: {
     borderTopColor: '#f0d7cf',
     borderTopWidth: 1,
@@ -784,6 +860,19 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 14,
   },
+  profileHeaderText: {
+    flex: 1,
+  },
+  profileAnalyticsButton: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderColor: '#f0d7cf',
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
+  },
   avatar: {
     alignItems: 'center',
     backgroundColor: '#d94f70',
@@ -841,6 +930,108 @@ export const styles = StyleSheet.create({
     color: '#806f69',
     marginTop: 4,
   },
+  analyticsMetricGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 18,
+  },
+  analyticsMetricGridCompact: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  analyticsMetricItem: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderColor: '#f0d7cf',
+    borderRadius: 16,
+    borderWidth: 1,
+    flex: 1,
+    minWidth: 120,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+  },
+  analyticsMetricValue: {
+    color: '#2f2320',
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  analyticsMetricLabel: {
+    color: '#806f69',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  analyticsCard: {
+    backgroundColor: '#ffffff',
+    borderColor: '#f0d7cf',
+    borderRadius: 20,
+    borderWidth: 1,
+    marginTop: 16,
+    padding: 16,
+  },
+  analyticsCardTitle: {
+    color: '#2f2320',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  analyticsEmptyText: {
+    color: '#806f69',
+    lineHeight: 21,
+    marginTop: 10,
+  },
+  analyticsBarItem: {
+    marginTop: 14,
+  },
+  analyticsBarLabelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  analyticsTagText: {
+    color: '#a05d6f',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  analyticsCountText: {
+    color: '#806f69',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  analyticsBarTrack: {
+    backgroundColor: '#f6e7e2',
+    borderRadius: 999,
+    height: 10,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  analyticsBarFill: {
+    backgroundColor: '#d94f70',
+    borderRadius: 999,
+    height: '100%',
+  },
+  analyticsInsightText: {
+    color: '#5d4e49',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 22,
+    marginTop: 10,
+  },
+  analyticsTopPostItem: {
+    backgroundColor: '#fff7f3',
+    borderColor: '#f0d7cf',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 12,
+  },
+  analyticsTopPostTitle: {
+    color: '#2f2320',
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
   tabBar: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
@@ -897,3 +1088,97 @@ export const styles = StyleSheet.create({
     lineHeight: 36,
   },
 });
+
+export type MarkdownStyle = {
+  body?: object;
+  heading1?: object;
+  heading2?: object;
+  heading3?: object;
+  heading4?: object;
+  paragraph?: object;
+  strong?: object;
+  em?: object;
+  code_inline?: object;
+  code_block?: object;
+  blockquote?: object;
+  bullet_list?: object;
+  ordered_list?: object;
+  list_item?: object;
+  link?: object;
+  fence?: object;
+};
+
+export const markdownStyles = {
+  body: {
+    color: '#3d302c',
+    fontSize: 16,
+    lineHeight: 26,
+    marginTop: 20,
+  },
+  heading1: {
+    color: '#2f2320',
+    fontSize: 28,
+    fontWeight: '800',
+    marginTop: 22,
+    marginBottom: 10,
+  },
+  heading2: {
+    color: '#2f2320',
+    fontSize: 22,
+    fontWeight: '800',
+    marginTop: 18,
+    marginBottom: 8,
+  },
+  heading3: {
+    color: '#2f2320',
+    fontSize: 19,
+    fontWeight: '800',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  heading4: {
+    color: '#5d4e49',
+    fontSize: 17,
+    fontWeight: '700',
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  paragraph: {
+    marginTop: 0,
+    marginBottom: 12,
+  },
+  bullet_list: {
+    marginBottom: 12,
+  },
+  ordered_list: {
+    marginBottom: 12,
+  },
+  blockquote: {
+    borderLeftColor: '#d94f70',
+    borderLeftWidth: 4,
+    color: '#6a5a55',
+    marginBottom: 12,
+    paddingLeft: 12,
+  },
+  code_inline: {
+    backgroundColor: '#f6e7e2',
+    borderRadius: 6,
+    color: '#7b2c3a',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  code_block: {
+    backgroundColor: '#2f2320',
+    borderRadius: 14,
+    color: '#fef7f3',
+    marginBottom: 12,
+    padding: 14,
+  },
+  fence: {
+    backgroundColor: '#2f2320',
+    borderRadius: 14,
+    color: '#fef7f3',
+    marginBottom: 12,
+    padding: 14,
+  },
+} as const;

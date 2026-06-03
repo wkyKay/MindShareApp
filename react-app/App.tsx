@@ -13,6 +13,7 @@ import { MessagesScreen } from './src/screens/MessagesScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { NotificationScreen } from './src/screens/NotificationScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { ProfileAnalyticsScreen } from './src/screens/ProfileAnalyticsScreen';
 import { UploadScreen } from './src/screens/UploadScreen';
 import { AuthorScreen } from './src/screens/AuthorScreen';
 import { useAuthStore } from './src/stores/authStore';
@@ -25,6 +26,7 @@ type RootStackParamList = {
   upload: undefined;
   notifications: undefined;
   profile: undefined;
+  profileAnalytics: undefined;
   auth: undefined;
   blog: { postId: number; focusCommentId?: number };
   author: { authorId: number };
@@ -124,6 +126,17 @@ export default function App() {
                   onOpenPost={(postId) => navigation.navigate('blog', { postId })}
                   onOpenAuthor={(authorId) => openAuthorProfileAware(navigation, authorId)}
                   onOpenTag={(tag) => navigation.navigate('home', { tag })}
+                  onOpenAnalytics={() => navigation.navigate('profileAnalytics')}
+                />
+              )}
+            </Stack.Screen>
+
+            <Stack.Screen name="profileAnalytics">
+              {({ navigation }: AppScreenProps<'profileAnalytics'>) => (
+                <ProfileAnalyticsScreen
+                  onBack={() => navigation.goBack()}
+                  onOpenAuth={() => navigation.navigate('auth')}
+                  onOpenPost={(postId) => navigation.navigate('blog', { postId })}
                 />
               )}
             </Stack.Screen>

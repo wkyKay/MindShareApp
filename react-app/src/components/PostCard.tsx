@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 
+import { MarkdownText } from './MarkdownText';
 import { styles } from './styles';
 
 export type PostCardPost = {
@@ -38,7 +39,11 @@ export function PostCard({ post, showAuthor = false, showStats = false, hasComme
         {hasCommentNotification ? <View style={styles.cardNotificationDot} /> : null}
       </View>
       {!isDeleted && showAuthor && !!author && <Text style={styles.cardMeta}>作者：{author}</Text>}
-      {!isDeleted && !!post.summary && <Text style={styles.cardSummary}>{post.summary}</Text>}
+      {!isDeleted && !!post.summary && (
+        <View style={styles.cardMarkdownSummary}>
+          <MarkdownText>{post.summary}</MarkdownText>
+        </View>
+      )}
       {!isDeleted && !!post.tags?.length && (
         <View style={styles.tagList}>
           {post.tags.map((tag) => (

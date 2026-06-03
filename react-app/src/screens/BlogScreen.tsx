@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, Text, TextInput, View } from 'react-native';
 
-import { styles } from '../components/styles';
+import { markdownStyles, styles } from '../components/styles';
 import { CommentSection } from '../components/CommentSection';
+import { MarkdownText } from '../components/MarkdownText';
 import {
   deletePost,
   getPost,
@@ -35,6 +36,7 @@ export function BlogScreen({ postId, session, focusCommentId, onOpenAuthor, onOp
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [imageRatios, setImageRatios] = useState<Record<string, number>>({});
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -206,7 +208,25 @@ export function BlogScreen({ postId, session, focusCommentId, onOpenAuthor, onOp
           ))}
         </View>
       )}
-      <Text style={styles.blogBody}>{post.body}</Text>
+      {post.image_urls.length > 0 ? (
+        <View style={styles.inlineImageList}>
+          {post.image_urls.map((imageUrl) => (
+            <Image
+              key={imageUrl}
+              source={{ uri: imageUrl }}
+              resizeMode="contain"
+              style={[styles.blogImage, imageRatios[imageUrl] ? { aspectRatio: imageRatios[imageUrl] } : null]}
+              onLoad={(event) => {
+                const { width, height } = event.nativeEvent.source;
+                if (width && height) {
+                  setImageRatios((current) => current[imageUrl] === width / height ? current : { ...current, [imageUrl]: width / height });
+                }
+              }}
+            />
+          ))}
+        </View>
+      ) : null}
+      <MarkdownText style={markdownStyles}>{post.body}</MarkdownText>
 
       <View style={styles.actionRow}>
         <Text style={styles.statText}>点赞 {post.like_count}</Text>

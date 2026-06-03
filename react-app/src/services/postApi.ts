@@ -1,9 +1,11 @@
-import { API_V1_BASE_URL } from '../config/api';
+import { API_BASE_URL, API_V1_BASE_URL } from '../config/api';
 
 export type CreatePostPayload = {
   title: string;
   body: string;
   summary?: string;
+  image_asset_ids?: number[];
+  document_asset_ids?: number[];
   tags: string[];
   visibility: 'public' | 'private';
   status: 'published' | 'draft';
@@ -54,6 +56,24 @@ export type FavoriteResponse = {
   favorite_count: number;
 };
 
+export type UploadedImage = {
+  id: number;
+  kind: string;
+  original_name: string;
+  mime_type: string;
+  file_size: number;
+  url?: string | null;
+};
+
+export type UploadedDocument = UploadedImage;
+
+export type ParsedDocument = {
+  asset_id: number;
+  original_name: string;
+  parse_status: string;
+  extracted_text?: string | null;
+};
+
 async function readErrorMessage(response: Response) {
   try {
     const data = (await response.json()) as { detail?: string | { msg?: string }[] };
@@ -95,7 +115,13 @@ export async function getPost(postId: number, accessToken?: string) {
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }
-  return (await response.json()) as PostDetail;
+  const post = (await response.json()) as PostDetail;
+  return {
+    ...post,
+    body: normalizeMarkdownAssetUrls(post.body),
+    cover_url: normalizeAssetUrl(post.cover_url),
+    image_urls: post.image_urls.map((url) => normalizeAssetUrl(url) || url),
+  };
 }
 
 export async function updatePost(postId: number, payload: UpdatePostPayload, accessToken: string) {
@@ -153,4 +179,90 @@ export async function setPostFavorited(postId: number, favorited: boolean, acces
     throw new Error(await readErrorMessage(response));
   }
   return (await response.json()) as FavoriteResponse;
+}
+
+export async function uploadPostImage(uri: string, fileName: string, accessToken: string) {
+  const formData = new FormData();
+  formData.append('kind', 'image');
+  const imageFile = await createUploadFile(uri, fileName);
+  formData.append('file', imageFile);
+
+  const response = await fetch(`${API_V1_BASE_URL}/uploads/images`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: formData,
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+  const uploaded = (await response.json()) as UploadedImage;
+  return {
+    ...uploaded,
+    url: normalizeAssetUrl(uploaded.url),
+  };
+}
+
+export async function uploadPostDocument(uri: string, fileName: string, accessToken: string, mimeType?: string | null) {
+  const formData = new FormData();
+  formData.append('kind', 'document');
+  const documentFile = await createUploadFile(uri, fileName, mimeType || undefined);
+  formData.append('file', documentFile);
+
+  const response = await fetch(`${API_V1_BASE_URL}/uploads/documents`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: formData,
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+  const uploaded = (await response.json()) as UploadedDocument;
+  return {
+    ...uploaded,
+    url: normalizeAssetUrl(uploaded.url),
+  };
+}
+
+export async function parsePostDocument(uri: string, fileName: string, accessToken: string, mimeType?: string | null) {
+  const formData = new FormData();
+  const documentFile = await createUploadFile(uri, fileName, mimeType || undefined);
+  formData.append('file', documentFile);
+
+  const response = await fetch(`${API_V1_BASE_URL}/uploads/parse-document`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: formData,
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+  return (await response.json()) as ParsedDocument;
+}
+
+async function createUploadFile(uri: string, fileName: string, mimeType?: string) {
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  return new File([blob], fileName, { type: mimeType || blob.type || 'application/octet-stream' });
+}
+
+function normalizeAssetUrl(url?: string | null) {
+  if (!url) {
+    return url;
+  }
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+function normalizeMarkdownAssetUrls(markdown: string) {
+  return markdown.replace(/!\[([^\]]*)\]\((\/uploads\/[^)]+)\)/g, (_match, altText, relativeUrl) => {
+    return `![${altText}](${normalizeAssetUrl(relativeUrl)})`;
+  });
 }

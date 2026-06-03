@@ -12,9 +12,10 @@ type ProfileScreenProps = {
   onOpenPost: (postId: number) => void;
   onOpenAuthor: (authorId: number) => void;
   onOpenTag: (tag: string) => void;
+  onOpenAnalytics: () => void;
 };
 
-export function ProfileScreen({ onOpenAuth, onOpenPost, onOpenAuthor, onOpenTag }: ProfileScreenProps) {
+export function ProfileScreen({ onOpenAuth, onOpenPost, onOpenAuthor, onOpenTag, onOpenAnalytics }: ProfileScreenProps) {
   const session = useAuthStore((state) => state.session);
   const isAuthLoading = useAuthStore((state) => state.isLoading);
   const refreshAuth = useAuthStore((state) => state.refresh);
@@ -59,6 +60,7 @@ export function ProfileScreen({ onOpenAuth, onOpenPost, onOpenAuthor, onOpenTag 
       onOpenPost={onOpenPost}
       onOpenAuthor={onOpenAuthor}
       onOpenTag={onOpenTag}
+      onOpenAnalytics={onOpenAnalytics}
     />
   );
 }

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { CollectionCard } from '../../components/CollectionCard';
 import { PostCard } from '../../components/PostCard';
@@ -37,9 +38,10 @@ type LoggedInProfileScreenProps = {
   onOpenPost: (postId: number) => void;
   onOpenAuthor: (authorId: number) => void;
   onOpenTag: (tag: string) => void;
+  onOpenAnalytics: () => void;
 };
 
-export function LoggedInProfileScreen({ session, onOpenPost, onOpenAuthor, onOpenTag }: LoggedInProfileScreenProps) {
+export function LoggedInProfileScreen({ session, onOpenPost, onOpenAuthor, onOpenTag, onOpenAnalytics }: LoggedInProfileScreenProps) {
   const logoutAuth = useAuthStore((state) => state.logout);
   const unreadByPostId = useNotificationStore((state) => state.unreadByPostId);
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
@@ -283,10 +285,13 @@ export function LoggedInProfileScreen({ session, onOpenPost, onOpenAuthor, onOpe
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{avatarText}</Text>
         </View>
-        <View>
+        <View style={styles.profileHeaderText}>
           <Text style={styles.pageTitle}>{session.user.display_name}</Text>
           <Text style={styles.profileBio}>{session.user.bio || `@${session.user.username} · ${session.user.email}`}</Text>
         </View>
+        <Pressable style={styles.profileAnalyticsButton} onPress={onOpenAnalytics} accessibilityRole="button" accessibilityLabel="查看资料分析">
+          <Ionicons name="bar-chart-outline" size={22} color="#a05d6f" />
+        </Pressable>
       </View>
 
       <Pressable style={styles.backButton} onPress={logoutAuth}>
