@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { FlatList, Keyboard, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
 import type { AuthSession } from '../services/authSession';
 import { createComment, deleteComment, getComments, setCommentLiked, type CommentItem } from '../services/commentsApi';
@@ -13,6 +13,8 @@ type CommentSectionProps = {
   session?: AuthSession | null;
   focusCommentId?: number;
   headerComponent?: React.ReactElement | null;
+  bottomAccessory?: React.ReactElement | null;
+  bottomComposerEnabled?: boolean;
   onRequireAuth: () => void;
   onCommentCountChange: (count: number) => void;
 };
@@ -30,6 +32,8 @@ export function CommentSection({
   session,
   focusCommentId,
   headerComponent = null,
+  bottomAccessory = null,
+  bottomComposerEnabled = true,
   onRequireAuth,
   onCommentCountChange,
 }: CommentSectionProps) {
@@ -47,6 +51,7 @@ export function CommentSection({
   const [hasScrolledToFocus, setHasScrolledToFocus] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const listRef = useRef<FlatList<FlatCommentItem>>(null);
 
   useEffect(() => {
@@ -156,6 +161,22 @@ export function CommentSection({
     const timer = setTimeout(() => setHighlightedCommentId(null), 1800);
     return () => clearTimeout(timer);
   }, [highlightedCommentId]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSubscription = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardInset(event.endCoordinates.height);
+    });
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setKeyboardInset(0);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   async function requireSession() {
     const activeSession = await requireAuthSession();
@@ -302,45 +323,50 @@ export function CommentSection({
   }
 
   return (
-    <FlatList
-      ref={listRef}
-      contentContainerStyle={styles.pageContent}
-      data={flatComments}
-      keyExtractor={(item) => item.id}
-      renderItem={renderCommentItem}
-      ListHeaderComponent={
-        <>
-          {headerComponent}
-          <View style={styles.commentSection}>
-            <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>评论区</Text>
-              {unreadCount > 0 ? <View style={styles.cardNotificationDot} /> : null}
+    <View style={styles.commentScreenContainer}>
+      <FlatList
+        ref={listRef}
+        contentContainerStyle={styles.pageContent}
+        data={flatComments}
+        keyExtractor={(item) => item.id}
+        renderItem={renderCommentItem}
+        ListHeaderComponent={
+          <>
+            {headerComponent}
+            <View style={styles.commentSection}>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitle}>评论区</Text>
+                {unreadCount > 0 ? <View style={styles.cardNotificationDot} /> : null}
+              </View>
+              {unreadCount > 0 ? <Text style={styles.commentNotificationHint}>有新的评论或回复</Text> : null}
+              {isLoading ? <Text style={styles.profileBio}>正在加载评论...</Text> : null}
+              {message ? <Text style={[styles.authApiHint, { color: '#a05d6f' }]}>{message}</Text> : null}
+              {!isLoading && flatComments.length === 0 ? <Text style={styles.profileBio}>暂无评论，来抢第一条。</Text> : null}
             </View>
-            {unreadCount > 0 ? <Text style={styles.commentNotificationHint}>有新的评论或回复</Text> : null}
-            <View style={styles.commentComposer}>
-              <TextInput
-                style={[styles.input, styles.commentInput]}
-                multiline
-                placeholder="写下你的评论..."
-                placeholderTextColor="#a89994"
-                value={body}
-                onChangeText={setBody}
-              />
-              <Pressable style={styles.primaryButton} onPress={() => submitComment()}>
-                <Text style={styles.primaryButtonText}>发布评论</Text>
-              </Pressable>
-            </View>
-            {isLoading ? <Text style={styles.profileBio}>正在加载评论...</Text> : null}
-            {message ? <Text style={[styles.authApiHint, { color: '#a05d6f' }]}>{message}</Text> : null}
-            {!isLoading && flatComments.length === 0 ? <Text style={styles.profileBio}>暂无评论，来抢第一条。</Text> : null}
+          </>
+        }
+        showsVerticalScrollIndicator={false}
+        onScrollToIndexFailed={({ index }) => {
+          setTimeout(() => listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.28 }), 120);
+        }}
+      />
+      {bottomComposerEnabled ? (
+        <View style={[styles.blogBottomBarHost, keyboardInset > 0 && { paddingBottom: keyboardInset + 10 }]}> 
+          <View style={styles.blogBottomBar}>
+            <TextInput
+              style={styles.blogBottomCommentInput}
+              placeholder="说点什么..."
+              placeholderTextColor="#a89994"
+              value={body}
+              onChangeText={setBody}
+              returnKeyType="send"
+              onSubmitEditing={() => submitComment()}
+            />
+            {bottomAccessory}
           </View>
-        </>
-      }
-      showsVerticalScrollIndicator={false}
-      onScrollToIndexFailed={({ index }) => {
-        setTimeout(() => listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.28 }), 120);
-      }}
-    />
+        </View>
+      ) : null}
+    </View>
   );
 }
 

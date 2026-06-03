@@ -22,10 +22,11 @@ type PostCardProps = {
   showStats?: boolean;
   hasCommentNotification?: boolean;
   onPress?: () => void;
+  onLongPress?: () => void;
   onOpenTag?: (tag: string) => void;
 };
 
-export function PostCard({ post, showAuthor = false, showStats = false, hasCommentNotification = false, onPress, onOpenTag }: PostCardProps) {
+export function PostCard({ post, showAuthor = false, showStats = false, hasCommentNotification = false, onPress, onLongPress, onOpenTag }: PostCardProps) {
   const isDeleted = post.is_deleted || post.status === 'deleted';
   const author = typeof post.author === 'string' ? post.author : post.author?.display_name;
   const isDraft = post.status === 'draft';
@@ -65,7 +66,7 @@ export function PostCard({ post, showAuthor = false, showStats = false, hasComme
 
   if (onPress && !isDeleted) {
     return (
-      <Pressable style={cardStyle} onPress={onPress}>
+      <Pressable style={({ pressed }) => [cardStyle, pressed && styles.cardPressed]} onPress={onPress} onLongPress={onLongPress} delayLongPress={320}>
         {content}
       </Pressable>
     );

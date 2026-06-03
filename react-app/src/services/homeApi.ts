@@ -43,10 +43,13 @@ async function readErrorMessage(response: Response) {
   return '请求失败，请稍后重试。';
 }
 
-export async function getDiscoverPosts(page: number = 1, pageSize: number = 10, seed: number = 1, tag?: string | null) {
+export async function getDiscoverPosts(page: number = 1, pageSize: number = 10, seed: number = 1, tag?: string | null, accessToken?: string) {
   const tagParam = tag ? `&tag=${encodeURIComponent(tag)}` : '';
   const response = await fetch(
-    `${API_V1_BASE_URL}/posts?tab=discover&page=${page}&page_size=${pageSize}&seed=${seed}${tagParam}`
+    `${API_V1_BASE_URL}/posts?tab=discover&page=${page}&page_size=${pageSize}&seed=${seed}${tagParam}`,
+    {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    }
   );
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));

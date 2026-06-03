@@ -7,6 +7,7 @@ import { createNativeStackNavigator, type NativeStackScreenProps } from '@react-
 import { BottomTabs, type Page } from './src/components/BottomTabs';
 import { styles } from './src/components/styles';
 import { AuthScreen } from './src/screens/AuthScreen';
+import { AiChatScreen } from './src/screens/AiChatScreen';
 import { BlogScreen } from './src/screens/BlogScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { MessagesScreen } from './src/screens/MessagesScreen';
@@ -22,13 +23,14 @@ import { useNotificationStore } from './src/stores/notificationStore';
 
 type RootStackParamList = {
   home: { tag?: string } | undefined;
+  aiChat: undefined;
   messages: undefined;
   upload: undefined;
-  notifications: undefined;
+  notifications: { category: 'comments' | 'likes' | 'follows' };
   profile: undefined;
   profileAnalytics: undefined;
   auth: undefined;
-  blog: { postId: number; focusCommentId?: number };
+  blog: { postId: number; focusCommentId?: number; startEditing?: boolean };
   author: { authorId: number };
   chat: { conversationId: number; partnerId: number; partnerName: string };
 };
@@ -36,7 +38,7 @@ type RootStackParamList = {
 type AppScreenProps<RouteName extends keyof RootStackParamList> = NativeStackScreenProps<RootStackParamList, RouteName>;
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const tabPages = new Set<string>(['home', 'messages', 'upload', 'notifications', 'profile']);
+const tabPages = new Set<string>(['home', 'aiChat', 'messages', 'upload', 'profile']);
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 export default function App() {
@@ -75,7 +77,14 @@ export default function App() {
     >
       <View style={styles.shell}>
         <View style={styles.app}>
-          <Stack.Navigator initialRouteName="home" screenOptions={{ headerShown: false }}>
+          <Stack.Navigator
+            initialRouteName="home"
+            screenOptions={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+              headerShown: false,
+            }}
+          >
             
             <Stack.Screen name="home">
               {({ navigation, route }: AppScreenProps<'home'>) => (
@@ -88,11 +97,16 @@ export default function App() {
               )}
             </Stack.Screen>
 
+            <Stack.Screen name="aiChat">
+              {() => <AiChatScreen />}
+            </Stack.Screen>
+
             <Stack.Screen name="messages">
               {({ navigation }: AppScreenProps<'messages'>) => (
                 <MessagesScreen
                   onOpenAuth={() => navigation.navigate('auth')}
                   onOpenChat={(conversationId, partnerId, partnerName) => navigation.navigate('chat', { conversationId, partnerId, partnerName })}
+                  onOpenNotificationCategory={(category) => navigation.navigate('notifications', { category })}
                 />
               )}
             </Stack.Screen>
@@ -110,9 +124,11 @@ export default function App() {
             </Stack.Screen>
 
             <Stack.Screen name="notifications">
-              {({ navigation }: AppScreenProps<'notifications'>) => (
+              {({ navigation, route }: AppScreenProps<'notifications'>) => (
                 <NotificationScreen
                   onOpenAuth={() => navigation.navigate('auth')}
+                  onBack={() => navigation.goBack()}
+                  category={route.params.category}
                   onOpenPost={(postId, focusCommentId) => navigation.navigate('blog', { postId, focusCommentId })}
                   onOpenAuthor={(authorId) => openAuthorProfileAware(navigation, authorId)}
                 />
@@ -124,6 +140,7 @@ export default function App() {
                 <ProfileScreen
                   onOpenAuth={() => navigation.navigate('auth')}
                   onOpenPost={(postId) => navigation.navigate('blog', { postId })}
+                  onEditPost={(postId) => navigation.navigate('blog', { postId, startEditing: true })}
                   onOpenAuthor={(authorId) => openAuthorProfileAware(navigation, authorId)}
                   onOpenTag={(tag) => navigation.navigate('home', { tag })}
                   onOpenAnalytics={() => navigation.navigate('profileAnalytics')}
@@ -157,6 +174,7 @@ export default function App() {
                 <BlogScreen
                   postId={route.params.postId}
                   focusCommentId={route.params.focusCommentId}
+                  startEditing={route.params.startEditing}
                   session={authSession}
                   onBack={() => navigation.goBack()}
                   onDeleted={() => {

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Image, Pressable, Text, TextInput, View } from 'react-native';
+import { Image, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 import { markdownStyles, styles } from '../components/styles';
 import { CommentSection } from '../components/CommentSection';
 import { MarkdownText } from '../components/MarkdownText';
 import { BlogDetailSkeleton } from '../components/Skeleton';
+import { useDelayedLoading } from '../hooks/useDelayedLoading';
 import {
   deletePost,
   getPost,
@@ -21,6 +23,7 @@ type BlogScreenProps = {
   postId: number;
   session: AuthSession | null;
   focusCommentId?: number;
+  startEditing?: boolean;
   onBack: () => void;
   onDeleted: () => void;
   onRequireAuth: () => void;
@@ -28,7 +31,7 @@ type BlogScreenProps = {
   onOpenTag: (tag: string) => void;
 };
 
-export function BlogScreen({ postId, session, focusCommentId, onOpenAuthor, onOpenTag, onBack, onDeleted, onRequireAuth }: BlogScreenProps) {
+export function BlogScreen({ postId, session, focusCommentId, startEditing = false, onOpenAuthor, onOpenTag, onBack, onDeleted, onRequireAuth }: BlogScreenProps) {
   const storeSession = useAuthStore((state) => state.session);
   const requireAuthSession = useAuthStore((state) => state.requireSession);
   const currentSession = storeSession ?? session;
@@ -38,7 +41,9 @@ export function BlogScreen({ postId, session, focusCommentId, onOpenAuthor, onOp
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [imageRatios, setImageRatios] = useState<Record<string, number>>({});
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const showSkeleton = useDelayedLoading(isLoading, 250);
 
   useEffect(() => {
     let isMounted = true;
@@ -52,6 +57,7 @@ export function BlogScreen({ postId, session, focusCommentId, onOpenAuthor, onOp
           setPost(data);
           setTitle(data.title);
           setBody(data.body);
+          setIsEditing(startEditing && data.is_owner);
         }
       } catch (error) {
         if (isMounted) {
@@ -69,7 +75,7 @@ export function BlogScreen({ postId, session, focusCommentId, onOpenAuthor, onOp
     return () => {
       isMounted = false;
     };
-  }, [postId, currentSession?.accessToken]);
+  }, [postId, currentSession?.accessToken, startEditing]);
 
   async function requireSession() {
     const activeSession = await requireAuthSession();
@@ -90,6 +96,7 @@ export function BlogScreen({ postId, session, focusCommentId, onOpenAuthor, onOp
     }
     try {
       const data = await setPostLiked(post.id, !post.is_liked, activeSession.accessToken);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setPost({ ...post, is_liked: data.liked, like_count: data.like_count });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '点赞失败。');
@@ -106,6 +113,7 @@ export function BlogScreen({ postId, session, focusCommentId, onOpenAuthor, onOp
     }
     try {
       const data = await setPostFavorited(post.id, !post.is_favorited, activeSession.accessToken);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setPost({ ...post, is_favorited: data.favorited, favorite_count: data.favorite_count });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '收藏失败。');
@@ -146,8 +154,12 @@ export function BlogScreen({ postId, session, focusCommentId, onOpenAuthor, onOp
     setPost((currentPost) => currentPost ? { ...currentPost, comment_count: commentCount } : currentPost);
   }, []);
 
-  if (isLoading) {
+  if (showSkeleton) {
     return <BlogDetailSkeleton onBack={onBack} />;
+  }
+
+  if (isLoading) {
+    return <View style={styles.pageContent} />;
   }
 
   if (!post) {
@@ -205,48 +217,23 @@ export function BlogScreen({ postId, session, focusCommentId, onOpenAuthor, onOp
       {post.image_urls.length > 0 ? (
         <View style={styles.inlineImageList}>
           {post.image_urls.map((imageUrl) => (
-            <Image
-              key={imageUrl}
-              source={{ uri: imageUrl }}
-              resizeMode="contain"
-              style={[styles.blogImage, imageRatios[imageUrl] ? { aspectRatio: imageRatios[imageUrl] } : null]}
-              onLoad={(event) => {
-                const { width, height } = event.nativeEvent.source;
-                if (width && height) {
-                  setImageRatios((current) => current[imageUrl] === width / height ? current : { ...current, [imageUrl]: width / height });
-                }
-              }}
-            />
+            <Pressable key={imageUrl} onPress={() => setPreviewImageUrl(imageUrl)}>
+              <Image
+                source={{ uri: imageUrl }}
+                resizeMode="contain"
+                style={[styles.blogImage, imageRatios[imageUrl] ? { aspectRatio: imageRatios[imageUrl] } : null]}
+                onLoad={(event) => {
+                  const { width, height } = event.nativeEvent.source;
+                  if (width && height) {
+                    setImageRatios((current) => current[imageUrl] === width / height ? current : { ...current, [imageUrl]: width / height });
+                  }
+                }}
+              />
+            </Pressable>
           ))}
         </View>
       ) : null}
       <MarkdownText style={markdownStyles}>{post.body}</MarkdownText>
-
-      <View style={styles.actionRow}>
-        <Text style={styles.statText}>点赞 {post.like_count}</Text>
-        <Text style={styles.statText}>评论 {post.comment_count}</Text>
-        <Text style={styles.statText}>收藏 {post.favorite_count}</Text>
-      </View>
-
-      {!post.is_owner && (
-        <View style={styles.actionRow}>
-          <Pressable onPress={toggleLike}>
-            <Ionicons
-              name={post.is_liked ? 'heart' : 'heart-outline'}
-              size={20}
-              color={post.is_liked ? '#e74c3c' : '#9a8f8a'}
-            />
-          </Pressable>
-
-          <Pressable onPress={toggleFavorite}>
-            <Ionicons
-              name={post.is_favorited ? 'star' : 'star-outline'}
-              size={20}
-              color={post.is_favorited ? '#f39c12' : '#9a8f8a'}
-            />
-          </Pressable>
-        </View>
-      )}
       {post.is_owner && (
         <>
           <Pressable style={styles.primaryButton} onPress={() => setIsEditing(true)}>
@@ -258,8 +245,31 @@ export function BlogScreen({ postId, session, focusCommentId, onOpenAuthor, onOp
         </>
       )}
       {!!message && <Text style={[styles.authApiHint, { color: '#a05d6f' }]}>{message}</Text>}
+      <Modal visible={!!previewImageUrl} transparent animationType="fade" onRequestClose={() => setPreviewImageUrl(null)}>
+        <Pressable style={styles.imagePreviewOverlay} onPress={() => setPreviewImageUrl(null)}>
+          {previewImageUrl ? <Image source={{ uri: previewImageUrl }} resizeMode="contain" style={styles.imagePreview} /> : null}
+          <Text style={styles.imagePreviewHint}>点击关闭</Text>
+        </Pressable>
+      </Modal>
     </>
   );
+
+  const bottomAccessory = !isEditing ? (
+    <View style={styles.blogBottomActions}>
+      <Pressable style={styles.blogBottomActionButton} onPress={post.is_owner ? undefined : toggleLike} disabled={post.is_owner}>
+        <Ionicons name={post.is_liked ? 'heart' : 'heart-outline'} size={22} color={post.is_liked ? '#e74c3c' : '#7a6862'} />
+        <Text style={styles.blogBottomActionText}>{post.like_count}</Text>
+      </Pressable>
+      <View style={styles.blogBottomActionButton}>
+        <Ionicons name="chatbubble-outline" size={21} color="#7a6862" />
+        <Text style={styles.blogBottomActionText}>{post.comment_count}</Text>
+      </View>
+      <Pressable style={styles.blogBottomActionButton} onPress={post.is_owner ? undefined : toggleFavorite} disabled={post.is_owner}>
+        <Ionicons name={post.is_favorited ? 'star' : 'star-outline'} size={22} color={post.is_favorited ? '#f39c12' : '#7a6862'} />
+        <Text style={styles.blogBottomActionText}>{post.favorite_count}</Text>
+      </Pressable>
+    </View>
+  ) : null;
 
   return (
     <CommentSection
@@ -267,6 +277,8 @@ export function BlogScreen({ postId, session, focusCommentId, onOpenAuthor, onOp
       session={currentSession}
       focusCommentId={focusCommentId}
       headerComponent={content}
+      bottomAccessory={bottomAccessory}
+      bottomComposerEnabled={!isEditing}
       onRequireAuth={onRequireAuth}
       onCommentCountChange={handleCommentCountChange}
     />

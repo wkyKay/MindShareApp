@@ -8,13 +8,16 @@ import { useNotificationStore } from '../stores/notificationStore';
 
 type NotificationScreenProps = {
   onOpenAuth: () => void;
+  onBack: () => void;
+  category: 'comments' | 'likes' | 'follows';
   onOpenPost: (postId: number, focusCommentId?: number) => void;
   onOpenAuthor: (authorId: number) => void;
 };
 
-export function NotificationScreen({ onOpenAuth, onOpenPost, onOpenAuthor }: NotificationScreenProps) {
+export function NotificationScreen({ onOpenAuth, onBack, category, onOpenPost, onOpenAuthor }: NotificationScreenProps) {
   const session = useAuthStore((state) => state.session);
   const notifications = useNotificationStore((state) => state.notifications);
+  const filteredNotifications = notifications.filter((item) => matchesCategory(item.type, category));
   const refreshNotifications = useNotificationStore((state) => state.refreshNotifications);
   const markPostRead = useNotificationStore((state) => state.markPostRead);
   const markNotificationRead = useNotificationStore((state) => state.markNotificationRead);
@@ -28,8 +31,13 @@ export function NotificationScreen({ onOpenAuth, onOpenPost, onOpenAuthor }: Not
   if (!session) {
     return (
       <ScrollView contentContainerStyle={styles.pageContent}>
-        <Text style={styles.pageTitle}>消息通知</Text>
-        <Text style={styles.profileBio}>登录后可以查看评论和回复通知。</Text>
+        <View style={styles.pageHeaderRow}>
+          <Pressable style={styles.backButtonCompact} onPress={onBack}>
+            <Text style={styles.backButtonText}>‹ 返回</Text>
+          </Pressable>
+          <Text style={styles.pageTitle}>消息通知</Text>
+        </View>
+        <Text style={styles.profileBio}>登录后可以查看你的消息通知。</Text>
         <Pressable style={styles.primaryButton} onPress={onOpenAuth}>
           <Text style={styles.primaryButtonText}>去登录</Text>
         </Pressable>
@@ -38,12 +46,19 @@ export function NotificationScreen({ onOpenAuth, onOpenPost, onOpenAuthor }: Not
   }
 
   return (
-    <FlatList
-      contentContainerStyle={styles.pageContent}
-      data={notifications}
+      <FlatList
+        contentContainerStyle={styles.pageContent}
+      data={filteredNotifications}
       keyExtractor={(item) => String(item.id)}
-      ListHeaderComponent={<Text style={styles.pageTitle}>消息通知</Text>}
-      ListEmptyComponent={<Text style={[styles.profileBio, { paddingTop: 16 }]}>暂时没有新的通知。</Text>}
+      ListHeaderComponent={(
+        <View style={styles.pageHeaderRow}>
+          <Pressable style={styles.backButtonCompact} onPress={onBack}>
+            <Text style={styles.backButtonText}>‹ 返回</Text>
+          </Pressable>
+          <Text style={styles.pageTitle}>{getCategoryTitle(category)}</Text>
+        </View>
+      )}
+      ListEmptyComponent={<Text style={[styles.profileBio, { paddingTop: 16 }]}>暂时没有这类通知。</Text>}
       renderItem={({ item }) => (
         <Pressable
           style={[styles.notificationCard, item.is_read && styles.notificationCardRead]}
@@ -69,6 +84,22 @@ export function NotificationScreen({ onOpenAuth, onOpenPost, onOpenAuthor }: Not
       showsVerticalScrollIndicator={false}
     />
   );
+}
+
+function getCategoryTitle(category: 'comments' | 'likes' | 'follows') {
+  if (category === 'comments') return '评论我的';
+  if (category === 'likes') return '赞和喜欢';
+  return '关注我的';
+}
+
+function matchesCategory(type: string, category: 'comments' | 'likes' | 'follows') {
+  if (category === 'comments') {
+    return type === 'comment_created' || type === 'comment_reply';
+  }
+  if (category === 'likes') {
+    return type === 'post_liked' || type === 'comment_liked';
+  }
+  return type === 'user_followed';
 }
 
 function buildNotificationTitle(item: { type: 'comment_created' | 'comment_reply' | 'comment_liked' | 'post_liked' | 'post_favorited' | 'collection_favorited' | 'user_followed'; actor: { display_name: string }; post_title?: string | null }) {

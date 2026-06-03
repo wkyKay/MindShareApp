@@ -106,6 +106,14 @@ export async function markConversationRead(accessToken: string, conversationId: 
   if (!response.ok) throw new Error(await readErrorMessage(response));
 }
 
+export async function deleteConversation(accessToken: string, conversationId: number) {
+  const response = await fetch(`${API_V1_BASE_URL}/messages/conversations/${conversationId}`, {
+    method: 'DELETE',
+    headers: authHeaders(accessToken),
+  });
+  if (!response.ok) throw new Error(await readErrorMessage(response));
+}
+
 export async function getMessageUnreadCount(accessToken: string) {
   const response = await fetch(`${API_V1_BASE_URL}/messages/unread-count`, {
     headers: authHeaders(accessToken),

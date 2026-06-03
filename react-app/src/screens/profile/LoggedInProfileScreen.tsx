@@ -27,6 +27,7 @@ import {
 } from '../../services/profileApi';
 import { useAuthStore } from '../../stores/authStore';
 import { useNotificationStore } from '../../stores/notificationStore';
+import { deletePost } from '../../services/postApi';
 import { CollectionForm } from './CollectionForm';
 import { MovePostPanel } from './MovePostPanel';
 import { ProfileStats, type ProfileTab } from './ProfileStats';
@@ -36,12 +37,13 @@ import { FollowingTabItem } from './tabs/FollowingTab';
 type LoggedInProfileScreenProps = {
   session: AuthSession;
   onOpenPost: (postId: number) => void;
+  onEditPost: (postId: number) => void;
   onOpenAuthor: (authorId: number) => void;
   onOpenTag: (tag: string) => void;
   onOpenAnalytics: () => void;
 };
 
-export function LoggedInProfileScreen({ session, onOpenPost, onOpenAuthor, onOpenTag, onOpenAnalytics }: LoggedInProfileScreenProps) {
+export function LoggedInProfileScreen({ session, onOpenPost, onEditPost, onOpenAuthor, onOpenTag, onOpenAnalytics }: LoggedInProfileScreenProps) {
   const logoutAuth = useAuthStore((state) => state.logout);
   const unreadByPostId = useNotificationStore((state) => state.unreadByPostId);
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
@@ -58,6 +60,7 @@ export function LoggedInProfileScreen({ session, onOpenPost, onOpenAuthor, onOpe
   const [editingCollection, setEditingCollection] = useState<ProfileCollection | null>(null);
   const [isCollectionFormOpen, setIsCollectionFormOpen] = useState(false);
   const [movingPost, setMovingPost] = useState<ProfilePost | null>(null);
+  const [actionPostId, setActionPostId] = useState<number | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -123,6 +126,7 @@ export function LoggedInProfileScreen({ session, onOpenPost, onOpenAuthor, onOpe
     setSelectedCollection(null);
     setCollectionPosts([]);
     setMovingPost(null);
+    setActionPostId(null);
     resetCollectionForm();
     setActiveTab(tab);
   }
@@ -222,6 +226,38 @@ export function LoggedInProfileScreen({ session, onOpenPost, onOpenAuthor, onOpe
       setCollections((current) => current.map((item) => item.id === selectedCollection.id ? { ...item, item_count: Math.max(0, (item.item_count ?? 0) - 1) } : item));
     } catch (error) {
       setContentMessage(error instanceof Error ? error.message : '移出合集失败。');
+    } finally {
+      setIsContentLoading(false);
+    }
+  }
+
+  function editProfilePost(post: ProfilePost) {
+    setActionPostId(null);
+    onEditPost(post.id);
+  }
+
+  function startMoveProfilePost(post: ProfilePost) {
+    setActionPostId(null);
+    setMovingPost(post);
+  }
+
+  function confirmDeletePost(post: ProfilePost) {
+    const confirm = typeof globalThis.confirm === 'function' ? globalThis.confirm('删除这篇博客？') : true;
+    if (confirm) {
+      void handleDeletePost(post);
+    }
+  }
+
+  async function handleDeletePost(post: ProfilePost) {
+    setActionPostId(null);
+    setIsContentLoading(true);
+    setContentMessage('');
+    try {
+      await deletePost(post.id, session.accessToken);
+      setPosts((current) => current.filter((item) => item.id !== post.id));
+      setCollectionPosts((current) => current.filter((item) => item.id !== post.id));
+    } catch (error) {
+      setContentMessage(error instanceof Error ? error.message : '博客删除失败。');
     } finally {
       setIsContentLoading(false);
     }
@@ -348,25 +384,46 @@ export function LoggedInProfileScreen({ session, onOpenPost, onOpenAuthor, onOpe
     const hasCommentNotification = (unreadByPostId[post.id] || 0) > 0;
     return (
       <View>
+        {activeTab === 'posts' && !selectedCollection && actionPostId === post.id ? (
+          <View style={styles.postCardActionMenuRow}>
+            <Pressable style={[styles.postCardActionButton, styles.postCardActionButtonMuted]} onPress={() => editProfilePost(post)}>
+              <Text style={styles.postCardActionText}>编辑</Text>
+            </Pressable>
+            <Pressable style={[styles.postCardActionButton, styles.postCardActionButtonMuted]} onPress={() => startMoveProfilePost(post)}>
+              <Text style={styles.postCardActionText}>加入合集</Text>
+            </Pressable>
+            <Pressable style={styles.postCardActionButton} onPress={() => confirmDeletePost(post)}>
+              <Text style={[styles.postCardActionText, styles.postCardActionDangerText]}>删除</Text>
+            </Pressable>
+            <Pressable style={[styles.postCardActionButton, styles.postCardActionButtonMuted]} onPress={() => setActionPostId(null)}>
+              <Ionicons name="close" size={16} color="#a05d6f" />
+            </Pressable>
+          </View>
+        ) : null}
+
+        {activeTab === 'posts' && !selectedCollection ? (
+          <MovePostPanel
+            post={post}
+            collections={collections}
+            isOpen={movingPost?.id === post.id}
+            onMoveToCollection={movePostToCollection}
+            onCancel={() => setMovingPost(null)}
+          />
+        ) : null}
         <PostCard
           key={post.id}
           post={post}
           showAuthor={showAuthor}
           showStats
           hasCommentNotification={activeTab === 'posts' && !selectedCollection && hasCommentNotification}
-          onPress={() => onOpenPost(post.id)}
+          onPress={() => {
+            setActionPostId(null);
+            onOpenPost(post.id);
+          }}
+          onLongPress={activeTab === 'posts' && !selectedCollection ? () => setActionPostId(post.id) : undefined}
           onOpenTag={onOpenTag}
         />
-        {activeTab === 'posts' && !selectedCollection ? (
-          <MovePostPanel
-            post={post}
-            collections={collections}
-            isOpen={movingPost?.id === post.id}
-            onOpen={() => setMovingPost(post)}
-            onMoveToCollection={movePostToCollection}
-            onCancel={() => setMovingPost(null)}
-          />
-        ) : null}
+        
         {selectedCollection ? (
           <View style={[styles.compactActionRow, { marginTop: -8, marginBottom: 14 }]}>
             <Pressable style={[styles.compactActionButton, styles.compactDangerButton]} onPress={() => removeCurrentCollectionPost(post)}>

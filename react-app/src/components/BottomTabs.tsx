@@ -4,7 +4,7 @@ import { styles } from './styles';
 import { useMessageStore } from '../stores/messageStore';
 import { useNotificationStore } from '../stores/notificationStore';
 
-export type Page = 'home' | 'messages' | 'upload' | 'notifications' | 'profile' | 'auth';
+export type Page = 'home' | 'aiChat' | 'messages' | 'upload' | 'profile' | 'auth';
 
 type BottomTabsProps = {
   activePage: Exclude<Page, 'auth'>;
@@ -18,11 +18,11 @@ export function BottomTabs({ activePage, onChangePage }: BottomTabsProps) {
   return (
     <View style={styles.tabBar}>
       <TabButton active={activePage === 'home'} label="首页" onPress={() => onChangePage('home')} />
-      <TabButton active={activePage === 'messages'} label="私信" badgeCount={messageUnreadCount} onPress={() => onChangePage('messages')} />
+      <TabButton active={activePage === 'aiChat'} label="AI聊天" onPress={() => onChangePage('aiChat')} />
       <Pressable style={styles.createButton} onPress={() => onChangePage('upload')}>
         <Text style={styles.createButtonText}>＋</Text>
       </Pressable>
-      <TabButton active={activePage === 'notifications'} label="消息" badgeCount={unreadCount} onPress={() => onChangePage('notifications')} />
+      <TabButton active={activePage === 'messages'} label="消息" badgeCount={unreadCount + messageUnreadCount} onPress={() => onChangePage('messages')} />
       <TabButton active={activePage === 'profile'} label="我的" onPress={() => onChangePage('profile')} />
     </View>
   );

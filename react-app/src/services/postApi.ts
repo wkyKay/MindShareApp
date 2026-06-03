@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import { API_BASE_URL, API_V1_BASE_URL } from '../config/api';
 
 export type CreatePostPayload = {
@@ -181,10 +183,23 @@ export async function setPostFavorited(postId: number, favorited: boolean, acces
   return (await response.json()) as FavoriteResponse;
 }
 
+export async function dislikePost(postId: number, accessToken: string) {
+  const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}/dislike`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+  return (await response.json()) as { disliked: boolean };
+}
+
 export async function uploadPostImage(uri: string, fileName: string, accessToken: string) {
   const formData = new FormData();
   formData.append('kind', 'image');
-  const imageFile = await createUploadFile(uri, fileName);
+  const imageFile = await createUploadFile(uri, fileName, guessMimeType(fileName, 'image/jpeg'));
   formData.append('file', imageFile);
 
   const response = await fetch(`${API_V1_BASE_URL}/uploads/images`, {
@@ -246,9 +261,30 @@ export async function parsePostDocument(uri: string, fileName: string, accessTok
 }
 
 async function createUploadFile(uri: string, fileName: string, mimeType?: string) {
+  if (Platform.OS !== 'web') {
+    return {
+      uri,
+      name: fileName,
+      type: mimeType || guessMimeType(fileName, 'application/octet-stream'),
+    } as unknown as Blob;
+  }
+
   const response = await fetch(uri);
   const blob = await response.blob();
   return new File([blob], fileName, { type: mimeType || blob.type || 'application/octet-stream' });
+}
+
+function guessMimeType(fileName: string, fallback: string) {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'gif') return 'image/gif';
+  if (ext === 'pdf') return 'application/pdf';
+  if (ext === 'doc') return 'application/msword';
+  if (ext === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (ext === 'md') return 'text/markdown';
+  return fallback;
 }
 
 function normalizeAssetUrl(url?: string | null) {
