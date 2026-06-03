@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from 'react-native';
 
 import { PostCard } from '../components/PostCard';
+import { HomePostListSkeleton } from '../components/Skeleton';
 import { styles } from '../components/styles';
 import type { AuthSession } from '../services/authSession';
 import { getDiscoverPosts, getFollowingPosts, getTagSuggestions, type Post } from '../services/homeApi';
@@ -28,6 +29,7 @@ export function HomeScreen({ onOpenPost, onOpenTag, session, selectedRouteTag }:
   const [followingHasMore, setFollowingHasMore] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [contentMessage, setContentMessage] = useState('');
 
   const discoverSeed = useRef(Date.now());
@@ -37,7 +39,25 @@ export function HomeScreen({ onOpenPost, onOpenTag, session, selectedRouteTag }:
   const hasMore = isDiscover ? discoverHasMore : followingHasMore;
 
   useEffect(() => {
-    void loadDiscoverPage(1, true, selectedRouteTag ?? null);
+    let isMounted = true;
+    async function loadInitialPosts() {
+      setIsInitialLoading(true);
+      try {
+        await loadDiscoverPage(1, true, selectedRouteTag ?? null);
+      } catch (error) {
+        if (isMounted) {
+          setContentMessage(error instanceof Error ? error.message : '内容加载失败');
+        }
+      } finally {
+        if (isMounted) {
+          setIsInitialLoading(false);
+        }
+      }
+    }
+    void loadInitialPosts();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -138,7 +158,10 @@ export function HomeScreen({ onOpenPost, onOpenTag, session, selectedRouteTag }:
       setFollowingPage(0);
       setFollowingHasMore(true);
       if (session?.accessToken) {
-        void loadFollowingPage(1, session.accessToken, true);
+        setIsInitialLoading(true);
+        void loadFollowingPage(1, session.accessToken, true)
+          .catch((error) => setContentMessage(error instanceof Error ? error.message : '内容加载失败'))
+          .finally(() => setIsInitialLoading(false));
       }
     }
   }
@@ -152,11 +175,14 @@ export function HomeScreen({ onOpenPost, onOpenTag, session, selectedRouteTag }:
     setDiscoverPosts([]);
     setDiscoverPage(0);
     setDiscoverHasMore(true);
+    setIsInitialLoading(true);
     discoverSeed.current = Date.now();
     try {
       await loadDiscoverPage(1, true, normalized);
     } catch (error) {
       setContentMessage(error instanceof Error ? error.message : '内容加载失败');
+    } finally {
+      setIsInitialLoading(false);
     }
   }
 
@@ -171,6 +197,9 @@ export function HomeScreen({ onOpenPost, onOpenTag, session, selectedRouteTag }:
   }
 
   function renderFooter() {
+    if (isInitialLoading && posts.length === 0) {
+      return <HomePostListSkeleton />;
+    }
     if (isLoadingMore) {
       return <ActivityIndicator style={{ padding: 16 }} />;
     }

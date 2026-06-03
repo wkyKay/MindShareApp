@@ -4,6 +4,7 @@ import { Image, Pressable, Text, TextInput, View } from 'react-native';
 import { markdownStyles, styles } from '../components/styles';
 import { CommentSection } from '../components/CommentSection';
 import { MarkdownText } from '../components/MarkdownText';
+import { BlogDetailSkeleton } from '../components/Skeleton';
 import {
   deletePost,
   getPost,
@@ -146,14 +147,7 @@ export function BlogScreen({ postId, session, focusCommentId, onOpenAuthor, onOp
   }, []);
 
   if (isLoading) {
-    return (
-      <View style={styles.pageContent}>
-        <Pressable style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backButtonText}>‹ 返回</Text>
-        </Pressable>
-        <Text style={styles.profileBio}>正在加载博客...</Text>
-      </View>
-    );
+    return <BlogDetailSkeleton onBack={onBack} />;
   }
 
   if (!post) {
