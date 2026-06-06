@@ -5,6 +5,8 @@ import { StreamdownRN } from "streamdown-rn";
 import type { StreamdownRNProps } from "streamdown-rn";
 
 import { API_BASE_URL } from "../config/api";
+import { useAppTheme } from "../theme/ThemeProvider";
+import type { AppColors } from "../theme/colors";
 
 type MarkdownTextProps = {
   children: string;
@@ -17,10 +19,43 @@ type MarkdownPart =
   | { type: "ordered_list"; items: Array<{ marker: number; text: string }> }
   | { type: "bullet_list"; items: string[] };
 
-const markdownTheme: Exclude<
+type StreamdownTheme = Exclude<
   StreamdownRNProps["theme"],
   "dark" | "light" | undefined
-> = {
+>;
+
+function createMarkdownTheme(colors: AppColors): StreamdownTheme {
+  return {
+    colors: {
+      background: colors.background,
+      foreground: colors.text,
+      muted: colors.textSubtle,
+      accent: colors.primary,
+      codeBackground: colors.surfaceSoft,
+      codeForeground: colors.text,
+      border: colors.border,
+      link: colors.primaryText,
+      syntaxDefault: colors.text,
+      syntaxKeyword: colors.primary,
+      syntaxString: colors.warningText,
+      syntaxNumber: colors.warningText,
+      syntaxComment: colors.textSubtle,
+      syntaxFunction: colors.primaryText,
+      syntaxClass: colors.warningText,
+      syntaxOperator: colors.text,
+    },
+    fonts: {
+      mono: "Menlo",
+    },
+    spacing: {
+      block: 12,
+      inline: 4,
+      indent: 12,
+    },
+  };
+}
+
+const fallbackMarkdownTheme: StreamdownTheme = {
   colors: {
     background: "#f5f5f5",
     foreground: "#3d302c",
@@ -129,6 +164,7 @@ function splitMarkdownParts(markdown: string): MarkdownPart[] {
 }
 
 function MarkdownImage({ uri, alt }: { uri: string; alt?: string }) {
+  const { colors } = useAppTheme();
   const [aspectRatio, setAspectRatio] = useState(16 / 9);
 
   return (
@@ -141,7 +177,7 @@ function MarkdownImage({ uri, alt }: { uri: string; alt?: string }) {
         maxHeight: 420,
         borderRadius: 18,
         marginBottom: 12,
-        backgroundColor: "#f4e3dc",
+        backgroundColor: colors.surfaceSoft,
       }}
       accessibilityLabel={alt || i18n.t("图片")}
       onLoad={(event) => {
@@ -159,6 +195,13 @@ function MarkdownList({
 }: {
   part: Extract<MarkdownPart, { type: "ordered_list" | "bullet_list" }>;
 }) {
+  const { colors } = useAppTheme();
+  const listTextStyle = {
+    color: colors.text,
+    fontSize: 16,
+    lineHeight: 24,
+  };
+
   if (part.type === "ordered_list") {
     return (
       <View style={{ marginBottom: 12 }}>
@@ -169,9 +212,7 @@ function MarkdownList({
           >
             <Text
               style={{
-                color: "#3d302c",
-                fontSize: 16,
-                lineHeight: 24,
+                ...listTextStyle,
                 width: 28,
               }}
             >
@@ -179,10 +220,8 @@ function MarkdownList({
             </Text>
             <Text
               style={{
-                color: "#3d302c",
+                ...listTextStyle,
                 flex: 1,
-                fontSize: 16,
-                lineHeight: 24,
               }}
             >
               {item.text}
@@ -203,9 +242,7 @@ function MarkdownList({
           >
             <Text
               style={{
-                color: "#3d302c",
-                fontSize: 16,
-                lineHeight: 24,
+                ...listTextStyle,
                 width: 28,
               }}
             >
@@ -213,10 +250,8 @@ function MarkdownList({
             </Text>
             <Text
               style={{
-                color: "#3d302c",
+                ...listTextStyle,
                 flex: 1,
-                fontSize: 16,
-                lineHeight: 24,
               }}
             >
               {item}
@@ -229,6 +264,8 @@ function MarkdownList({
 }
 
 export function MarkdownText({ children, style }: MarkdownTextProps) {
+  const { colors } = useAppTheme();
+  const markdownTheme = useMemo(() => createMarkdownTheme(colors), [colors]);
   const preparedContent = useMemo(
     () => normalizeMarkdownAssets(children || ""),
     [children],
@@ -257,7 +294,11 @@ export function MarkdownText({ children, style }: MarkdownTextProps) {
           return null;
         }
         return (
-          <StreamdownRN key={index} theme={markdownTheme} isComplete>
+          <StreamdownRN
+            key={index}
+            theme={markdownTheme ?? fallbackMarkdownTheme}
+            isComplete
+          >
             {part.content}
           </StreamdownRN>
         );

@@ -11,7 +11,6 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Swipeable } from "react-native-gesture-handler";
 
-import { styles } from "../components/styles";
 import {
   createOrGetConversation,
   deleteConversation,
@@ -26,6 +25,8 @@ import { useMessageStore } from "../stores/messageStore";
 import { useNotificationStore } from "../stores/notificationStore";
 import { formatDateTimeMinute } from "../utils/time";
 import { useTranslation } from "react-i18next";
+import { useAppStyles } from "../theme/ThemeProvider";
+import type { AppStyles } from "../components/styles";
 
 type NotificationCategory = "comments" | "likes" | "follows";
 
@@ -44,6 +45,7 @@ export function MessagesScreen({
   onOpenChat,
   onOpenNotificationCategory,
 }: MessagesScreenProps) {
+  const styles = useAppStyles();
   const session = useAuthStore((state) => state.session);
   const latestMessageByConversation = useMessageStore(
     (state) => state.latestMessageByConversation,
@@ -185,6 +187,7 @@ export function MessagesScreen({
               <MessageAvatar
                 name={user.display_name}
                 avatarUrl={user.avatar_url}
+                styles={styles}
               />
 
               <View style={styles.messageRowTextBlock}>
@@ -202,6 +205,7 @@ export function MessagesScreen({
           label={t("评论我的")}
           unreadCount={commentUnread}
           onPress={() => onOpenNotificationCategory("comments")}
+          styles={styles}
         />
 
         <MessageShortcut
@@ -209,6 +213,7 @@ export function MessagesScreen({
           label={t("赞过我的")}
           unreadCount={likeUnread}
           onPress={() => onOpenNotificationCategory("likes")}
+          styles={styles}
         />
 
         <MessageShortcut
@@ -216,6 +221,7 @@ export function MessagesScreen({
           label={t("关注我的")}
           unreadCount={followUnread}
           onPress={() => onOpenNotificationCategory("follows")}
+          styles={styles}
         />
       </View>
 
@@ -236,6 +242,7 @@ export function MessagesScreen({
                 <MessageAvatar
                   name={user.display_name}
                   avatarUrl={user.avatar_url}
+                  styles={styles}
                 />
 
                 <Text style={styles.followingMessageName} numberOfLines={1}>
@@ -268,6 +275,7 @@ export function MessagesScreen({
               onOpenChat(item.id, item.partner.id, item.partner.display_name)
             }
             onDelete={() => void removeConversation(item.id)}
+            styles={styles}
             t={t}
           />
         ))
@@ -292,6 +300,7 @@ function SwipeConversationRow({
   unreadCount,
   onOpen,
   onDelete,
+  styles,
   t,
 }: {
   item: ConversationItem;
@@ -299,6 +308,7 @@ function SwipeConversationRow({
   unreadCount: number;
   onOpen: () => void;
   onDelete: () => void;
+  styles: AppStyles;
   t: (key: string) => string;
 }) {
   const swipeableRef = useRef<Swipeable>(null);
@@ -324,6 +334,7 @@ function SwipeConversationRow({
           <MessageAvatar
             name={item.partner.display_name}
             avatarUrl={item.partner.avatar_url}
+            styles={styles}
           />
 
           <View style={styles.messageRowTextBlock}>
@@ -349,9 +360,11 @@ function SwipeConversationRow({
 function MessageAvatar({
   name,
   avatarUrl,
+  styles,
 }: {
   name: string;
   avatarUrl?: string | null;
+  styles: AppStyles;
 }) {
   const { t } = useTranslation();
   const initial = name.trim().slice(0, 1) || t("聊");
@@ -370,11 +383,13 @@ function MessageShortcut({
   label,
   unreadCount,
   onPress,
+  styles,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   unreadCount: number;
   onPress: () => void;
+  styles: AppStyles;
 }) {
   return (
     <Pressable style={styles.messageShortcutCard} onPress={onPress}>

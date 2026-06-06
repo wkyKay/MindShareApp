@@ -2,11 +2,11 @@ import { useCallback } from "react";
 import { FlatList, Pressable, ScrollView, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { styles } from "../components/styles";
 import { useAuthStore } from "../stores/authStore";
 import { useNotificationStore } from "../stores/notificationStore";
 import { formatDateTimeMinute } from "../utils/time";
 import { useTranslation } from "react-i18next";
+import { useAppStyles } from "../theme/ThemeProvider";
 
 type NotificationScreenProps = {
   onOpenAuth: () => void;
@@ -23,6 +23,7 @@ export function NotificationScreen({
   onOpenPost,
   onOpenAuthor,
 }: NotificationScreenProps) {
+  const styles = useAppStyles();
   const session = useAuthStore((state) => state.session);
   const notifications = useNotificationStore((state) => state.notifications);
   const filteredNotifications = notifications.filter((item) =>

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, Text, TextInput, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { styles } from "../components/styles";
 import { useAuthStore } from "../stores/authStore";
 import { useMessageStore } from "../stores/messageStore";
 import {
@@ -13,6 +12,7 @@ import {
 } from "../services/messagesApi";
 import { formatDateTimeMinute, sameMinute } from "../utils/time";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 type ChatScreenProps = {
   conversationId: number;
@@ -29,6 +29,7 @@ export function ChatScreen({
   onBack,
   onRequireAuth,
 }: ChatScreenProps) {
+  const { colors, styles } = useAppTheme();
   const session = useAuthStore((state) => state.session);
   const latestMessage = useMessageStore(
     (state) => state.latestMessageByConversation[conversationId],
@@ -103,6 +104,7 @@ export function ChatScreen({
       </View>
 
       <FlatList
+        style={styles.chatList}
         contentContainerStyle={styles.chatListContent}
         data={invertedMessages}
         inverted
@@ -140,7 +142,7 @@ export function ChatScreen({
           style={styles.chatComposerInput}
           multiline
           placeholder={t("输入消息...")}
-          placeholderTextColor="#9a8f8a"
+          placeholderTextColor={colors.textSubtle}
           value={body}
           onChangeText={setBody}
         />
@@ -154,7 +156,7 @@ export function ChatScreen({
           style={[
             styles.authApiHint,
             styles.chatComposerHint,
-            { color: "#a05d6f" },
+            { color: colors.primaryText },
           ]}
         >
           {message}

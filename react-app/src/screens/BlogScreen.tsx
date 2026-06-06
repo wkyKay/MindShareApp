@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Image, Modal, Pressable, Text, TextInput, View } from "react-native";
 import * as Haptics from "expo-haptics";
 
-import { markdownStyles, styles } from "../components/styles";
 import { CommentSection } from "../components/CommentSection";
 import { MarkdownText } from "../components/MarkdownText";
 import { BlogDetailSkeleton } from "../components/Skeleton";
@@ -21,6 +20,7 @@ import { useAuthStore } from "../stores/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import { formatDateTimeMinute } from "../utils/time";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 type BlogScreenProps = {
   postId: number;
@@ -45,6 +45,7 @@ export function BlogScreen({
   onDeleted,
   onRequireAuth,
 }: BlogScreenProps) {
+  const { colors, styles } = useAppTheme();
   const storeSession = useAuthStore((state) => state.session);
   const requireAuthSession = useAuthStore((state) => state.requireSession);
   const currentSession = storeSession ?? session;
@@ -259,7 +260,7 @@ export function BlogScreen({
         <Pressable style={styles.backButton} onPress={onBack}>
           <Text style={styles.backButtonText}>{t("‹ 返回")}</Text>
         </Pressable>
-        <Text style={[styles.authApiHint, { color: "#a05d6f" }]}>
+        <Text style={[styles.authApiHint, { color: colors.primaryText }]}>
           {message || "博客不存在。"}
         </Text>
       </View>
@@ -274,7 +275,7 @@ export function BlogScreen({
       <TextInput
         style={styles.input}
         placeholder={t("标题")}
-        placeholderTextColor="#9a8f8a"
+        placeholderTextColor={colors.textSubtle}
         value={title}
         onChangeText={setTitle}
       />
@@ -283,7 +284,7 @@ export function BlogScreen({
         multiline
         style={[styles.input, styles.bodyInput, styles.longBodyInput]}
         placeholder={t("正文")}
-        placeholderTextColor="#9a8f8a"
+        placeholderTextColor={colors.textSubtle}
         textAlignVertical="top"
         value={body}
         onChangeText={setBody}
@@ -353,7 +354,7 @@ export function BlogScreen({
           ))}
         </View>
       ) : null}
-      <MarkdownText style={markdownStyles}>
+      <MarkdownText>
         {isBodyTranslationVisible && translatedBody
           ? translatedBody
           : post.body}
@@ -382,7 +383,7 @@ export function BlogScreen({
       </>
       )} */}
       {!!message && (
-        <Text style={[styles.authApiHint, { color: "#a05d6f" }]}>
+        <Text style={[styles.authApiHint, { color: colors.primaryText }]}>
           {message}
         </Text>
       )}
@@ -419,13 +420,17 @@ export function BlogScreen({
         <Ionicons
           name={post.is_liked ? "heart" : "heart-outline"}
           size={22}
-          color={post.is_liked ? "#e74c3c" : "#7a6862"}
+          color={post.is_liked ? colors.danger : colors.textMuted}
         />
 
         <Text style={styles.blogBottomActionText}>{post.like_count}</Text>
       </Pressable>
       <View style={styles.blogBottomActionButton}>
-        <Ionicons name="chatbubble-outline" size={21} color="#7a6862" />
+        <Ionicons
+          name="chatbubble-outline"
+          size={21}
+          color={colors.textMuted}
+        />
         <Text style={styles.blogBottomActionText}>{post.comment_count}</Text>
       </View>
       <Pressable
@@ -436,7 +441,7 @@ export function BlogScreen({
         <Ionicons
           name={post.is_favorited ? "star" : "star-outline"}
           size={22}
-          color={post.is_favorited ? "#f39c12" : "#7a6862"}
+          color={post.is_favorited ? colors.warningText : colors.textMuted}
         />
 
         <Text style={styles.blogBottomActionText}>{post.favorite_count}</Text>

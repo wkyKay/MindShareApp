@@ -1,34 +1,41 @@
 import { StyleSheet } from "react-native";
 
-import { authStyles } from "./styleModules/auth";
-import { blogStyles } from "./styleModules/blog";
-import { cardsStyles } from "./styleModules/cards";
-import { collectionsStyles } from "./styleModules/collections";
-import { commonStyles } from "./styleModules/common";
-import { homeStyles } from "./styleModules/home";
-import { layoutStyles } from "./styleModules/layout";
-import { messagesStyles } from "./styleModules/messages";
-import { modalsStyles } from "./styleModules/modals";
-import { notificationsStyles } from "./styleModules/notifications";
-import { profileStyles } from "./styleModules/profile";
-import { skeletonStyles } from "./styleModules/skeleton";
-import { uploadStyles } from "./styleModules/upload";
+import { lightColors, type AppColors } from "../theme/colors";
+import { createAuthStyles } from "./styleModules/auth";
+import { createBlogStyles } from "./styleModules/blog";
+import { createCardsStyles } from "./styleModules/cards";
+import { createCollectionsStyles } from "./styleModules/collections";
+import { createCommonStyles } from "./styleModules/common";
+import { createHomeStyles } from "./styleModules/home";
+import { createLayoutStyles } from "./styleModules/layout";
+import { createMessagesStyles } from "./styleModules/messages";
+import { createModalsStyles } from "./styleModules/modals";
+import { createNotificationsStyles } from "./styleModules/notifications";
+import { createProfileStyles } from "./styleModules/profile";
+import { createSkeletonStyles } from "./styleModules/skeleton";
+import { createUploadStyles } from "./styleModules/upload";
 
-export const styles = StyleSheet.create({
-  ...authStyles,
-  ...blogStyles,
-  ...cardsStyles,
-  ...collectionsStyles,
-  ...commonStyles,
-  ...homeStyles,
-  ...layoutStyles,
-  ...messagesStyles,
-  ...modalsStyles,
-  ...notificationsStyles,
-  ...profileStyles,
-  ...skeletonStyles,
-  ...uploadStyles,
-});
+export function createStyles(colors: AppColors) {
+  return StyleSheet.create({
+    ...createAuthStyles(colors),
+    ...createBlogStyles(colors),
+    ...createCardsStyles(colors),
+    ...createCollectionsStyles(colors),
+    ...createCommonStyles(colors),
+    ...createHomeStyles(colors),
+    ...createLayoutStyles(colors),
+    ...createMessagesStyles(colors),
+    ...createModalsStyles(colors),
+    ...createNotificationsStyles(colors),
+    ...createProfileStyles(colors),
+    ...createSkeletonStyles(colors),
+    ...createUploadStyles(colors),
+  });
+}
+
+export type AppStyles = ReturnType<typeof createStyles>;
+
+export const styles = createStyles(lightColors);
 
 export type MarkdownStyle = {
   body?: object;
@@ -36,7 +43,7 @@ export type MarkdownStyle = {
 
 export const markdownStyles = {
   body: {
-    color: "#3d302c",
+    color: "#2f2320",
     fontSize: 16,
     lineHeight: 26,
     marginTop: 20,

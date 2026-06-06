@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Pressable, Text, View, FlatList } from "react-native";
 import { CollectionCard } from "../components/CollectionCard";
 import { PostCard } from "../components/PostCard";
-import { styles } from "../components/styles";
 import {
   getAuthorPosts,
   getAuthorCollections,
@@ -22,6 +21,7 @@ import {
 } from "../services/profileApi";
 import { createOrGetConversation } from "../services/messagesApi";
 import { useTranslation } from "react-i18next";
+import { useAppStyles } from "../theme/ThemeProvider";
 
 type AuthorTab = "posts" | "collections";
 const PAGE_SIZE = 20;
@@ -48,6 +48,7 @@ export function AuthorScreen({
   onOpenTag,
   session,
 }: AuthorProps) {
+  const styles = useAppStyles();
   const [activeTab, setActiveTab] = useState<AuthorTab>("posts");
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);

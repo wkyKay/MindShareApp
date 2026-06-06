@@ -1,140 +1,144 @@
-export const cardsStyles = {
-  card: {
-    backgroundColor: "#ffffff",
-    borderColor: "#f2ddd6",
-    borderRadius: 20,
-    borderWidth: 1,
-    marginBottom: 14,
-    padding: 16,
-  },
-  cardPressed: {
-    opacity: 0.82,
-    transform: [{ scale: 0.99 }],
-  },
-  postCardActionMenuRow: {
-    alignSelf: "flex-end",
-    backgroundColor: "#ffffff",
-    borderColor: "#e9bfc4",
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginBottom: 8,
-    padding: 4,
-  },
-  postCardActionButton: {
-    backgroundColor: "#fff0f2",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  postCardActionButtonMuted: {
-    backgroundColor: "#fff7f3",
-  },
-  postCardActionText: {
-    color: "#a05d6f",
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  postCardDeleteButton: {
-    backgroundColor: "#e84040",
-  },
-  postCardDeleteText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  draftCard: {
-    backgroundColor: "#fff8d7",
-    borderColor: "#e1b84c",
-  },
-  deletedCard: {
-    backgroundColor: "#ece8e5",
-    borderColor: "#d1cac5",
-    opacity: 0.72,
-  },
-  draftBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: "#e1b84c",
-    borderRadius: 999,
-    color: "#5c4310",
-    fontSize: 12,
-    fontWeight: "900",
-    marginBottom: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  deletedBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: "#8d8580",
-    borderRadius: 999,
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "900",
-    marginBottom: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  cardTitle: {
-    color: "#2f2320",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  cardTitleRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  cardNotificationDot: {
-    backgroundColor: "#d94f70",
-    borderRadius: 5,
-    height: 10,
-    width: 10,
-  },
-  deletedText: {
-    color: "#756d68",
-  },
-  cardMeta: {
-    color: "#8d7b75",
-    marginTop: 6,
-  },
-  cardAuthor: {
-    color: "#a05d6f",
-    marginTop: 6,
-  },
-  cardSummary: {
-    color: "#5d4e49",
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 10,
-  },
-  cardMarkdownSummary: {
-    marginTop: 10,
-  },
-  cardStats: {
-    flexDirection: "row",
-    gap: 14,
-    marginTop: 14,
-  },
-  statText: {
-    color: "#a05d6f",
-    fontSize: 13,
-  },
-  tagList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 14,
-  },
-  tagChip: {
-    backgroundColor: "#f3ded7",
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  tagChipText: {
-    color: "#a05d6f",
-    fontWeight: "700",
-  },
-} as const;
+import type { AppColors } from "../../theme/colors";
+
+export function createCardsStyles(colors: AppColors) {
+  return {
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 20,
+      borderWidth: 1,
+      marginBottom: 14,
+      padding: 16,
+    },
+    cardPressed: {
+      opacity: 0.82,
+      transform: [{ scale: 0.99 }],
+    },
+    postCardActionMenuRow: {
+      alignSelf: "flex-end",
+      backgroundColor: colors.surface,
+      borderColor: colors.borderStrong,
+      borderRadius: 999,
+      borderWidth: 1,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+      marginBottom: 8,
+      padding: 4,
+    },
+    postCardActionButton: {
+      backgroundColor: colors.surfacePink,
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+    },
+    postCardActionButtonMuted: {
+      backgroundColor: colors.surfaceSoft,
+    },
+    postCardActionText: {
+      color: colors.primaryText,
+      fontSize: 12,
+      fontWeight: "900",
+    },
+    postCardDeleteButton: {
+      backgroundColor: colors.danger,
+    },
+    postCardDeleteText: {
+      color: colors.surface,
+      fontSize: 12,
+      fontWeight: "900",
+    },
+    draftCard: {
+      backgroundColor: colors.warning,
+      borderColor: colors.warningBorder,
+    },
+    deletedCard: {
+      backgroundColor: colors.surfaceSoft,
+      borderColor: colors.border,
+      opacity: 0.72,
+    },
+    draftBadge: {
+      alignSelf: "flex-start",
+      backgroundColor: colors.warningBorder,
+      borderRadius: 999,
+      color: colors.warningText,
+      fontSize: 12,
+      fontWeight: "900",
+      marginBottom: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    deletedBadge: {
+      alignSelf: "flex-start",
+      backgroundColor: colors.textSubtle,
+      borderRadius: 999,
+      color: colors.surface,
+      fontSize: 12,
+      fontWeight: "900",
+      marginBottom: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    cardTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: "700",
+    },
+    cardTitleRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: 8,
+    },
+    cardNotificationDot: {
+      backgroundColor: colors.primary,
+      borderRadius: 5,
+      height: 10,
+      width: 10,
+    },
+    deletedText: {
+      color: colors.textSubtle,
+    },
+    cardMeta: {
+      color: colors.textSubtle,
+      marginTop: 6,
+    },
+    cardAuthor: {
+      color: colors.primaryText,
+      marginTop: 6,
+    },
+    cardSummary: {
+      color: colors.textMuted,
+      fontSize: 15,
+      lineHeight: 22,
+      marginTop: 10,
+    },
+    cardMarkdownSummary: {
+      marginTop: 10,
+    },
+    cardStats: {
+      flexDirection: "row",
+      gap: 14,
+      marginTop: 14,
+    },
+    statText: {
+      color: colors.primaryText,
+      fontSize: 13,
+    },
+    tagList: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 14,
+    },
+    tagChip: {
+      backgroundColor: colors.surfacePinkStrong,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+    },
+    tagChipText: {
+      color: colors.primaryText,
+      fontWeight: "700",
+    },
+  } as const;
+}

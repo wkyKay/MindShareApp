@@ -13,7 +13,6 @@ import { TabView } from "react-native-tab-view";
 
 import { PostCard } from "../components/PostCard";
 import { HomePostListSkeleton } from "../components/Skeleton";
-import { styles } from "../components/styles";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import type { AuthSession } from "../services/authSession";
 import {
@@ -27,6 +26,8 @@ import {
 } from "../services/homeApi";
 import { dislikePost } from "../services/postApi";
 import { Ionicons } from "@expo/vector-icons";
+import { useAppStyles } from "../theme/ThemeProvider";
+import type { AppStyles } from "../components/styles";
 
 type HomeScreenProps = {
   onOpenPost: (postId: number) => void;
@@ -45,6 +46,7 @@ export function HomeScreen({
   session,
   selectedRouteTag,
 }: HomeScreenProps) {
+  const styles = useAppStyles();
   const { t } = useTranslation();
   const [section, setSection] = useState<"discover" | "following">("discover");
   const [selectedTag, setSelectedTag] = useState<string | null>(
@@ -404,6 +406,7 @@ export function HomeScreen({
                 onOpenAuthor={onOpenAuthor}
                 onSelectTag={selectTag}
                 onSearchFocusChange={setIsSearchFocused}
+                styles={styles}
                 t={t}
               />
             ) : null
@@ -500,6 +503,7 @@ type DiscoverHeaderProps = {
   onOpenAuthor: (authorId: number) => void;
   onSelectTag: (tag: string) => void;
   onSearchFocusChange: (isFocused: boolean) => void;
+  styles: AppStyles;
   t: (key: string) => string;
 };
 
@@ -515,6 +519,7 @@ function DiscoverHeader({
   onOpenAuthor,
   onSelectTag,
   onSearchFocusChange,
+  styles,
   t,
 }: DiscoverHeaderProps) {
   const hasQuery = tagQuery.trim().length > 0;

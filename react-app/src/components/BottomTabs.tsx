@@ -1,9 +1,9 @@
 import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { styles } from "./styles";
 import { useMessageStore } from "../stores/messageStore";
 import { useNotificationStore } from "../stores/notificationStore";
+import { useAppStyles } from "../theme/ThemeProvider";
 
 export type Page =
   | "home"
@@ -19,6 +19,7 @@ type BottomTabsProps = {
 };
 
 export function BottomTabs({ activePage, onChangePage }: BottomTabsProps) {
+  const styles = useAppStyles();
   const { t } = useTranslation();
   const messageUnreadCount = useMessageStore((state) => state.unreadCount);
   const unreadCount = useNotificationStore((state) => state.unreadCount);
@@ -70,6 +71,7 @@ function TabButton({
   badgeCount?: number;
   onPress: () => void;
 }) {
+  const styles = useAppStyles();
   return (
     <Pressable style={styles.tabButton} onPress={onPress}>
       <Text style={[styles.tabText, active && styles.tabTextActive]}>

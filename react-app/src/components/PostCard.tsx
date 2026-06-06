@@ -2,7 +2,7 @@ import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { MarkdownText } from "./MarkdownText";
-import { styles } from "./styles";
+import { useAppStyles } from "../theme/ThemeProvider";
 
 export type PostCardPost = {
   id: number;
@@ -36,6 +36,7 @@ export function PostCard({
   onLongPress,
   onOpenTag,
 }: PostCardProps) {
+  const styles = useAppStyles();
   const { t } = useTranslation();
   const isDeleted = post.is_deleted || post.status === "deleted";
   const author =

@@ -3,10 +3,10 @@ import { ScrollView, Text } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 
-import { styles } from "../components/styles";
 import { useAuthStore } from "../stores/authStore";
 import { GuestProfileScreen } from "./profile/GuestProfileScreen";
 import { LoggedInProfileScreen } from "./profile/LoggedInProfileScreen";
+import { useAppStyles } from "../theme/ThemeProvider";
 
 type ProfileScreenProps = {
   onOpenAuth: () => void;
@@ -25,6 +25,7 @@ export function ProfileScreen({
   onOpenTag,
   onOpenAnalytics,
 }: ProfileScreenProps) {
+  const styles = useAppStyles();
   const { t } = useTranslation();
   const session = useAuthStore((state) => state.session);
   const isAuthLoading = useAuthStore((state) => state.isLoading);

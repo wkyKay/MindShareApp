@@ -1,7 +1,6 @@
 import { Pressable, View } from "react-native";
 import type { DimensionValue } from "react-native";
-
-import { styles } from "./styles";
+import { useAppStyles } from "../theme/ThemeProvider";
 
 type SkeletonBlockProps = {
   width?: DimensionValue;
@@ -9,10 +8,12 @@ type SkeletonBlockProps = {
 };
 
 function SkeletonBlock({ width = "100%", height = 14 }: SkeletonBlockProps) {
+  const styles = useAppStyles();
   return <View style={[styles.skeletonBlock, { width, height }]} />;
 }
 
 export function PostCardSkeleton() {
+  const styles = useAppStyles();
   return (
     <View style={styles.card}>
       <SkeletonBlock width="72%" height={20} />
@@ -43,6 +44,7 @@ export function HomePostListSkeleton({ count = 4 }: { count?: number }) {
 }
 
 export function BlogDetailSkeleton({ onBack }: { onBack: () => void }) {
+  const styles = useAppStyles();
   return (
     <View style={styles.pageContent}>
       <Pressable style={styles.backButton} onPress={onBack}>
@@ -73,6 +75,7 @@ export function BlogDetailSkeleton({ onBack }: { onBack: () => void }) {
 }
 
 export function ProfileScreenSkeleton() {
+  const styles = useAppStyles();
   return (
     <View style={styles.pageContent}>
       <View style={styles.profileHeader}>

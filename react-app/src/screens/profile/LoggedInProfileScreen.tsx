@@ -7,7 +7,6 @@ import { useTranslation } from "react-i18next";
 import { CollectionCard } from "../../components/CollectionCard";
 import { PostCard } from "../../components/PostCard";
 import { ProfileScreenSkeleton } from "../../components/Skeleton";
-import { styles } from "../../components/styles";
 import { useDelayedLoading } from "../../hooks/useDelayedLoading";
 import type { AuthSession } from "../../services/authSession";
 import {
@@ -37,6 +36,8 @@ import { ProfileStats, type ProfileTab } from "./ProfileStats";
 import { CollectionsTabItem } from "./tabs/CollectionsTab";
 import { FollowingTabItem } from "./tabs/FollowingTab";
 import { changeAppLanguage, type SupportedLanguage } from "../../i18n";
+import { useAppStyles, useAppTheme } from "../../theme/ThemeProvider";
+import type { AppThemeMode } from "../../theme/colors";
 
 type LoggedInProfileScreenProps = {
   session: AuthSession;
@@ -55,6 +56,8 @@ export function LoggedInProfileScreen({
   onOpenTag,
   onOpenAnalytics,
 }: LoggedInProfileScreenProps) {
+  const styles = useAppStyles();
+  const { mode, setMode } = useAppTheme();
   const { i18n, t } = useTranslation();
   const logoutAuth = useAuthStore((state) => state.logout);
   const unreadByPostId = useNotificationStore((state) => state.unreadByPostId);
@@ -473,6 +476,11 @@ export function LoggedInProfileScreen({
     setIsSettingsOpen(false);
   }
 
+  async function selectThemeMode(themeMode: AppThemeMode) {
+    await setMode(themeMode);
+    setIsSettingsOpen(false);
+  }
+
   const header = (
     <>
       <View style={styles.profileHeader}>
@@ -769,7 +777,7 @@ export function LoggedInProfileScreen({
       >
         <View style={styles.confirmOverlay}>
           <View style={styles.confirmDialog}>
-            <Text style={styles.confirmTitle}>{t("语言设置")}</Text>
+            <Text style={styles.confirmTitle}>{t("设置")}</Text>
             <Text style={styles.confirmMessage}>
               {t("选择 App 显示语言。")}
             </Text>
@@ -810,6 +818,36 @@ export function LoggedInProfileScreen({
                   {t("profile.languageEnglish")}
                 </Text>
               </Pressable>
+            </View>
+            <Text style={[styles.confirmMessage, { marginTop: 16 }]}>
+              {t("外观")}
+            </Text>
+            <View style={styles.languageOptionList}>
+              {(
+                [
+                  ["system", t("跟随系统")],
+                  ["light", t("浅色")],
+                  ["dark", t("深色")],
+                ] as const
+              ).map(([themeMode, label]) => (
+                <Pressable
+                  key={themeMode}
+                  style={[
+                    styles.languageOptionButton,
+                    mode === themeMode && styles.languageOptionButtonActive,
+                  ]}
+                  onPress={() => void selectThemeMode(themeMode)}
+                >
+                  <Text
+                    style={[
+                      styles.languageOptionText,
+                      mode === themeMode && styles.languageOptionTextActive,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
             <Pressable
               style={[

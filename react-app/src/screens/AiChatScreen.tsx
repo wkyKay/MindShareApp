@@ -1,13 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { ScrollView, Text, View } from "react-native";
 
-import { styles } from "../components/styles";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 export function AiChatScreen() {
+  const { colors, styles } = useAppTheme();
   const { t } = useTranslation();
   return (
     <ScrollView
+      style={styles.homeScreen}
       contentContainerStyle={styles.pageContent}
       showsVerticalScrollIndicator={false}
     >
@@ -18,7 +20,7 @@ export function AiChatScreen() {
 
       <View style={styles.aiChatPanel}>
         <View style={styles.aiChatIconBubble}>
-          <Ionicons name="sparkles-outline" size={26} color="#d94f70" />
+          <Ionicons name="sparkles-outline" size={26} color={colors.primary} />
         </View>
         <View style={styles.aiChatTextBlock}>
           <Text style={styles.aiChatTitle}>{t("AI 助手即将上线")}</Text>

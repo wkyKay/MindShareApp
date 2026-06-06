@@ -24,8 +24,8 @@ import { translateContent } from "../services/translationsApi";
 import { useAuthStore } from "../stores/authStore";
 import { useNotificationStore } from "../stores/notificationStore";
 import { formatDateTimeMinute } from "../utils/time";
-import { styles } from "./styles";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 type CommentSectionProps = {
   postId: number;
@@ -58,6 +58,7 @@ export function CommentSection({
   onRequireAuth,
   onCommentCountChange,
 }: CommentSectionProps) {
+  const { colors, styles } = useAppTheme();
   const storeSession = useAuthStore((state) => state.session);
   const requireAuthSession = useAuthStore((state) => state.requireSession);
   const unreadCount = useNotificationStore(
@@ -479,7 +480,7 @@ export function CommentSection({
               <Ionicons
                 name={comment.is_liked ? "heart" : "heart-outline"}
                 size={14}
-                color={comment.is_liked ? "#e74c3c" : "#a05d6f"}
+                color={comment.is_liked ? colors.danger : colors.primaryText}
               />
 
               <Text style={styles.compactActionText}>
@@ -527,6 +528,7 @@ export function CommentSection({
     <View style={styles.commentScreenContainer}>
       <FlatList
         ref={listRef}
+        style={styles.commentList}
         contentContainerStyle={[
           styles.pageContent,
           contentContainerStyle,
@@ -554,7 +556,9 @@ export function CommentSection({
                 <Text style={styles.profileBio}>{t("正在加载评论...")}</Text>
               ) : null}
               {message ? (
-                <Text style={[styles.authApiHint, { color: "#a05d6f" }]}>
+                <Text
+                  style={[styles.authApiHint, { color: colors.primaryText }]}
+                >
                   {message}
                 </Text>
               ) : null}
@@ -609,7 +613,7 @@ export function CommentSection({
                     })
                   : t("说点什么...")
               }
-              placeholderTextColor="#a89994"
+              placeholderTextColor={colors.textSubtle}
               value={body}
               onChangeText={setBody}
               returnKeyType="send"

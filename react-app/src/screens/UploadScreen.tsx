@@ -11,7 +11,6 @@ import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 
 import { MarkdownText } from "../components/MarkdownText";
-import { styles } from "../components/styles";
 import {
   createPost,
   parsePostDocument,
@@ -22,6 +21,7 @@ import {
 import type { AuthSession } from "../services/authSession";
 import { useAuthStore } from "../stores/authStore";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "../theme/ThemeProvider";
 
 type UploadScreenProps = {
   session: AuthSession | null;
@@ -46,6 +46,7 @@ export function UploadScreen({
   onCancel,
   onSaved,
 }: UploadScreenProps) {
+  const { resolvedMode, styles } = useAppTheme();
   const storeSession = useAuthStore((state) => state.session);
   const requireAuthSession = useAuthStore((state) => state.requireSession);
   const currentSession = storeSession ?? session;
@@ -261,7 +262,12 @@ export function UploadScreen({
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.pageContent}>
+    <ScrollView
+      style={styles.homeScreen}
+      contentContainerStyle={styles.pageContent}
+      indicatorStyle={resolvedMode === "dark" ? "white" : "black"}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.pageHeaderRow}>
         <Pressable style={styles.backButtonCompact} onPress={onCancel}>
           <Text style={styles.backButtonText}>{t("‹ 返回")}</Text>

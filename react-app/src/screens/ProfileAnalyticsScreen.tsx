@@ -3,7 +3,6 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import type { DimensionValue } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { styles } from "../components/styles";
 import {
   getMyCollections,
   getMyFavorites,
@@ -14,6 +13,7 @@ import {
 } from "../services/profileApi";
 import { useAuthStore } from "../stores/authStore";
 import { useTranslation } from "react-i18next";
+import { useAppStyles } from "../theme/ThemeProvider";
 
 type ProfileAnalyticsScreenProps = {
   onBack: () => void;
@@ -52,6 +52,7 @@ function AnalyticsBarList({
   emptyText: string;
   data: TagCount[];
 }) {
+  const styles = useAppStyles();
   const maxCount = data[0]?.count || 0;
 
   return (
@@ -91,6 +92,7 @@ function AnalyticsMetric({
   value: number | string;
   compact?: boolean;
 }) {
+  const styles = useAppStyles();
   return (
     <View
       style={
@@ -108,6 +110,7 @@ export function ProfileAnalyticsScreen({
   onOpenAuth,
   onOpenPost,
 }: ProfileAnalyticsScreenProps) {
+  const styles = useAppStyles();
   const session = useAuthStore((state) => state.session);
   const requireAuthSession = useAuthStore((state) => state.requireSession);
   const [posts, setPosts] = useState<ProfilePost[]>([]);

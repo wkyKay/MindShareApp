@@ -1,9 +1,9 @@
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { styles } from "../../components/styles";
 import type { ProfileCollection, ProfilePost } from "../../services/profileApi";
 import { useTranslation } from "react-i18next";
+import { useAppStyles } from "../../theme/ThemeProvider";
 
 type MovePostPanelProps = {
   post: ProfilePost;
@@ -20,6 +20,7 @@ export function MovePostPanel({
   onMoveToCollection,
   onCancel,
 }: MovePostPanelProps) {
+  const styles = useAppStyles();
   const { t } = useTranslation();
   if (!isOpen) {
     return null;

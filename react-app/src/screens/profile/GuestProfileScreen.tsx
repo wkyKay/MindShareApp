@@ -1,13 +1,14 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 
-import { styles } from "../../components/styles";
 import { useTranslation } from "react-i18next";
+import { useAppStyles } from "../../theme/ThemeProvider";
 
 type GuestProfileScreenProps = {
   onOpenAuth: () => void;
 };
 
 export function GuestProfileScreen({ onOpenAuth }: GuestProfileScreenProps) {
+  const styles = useAppStyles();
   const { t } = useTranslation();
   return (
     <ScrollView contentContainerStyle={styles.pageContent}>

@@ -1,8 +1,8 @@
 import { Pressable, Text, TextInput, View } from "react-native";
 
-import { styles } from "../styles";
 import type { CaptchaResponse } from "../../services/authApi";
 import { useTranslation } from "react-i18next";
+import { useAppStyles } from "../../theme/ThemeProvider";
 
 type CaptchaFieldProps = {
   captcha: CaptchaResponse | null;
@@ -19,6 +19,7 @@ export function CaptchaField({
   onChangeText,
   onRefresh,
 }: CaptchaFieldProps) {
+  const styles = useAppStyles();
   const { t } = useTranslation();
   return (
     <View style={styles.captchaRow}>

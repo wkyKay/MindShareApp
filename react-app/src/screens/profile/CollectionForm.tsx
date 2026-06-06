@@ -1,8 +1,8 @@
 import { Pressable, Text, TextInput, View } from "react-native";
 
-import { styles } from "../../components/styles";
 import type { ProfileCollection } from "../../services/profileApi";
 import { useTranslation } from "react-i18next";
+import { useAppStyles } from "../../theme/ThemeProvider";
 
 type CollectionFormProps = {
   isOpen: boolean;
@@ -27,6 +27,7 @@ export function CollectionForm({
   onCancel,
   onSubmit,
 }: CollectionFormProps) {
+  const styles = useAppStyles();
   const { t } = useTranslation();
   return (
     <View style={styles.authPromptCard}>

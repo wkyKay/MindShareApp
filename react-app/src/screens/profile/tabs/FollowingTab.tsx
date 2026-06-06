@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 
-import { styles } from "../../../components/styles";
 import type { FollowingUser } from "../../../services/profileApi";
+import { useAppStyles } from "../../../theme/ThemeProvider";
 
 type FollowingTabItemProps = {
   user: FollowingUser;
@@ -12,6 +12,7 @@ export function FollowingTabItem({
   user,
   onOpenAuthor,
 }: FollowingTabItemProps) {
+  const styles = useAppStyles();
   const avatarText =
     user.display_name.slice(0, 1) || user.username.slice(0, 1) || "关";
   return (

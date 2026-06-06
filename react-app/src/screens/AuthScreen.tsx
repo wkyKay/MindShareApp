@@ -3,7 +3,6 @@ import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import { AuthModeTabs } from "../components/auth/AuthModeTabs";
 import { CaptchaField } from "../components/auth/CaptchaField";
-import { styles } from "../components/styles";
 import { API_BASE_URL } from "../config/api";
 import {
   getCaptcha,
@@ -15,6 +14,7 @@ import {
 import type { AuthSession } from "../services/authSession";
 import { useAuthStore } from "../stores/authStore";
 import { useTranslation } from "react-i18next";
+import { useAppStyles } from "../theme/ThemeProvider";
 
 type AuthScreenProps = {
   onBack: () => void;
@@ -22,6 +22,7 @@ type AuthScreenProps = {
 };
 
 export function AuthScreen({ onBack, onDone }: AuthScreenProps) {
+  const styles = useAppStyles();
   const setAuthFromToken = useAuthStore((state) => state.setFromToken);
   const [mode, setMode] = useState<AuthMode>("login");
   const [captchaTick, setCaptchaTick] = useState(1);

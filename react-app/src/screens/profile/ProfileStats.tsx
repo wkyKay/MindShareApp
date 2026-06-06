@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 
-import { styles } from "../../components/styles";
 import { useTranslation } from "react-i18next";
+import { useAppStyles } from "../../theme/ThemeProvider";
 
 export type ProfileTab = "posts" | "favorites" | "collections" | "following";
 
@@ -24,6 +24,7 @@ export function ProfileStats({
   postsBadgeCount = 0,
   onSelectTab,
 }: ProfileStatsProps) {
+  const styles = useAppStyles();
   const { t } = useTranslation();
   return (
     <View style={styles.profileStats}>

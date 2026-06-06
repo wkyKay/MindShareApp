@@ -1,8 +1,8 @@
 import { Pressable, Text, View } from "react-native";
 
-import { styles } from "../styles";
 import type { AuthMode } from "../../services/authApi";
 import { useTranslation } from "react-i18next";
+import { useAppStyles } from "../../theme/ThemeProvider";
 
 type AuthModeTabsProps = {
   mode: AuthMode;
@@ -10,6 +10,7 @@ type AuthModeTabsProps = {
 };
 
 export function AuthModeTabs({ mode, onChangeMode }: AuthModeTabsProps) {
+  const styles = useAppStyles();
   const isLogin = mode === "login";
   const { t } = useTranslation();
 

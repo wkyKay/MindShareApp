@@ -1,8 +1,8 @@
 import { Pressable, Text, View } from "react-native";
 
 import type { ProfileCollection } from "../services/profileApi";
-import { styles } from "./styles";
 import { useTranslation } from "react-i18next";
+import { useAppStyles } from "../theme/ThemeProvider";
 
 type CollectionCardProps = {
   collection: ProfileCollection;
@@ -17,6 +17,7 @@ export function CollectionCard({
   tone = "default",
   actions = [],
 }: CollectionCardProps) {
+  const styles = useAppStyles();
   const { t } = useTranslation();
   return (
     <Pressable
