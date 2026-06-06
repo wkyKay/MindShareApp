@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -6,6 +6,7 @@ import { styles } from '../components/styles';
 import { useAuthStore } from '../stores/authStore';
 import { useMessageStore } from '../stores/messageStore';
 import { listMessages, markConversationRead, sendMessage, type Message } from '../services/messagesApi';
+import { formatDateTimeMinute, sameMinute } from '../utils/time';
 
 type ChatScreenProps = {
   conversationId: number;
@@ -22,6 +23,7 @@ export function ChatScreen({ conversationId, partnerId, partnerName, onBack, onR
   const [messages, setMessages] = useState<Message[]>([]);
   const [body, setBody] = useState('');
   const [message, setMessage] = useState('');
+  const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
 
   useFocusEffect(
     useCallback(() => {
@@ -77,14 +79,21 @@ export function ChatScreen({ conversationId, partnerId, partnerName, onBack, onR
 
       <FlatList
         contentContainerStyle={styles.chatListContent}
-        data={messages}
+        data={invertedMessages}
+        inverted
         keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => (
-          <View style={[styles.messageBubble, item.sender.id === session?.user.id ? styles.messageBubbleMine : styles.messageBubbleOther]}>
-            <Text style={styles.messageBubbleText}>{item.body}</Text>
-            <Text style={styles.messageBubbleMeta}>{item.created_at}</Text>
-          </View>
-        )}
+        renderItem={({ item, index }) => {
+          const previousMessage = invertedMessages[index + 1];
+          const showTime = !previousMessage || !sameMinute(previousMessage.created_at, item.created_at);
+          return (
+            <>
+              {showTime ? <Text style={styles.chatTimeDivider}>{formatDateTimeMinute(item.created_at)}</Text> : null}
+              <View style={[styles.messageBubble, item.sender.id === session?.user.id ? styles.messageBubbleMine : styles.messageBubbleOther]}>
+                <Text style={styles.messageBubbleText}>{item.body}</Text>
+              </View>
+            </>
+          );
+        }}
         showsVerticalScrollIndicator={false}
       />
 

@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { styles } from '../components/styles';
 import { useAuthStore } from '../stores/authStore';
 import { useNotificationStore } from '../stores/notificationStore';
+import { formatDateTimeMinute } from '../utils/time';
 
 type NotificationScreenProps = {
   onOpenAuth: () => void;
@@ -78,7 +79,7 @@ export function NotificationScreen({ onOpenAuth, onBack, category, onOpenPost, o
             <Text style={styles.notificationTitle}>{buildNotificationTitle(item)}</Text>
             {!item.is_read ? <View style={styles.cardNotificationDot} /> : null}
           </View>
-          <Text style={[styles.notificationMeta, item.is_read && styles.notificationMetaRead]}>{item.created_at}</Text>
+          <Text style={[styles.notificationMeta, item.is_read && styles.notificationMetaRead]}>{formatDateTimeMinute(item.created_at)}</Text>
         </Pressable>
       )}
       showsVerticalScrollIndicator={false}

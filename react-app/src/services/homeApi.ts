@@ -21,6 +21,15 @@ export type Post = {
   created_at: string;
 };
 
+export type UserSearchResult = {
+  id: number;
+  username: string;
+  display_name: string;
+  avatar_url?: string | null;
+  bio?: string | null;
+  is_following: boolean;
+};
+
 type PageResponse = {
   items: Post[];
   page: number;
@@ -57,12 +66,35 @@ export async function getDiscoverPosts(page: number = 1, pageSize: number = 10, 
   return (await response.json()) as PageResponse;
 }
 
+export async function searchPostsByTitle(query: string, accessToken?: string, pageSize: number = 5) {
+  const response = await fetch(
+    `${API_V1_BASE_URL}/posts?tab=discover&page=1&page_size=${pageSize}&seed=1&q=${encodeURIComponent(query)}`,
+    {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    }
+  );
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+  return (await response.json()) as PageResponse;
+}
+
 export async function getTagSuggestions(query: string) {
   const response = await fetch(`${API_V1_BASE_URL}/search/tags?q=${encodeURIComponent(query)}`);
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }
   return (await response.json()) as string[];
+}
+
+export async function searchUsers(query: string, accessToken?: string, limit: number = 5) {
+  const response = await fetch(`${API_V1_BASE_URL}/users/search?q=${encodeURIComponent(query)}&limit=${limit}`, {
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+  return (await response.json()) as UserSearchResult[];
 }
 
 export async function getFollowingPosts(page: number = 1, accessToken: string, pageSize: number = 10) {

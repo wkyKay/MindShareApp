@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Image, PanResponder, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Swipeable } from 'react-native-gesture-handler';
 
 import { styles } from '../components/styles';
 import { createOrGetConversation, deleteConversation, getFollowingUsers, listConversations, searchUsers, type ConversationItem, type SearchUserItem } from '../services/messagesApi';
 import { useAuthStore } from '../stores/authStore';
 import { useMessageStore } from '../stores/messageStore';
 import { useNotificationStore } from '../stores/notificationStore';
+import { formatDateTimeMinute } from '../utils/time';
 
 type NotificationCategory = 'comments' | 'likes' | 'follows';
 
@@ -191,50 +193,37 @@ export function MessagesScreen({ onOpenAuth, onOpenChat, onOpenNotificationCateg
 }
 
 function SwipeConversationRow({ item, latestBody, unreadCount, onOpen, onDelete }: { item: ConversationItem; latestBody: string; unreadCount: number; onOpen: () => void; onDelete: () => void }) {
-  const translateX = useRef(new Animated.Value(0)).current;
-  const lastOffset = useRef(0);
-  const deleteWidth = 86;
+  const swipeableRef = useRef<Swipeable>(null);
 
-  function animateTo(value: number) {
-    lastOffset.current = value;
-    Animated.spring(translateX, {
-      toValue: value,
-      useNativeDriver: true,
-      friction: 9,
-      tension: 80,
-    }).start();
-  }
-
-  const panResponder = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 12 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
-    onPanResponderMove: (_event, gesture) => {
-      const next = Math.max(-deleteWidth, Math.min(0, lastOffset.current + gesture.dx));
-      translateX.setValue(next);
-    },
-    onPanResponderRelease: (_event, gesture) => {
-      const next = lastOffset.current + gesture.dx;
-      animateTo(next < -deleteWidth / 2 ? -deleteWidth : 0);
-    },
-  })).current;
-
-  return (
-    <View style={styles.swipeConversationContainer}>
+  function renderRightActions() {
+    return (
       <Pressable style={styles.swipeDeleteButton} onPress={onDelete}>
         <Text style={styles.swipeDeleteText}>删除</Text>
       </Pressable>
-      <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
-        <Pressable style={styles.messageConversationCard} onPress={() => lastOffset.current < 0 ? animateTo(0) : onOpen()}>
+    );
+  }
+
+  return (
+    <View style={styles.swipeConversationContainer}>
+      <Swipeable
+        ref={swipeableRef}
+        friction={1.6}
+        rightThreshold={36}
+        overshootRight={false}
+        renderRightActions={renderRightActions}
+      >
+        <Pressable style={styles.messageConversationCard} onPress={onOpen}>
           <MessageAvatar name={item.partner.display_name} avatarUrl={item.partner.avatar_url} />
           <View style={styles.messageRowTextBlock}>
             <Text style={styles.cardTitle}>{item.partner.display_name}</Text>
             <Text style={styles.messageLastText}>{latestBody}</Text>
           </View>
           <View style={styles.messageConversationSideMeta}>
-            <Text style={styles.messageTimeText}>{item.updated_at}</Text>
+            <Text style={styles.messageTimeText}>{formatDateTimeMinute(item.updated_at)}</Text>
             {unreadCount > 0 ? <View style={styles.messageUnreadBadge}><Text style={styles.messageUnreadText}>{unreadCount}</Text></View> : null}
           </View>
         </Pressable>
-      </Animated.View>
+      </Swipeable>
     </View>
   );
 }

@@ -18,7 +18,7 @@ type MarkdownPart =
 
 const markdownTheme: Exclude<StreamdownRNProps['theme'], 'dark' | 'light' | undefined> = {
   colors: {
-    background: '#fff7f3',
+    background: '#f5f5f5',
     foreground: '#3d302c',
     muted: '#8d7b75',
     accent: '#d94f70',

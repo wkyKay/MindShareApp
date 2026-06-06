@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Keyboard, Platform, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { createNavigationContainerRef, NavigationContainer, type NavigationProp } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -43,6 +44,7 @@ const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 export default function App() {
   const [activePage, setActivePage] = useState<keyof RootStackParamList>('home');
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const authSession = useAuthStore((state) => state.session);
   const hydrateAuth = useAuthStore((state) => state.hydrate);
   const hydrateMessages = useMessageStore((state) => state.hydrate);
@@ -65,18 +67,35 @@ export default function App() {
     void hydrateNotifications(authSession);
   }, [authSession, hydrateMessages, hydrateNotifications]);
 
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSubscription = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardInset(event.endCoordinates.height);
+    });
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setKeyboardInset(0);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
   return (
-    <NavigationContainer
-      ref={navigationRef}
-      onStateChange={(state) => {
-        const routeName = state?.routes[state.index]?.name;
-        if (routeName) {
-          setActivePage(routeName as Page);
-        }
-      }}
-    >
-      <View style={styles.shell}>
-        <View style={styles.app}>
+    <GestureHandlerRootView style={styles.gestureRoot}>
+      <NavigationContainer
+        ref={navigationRef}
+        onStateChange={(state) => {
+          const routeName = state?.routes[state.index]?.name;
+          if (routeName) {
+            setActivePage(routeName as Page);
+          }
+        }}
+      >
+        <View style={styles.shell}>
+          <View style={[styles.app, keyboardInset > 0 && { paddingBottom: keyboardInset }]}> 
           <Stack.Navigator
             initialRouteName="home"
             screenOptions={{
@@ -92,6 +111,7 @@ export default function App() {
                   session={authSession}
                   selectedRouteTag={route.params?.tag}
                   onOpenPost={(postId) => navigation.navigate('blog', { postId })}
+                  onOpenAuthor={(authorId) => openAuthorProfileAware(navigation, authorId)}
                   onOpenTag={(tag) => navigation.navigate('home', { tag: tag || undefined })}
                 />
               )}
@@ -224,9 +244,10 @@ export default function App() {
               }}
             />
           )}
+          </View>
+          <StatusBar style="auto" backgroundColor="#f5f5f5" />
         </View>
-        <StatusBar style="auto" />
-      </View>
-    </NavigationContainer>
+      </NavigationContainer>
+    </GestureHandlerRootView>
   );
 }

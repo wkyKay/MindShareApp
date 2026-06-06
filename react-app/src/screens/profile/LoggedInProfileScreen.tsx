@@ -1,11 +1,13 @@
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { FlatList, Modal, Pressable, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { CollectionCard } from '../../components/CollectionCard';
 import { PostCard } from '../../components/PostCard';
+import { ProfileScreenSkeleton } from '../../components/Skeleton';
 import { styles } from '../../components/styles';
+import { useDelayedLoading } from '../../hooks/useDelayedLoading';
 import type { AuthSession } from '../../services/authSession';
 import {
   addPostToCollection,
@@ -61,6 +63,7 @@ export function LoggedInProfileScreen({ session, onOpenPost, onEditPost, onOpenA
   const [isCollectionFormOpen, setIsCollectionFormOpen] = useState(false);
   const [movingPost, setMovingPost] = useState<ProfilePost | null>(null);
   const [actionPostId, setActionPostId] = useState<number | null>(null);
+  const [postPendingDelete, setPostPendingDelete] = useState<ProfilePost | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -242,10 +245,8 @@ export function LoggedInProfileScreen({ session, onOpenPost, onEditPost, onOpenA
   }
 
   function confirmDeletePost(post: ProfilePost) {
-    const confirm = typeof globalThis.confirm === 'function' ? globalThis.confirm('删除这篇博客？') : true;
-    if (confirm) {
-      void handleDeletePost(post);
-    }
+    setActionPostId(null);
+    setPostPendingDelete(post);
   }
 
   async function handleDeletePost(post: ProfilePost) {
@@ -254,6 +255,7 @@ export function LoggedInProfileScreen({ session, onOpenPost, onEditPost, onOpenA
     setContentMessage('');
     try {
       await deletePost(post.id, session.accessToken);
+      setPostPendingDelete(null);
       setPosts((current) => current.filter((item) => item.id !== post.id));
       setCollectionPosts((current) => current.filter((item) => item.id !== post.id));
     } catch (error) {
@@ -290,6 +292,8 @@ export function LoggedInProfileScreen({ session, onOpenPost, onEditPost, onOpenA
 
   const avatarText = session.user.display_name.slice(0, 1) || session.user.username.slice(0, 1) || '我';
   const postsBadgeCount = posts.reduce((count, post) => count + (unreadByPostId[post.id] || 0), 0);
+  const hasLoadedProfileContent = posts.length > 0 || favorites.length > 0 || collections.length > 0 || following.length > 0;
+  const showProfileSkeleton = useDelayedLoading(isContentLoading && !hasLoadedProfileContent && !contentMessage, 250);
 
   const currentData: (ProfilePost | ProfileCollection | FollowingUser | ProfileFavorite)[] = selectedCollection
     ? collectionPosts
@@ -365,6 +369,10 @@ export function LoggedInProfileScreen({ session, onOpenPost, onEditPost, onOpenA
     return null;
   };
 
+  if (showProfileSkeleton) {
+    return <ProfileScreenSkeleton />;
+  }
+
   const renderItem = ({ item }: { item: ProfilePost | ProfileCollection | FollowingUser | ProfileFavorite }) => {
     if (activeTab === 'collections' && !selectedCollection) {
       const collection = item as ProfileCollection;
@@ -392,8 +400,8 @@ export function LoggedInProfileScreen({ session, onOpenPost, onEditPost, onOpenA
             <Pressable style={[styles.postCardActionButton, styles.postCardActionButtonMuted]} onPress={() => startMoveProfilePost(post)}>
               <Text style={styles.postCardActionText}>加入合集</Text>
             </Pressable>
-            <Pressable style={styles.postCardActionButton} onPress={() => confirmDeletePost(post)}>
-              <Text style={[styles.postCardActionText, styles.postCardActionDangerText]}>删除</Text>
+            <Pressable style={[styles.postCardActionButton, styles.postCardDeleteButton]} onPress={() => confirmDeletePost(post)}>
+              <Text style={styles.postCardDeleteText}>删除</Text>
             </Pressable>
             <Pressable style={[styles.postCardActionButton, styles.postCardActionButtonMuted]} onPress={() => setActionPostId(null)}>
               <Ionicons name="close" size={16} color="#a05d6f" />
@@ -436,16 +444,34 @@ export function LoggedInProfileScreen({ session, onOpenPost, onEditPost, onOpenA
   };
 
   return (
-    <FlatList
-      contentContainerStyle={styles.pageContent}
-      data={currentData}
-      renderItem={renderItem}
-      keyExtractor={(item) => String(item.id)}
-      ListHeaderComponent={header}
-      ListFooterComponent={footer}
-      ListEmptyComponent={!isContentLoading && !contentMessage ? <Text style={[styles.profileBio, { textAlign: 'center', padding: 16 }]}>暂无内容</Text> : null}
-      showsVerticalScrollIndicator={false}
-    />
+    <>
+      <FlatList
+        contentContainerStyle={styles.pageContent}
+        data={currentData}
+        renderItem={renderItem}
+        keyExtractor={(item) => String(item.id)}
+        ListHeaderComponent={header}
+        ListFooterComponent={footer}
+        ListEmptyComponent={!isContentLoading && !contentMessage ? <Text style={[styles.profileBio, { textAlign: 'center', padding: 16 }]}>暂无内容</Text> : null}
+        showsVerticalScrollIndicator={false}
+      />
+      <Modal visible={!!postPendingDelete} transparent animationType="fade" onRequestClose={() => setPostPendingDelete(null)}>
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmDialog}>
+            <Text style={styles.confirmTitle}>删除博客？</Text>
+            <Text style={styles.confirmMessage}>删除后这篇内容将不再展示。确认删除《{postPendingDelete?.title}》吗？</Text>
+            <View style={styles.confirmActionRow}>
+              <Pressable style={[styles.confirmButton, styles.confirmCancelButton]} onPress={() => setPostPendingDelete(null)}>
+                <Text style={styles.confirmCancelText}>取消</Text>
+              </Pressable>
+              <Pressable style={[styles.confirmButton, styles.confirmDangerButton]} onPress={() => postPendingDelete && void handleDeletePost(postPendingDelete)}>
+                <Text style={styles.confirmDangerText}>确认删除</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 

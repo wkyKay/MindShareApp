@@ -63,9 +63,9 @@ function AnalyticsBarList({ title, emptyText, data }: { title: string; emptyText
   );
 }
 
-function AnalyticsMetric({ label, value }: { label: string; value: number | string }) {
+function AnalyticsMetric({ label, value, compact = false }: { label: string; value: number | string; compact?: boolean }) {
   return (
-    <View style={styles.analyticsMetricItem}>
+    <View style={compact ? styles.analyticsMetricItemCompact : styles.analyticsMetricItem}>
       <Text style={styles.analyticsMetricValue}>{value}</Text>
       <Text style={styles.analyticsMetricLabel}>{label}</Text>
     </View>
@@ -169,9 +169,9 @@ export function ProfileAnalyticsScreen({ onBack, onOpenAuth, onOpenPost }: Profi
       <View style={styles.analyticsCard}>
         <Text style={styles.analyticsCardTitle}>互动总览</Text>
         <View style={styles.analyticsMetricGridCompact}>
-          <AnalyticsMetric label="获赞" value={totalLikes} />
-          <AnalyticsMetric label="评论" value={totalComments} />
-          <AnalyticsMetric label="被收藏" value={totalFavorites} />
+          <AnalyticsMetric label="获赞" value={totalLikes} compact />
+          <AnalyticsMetric label="评论" value={totalComments} compact />
+          <AnalyticsMetric label="被收藏" value={totalFavorites} compact />
         </View>
       </View>
 

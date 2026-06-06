@@ -18,6 +18,7 @@ import {
 import type { AuthSession } from '../services/authSession';
 import { useAuthStore } from '../stores/authStore';
 import { Ionicons } from '@expo/vector-icons';
+import { formatDateTimeMinute } from '../utils/time';
 
 type BlogScreenProps = {
   postId: number;
@@ -204,7 +205,7 @@ export function BlogScreen({ postId, session, focusCommentId, startEditing = fal
       <Pressable onPress={() => onOpenAuthor(post.author.id)}>
         <Text style={styles.cardAuthor}>{post.author.display_name}</Text>
       </Pressable>
-      <Text style={styles.cardMeta}>发布时间：{post.created_at}</Text>
+      <Text style={styles.cardMeta}>发布时间：{formatDateTimeMinute(post.created_at)}</Text>
       {post.tags.length > 0 && (
         <View style={styles.tagList}>
           {post.tags.map((tag) => (
@@ -234,7 +235,7 @@ export function BlogScreen({ postId, session, focusCommentId, startEditing = fal
         </View>
       ) : null}
       <MarkdownText style={markdownStyles}>{post.body}</MarkdownText>
-      {post.is_owner && (
+      {/* {post.is_owner && (
         <>
           <Pressable style={styles.primaryButton} onPress={() => setIsEditing(true)}>
             <Text style={styles.primaryButtonText}>编辑</Text>
@@ -243,7 +244,7 @@ export function BlogScreen({ postId, session, focusCommentId, startEditing = fal
             <Text style={styles.dangerButtonText}>删除</Text>
           </Pressable>
         </>
-      )}
+      )} */}
       {!!message && <Text style={[styles.authApiHint, { color: '#a05d6f' }]}>{message}</Text>}
       <Modal visible={!!previewImageUrl} transparent animationType="fade" onRequestClose={() => setPreviewImageUrl(null)}>
         <Pressable style={styles.imagePreviewOverlay} onPress={() => setPreviewImageUrl(null)}>
@@ -279,6 +280,7 @@ export function BlogScreen({ postId, session, focusCommentId, startEditing = fal
       headerComponent={content}
       bottomAccessory={bottomAccessory}
       bottomComposerEnabled={!isEditing}
+      contentContainerStyle={styles.blogPageContent}
       onRequireAuth={onRequireAuth}
       onCommentCountChange={handleCommentCountChange}
     />

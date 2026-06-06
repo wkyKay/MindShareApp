@@ -1,10 +1,13 @@
 import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
+  gestureRoot: {
+    flex: 1,
+  },
   
   shell: {
     flex: 1,
-    backgroundColor: '#fff7f3',
+    backgroundColor: '#f5f5f5',
     paddingTop: 40,
   },
   app: {
@@ -12,13 +15,22 @@ export const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 720,
     alignSelf: 'center',
-    backgroundColor: '#fff7f3',
+    backgroundColor: '#f5f5f5',
   },
   pageContent: {
+    backgroundColor: '#f5f5f5',
     padding: 20,
     paddingBottom: 24,
   },
+  blogPageContent: {
+    backgroundColor: '#ffffff',
+  },
+  homeScreen: {
+    backgroundColor: '#f5f5f5',
+    flex: 1,
+  },
   authPageContent: {
+    backgroundColor: '#f5f5f5',
     padding: 20,
     paddingBottom: 24,
     paddingTop: 28,
@@ -39,10 +51,6 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
   },
-  homeScreen: {
-    backgroundColor: '#fff7f3',
-    flex: 1,
-  },
   suggestionPanel: {
     backgroundColor: '#ffffff',
     borderColor: '#f0d7cf',
@@ -57,9 +65,28 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  suggestionSectionTitle: {
+    color: '#8d7b75',
+    fontSize: 12,
+    fontWeight: '900',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
   suggestionText: {
     color: '#a05d6f',
     fontWeight: '800',
+  },
+  suggestionMeta: {
+    color: '#8d7b75',
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 4,
+  },
+  suggestionEmptyText: {
+    color: '#8d7b75',
+    fontSize: 13,
+    padding: 16,
   },
   selectedTagRow: {
     alignItems: 'center',
@@ -79,8 +106,9 @@ export const styles = StyleSheet.create({
   },
   segmentedControl: {
     flexDirection: 'row',
-    gap: 24,
-    paddingHorizontal: 28,
+    gap: 28,
+    justifyContent: 'center',
+    paddingHorizontal: 72,
     paddingTop: 14,
     paddingBottom: 4,
   },
@@ -92,12 +120,12 @@ export const styles = StyleSheet.create({
   segmentButtonActive: {
   },
   segmentText: {
-    color: '#9a8f8a',
+    color: '#8a8a8a',
     fontSize: 17,
     fontWeight: '800',
   },
   segmentTextActive: {
-    color: '#2f2320',
+    color: '#1f1f1f',
   },
   segmentUnderline: {
     backgroundColor: 'transparent',
@@ -107,7 +135,7 @@ export const styles = StyleSheet.create({
     width: 24,
   },
   segmentUnderlineActive: {
-    backgroundColor: '#d94f70',
+    backgroundColor: '#1f1f1f',
   },
   sectionTitle: {
     color: '#2f2320',
@@ -212,6 +240,65 @@ export const styles = StyleSheet.create({
   },
   postCardActionDangerText: {
     color: '#7b2c3a',
+  },
+  postCardDeleteButton: {
+    backgroundColor: '#e84040',
+  },
+  postCardDeleteText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  confirmOverlay: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(47, 35, 32, 0.42)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  confirmDialog: {
+    alignSelf: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    maxWidth: 420,
+    padding: 20,
+    width: '100%',
+  },
+  confirmTitle: {
+    color: '#2f2320',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  confirmMessage: {
+    color: '#806f69',
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 10,
+  },
+  confirmActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 18,
+  },
+  confirmButton: {
+    alignItems: 'center',
+    borderRadius: 16,
+    flex: 1,
+    paddingVertical: 13,
+  },
+  confirmCancelButton: {
+    backgroundColor: '#f1efee',
+  },
+  confirmDangerButton: {
+    backgroundColor: '#e84040',
+  },
+  confirmCancelText: {
+    color: '#5d4e49',
+    fontWeight: '900',
+  },
+  confirmDangerText: {
+    color: '#ffffff',
+    fontWeight: '900',
   },
   draftCard: {
     backgroundColor: '#fff8d7',
@@ -613,6 +700,13 @@ export const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    width: '100%',
+  },
+  messageConversationMetaRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
   },
   swipeConversationContainer: {
     borderRadius: 18,
@@ -623,11 +717,7 @@ export const styles = StyleSheet.create({
   swipeDeleteButton: {
     alignItems: 'center',
     backgroundColor: '#e84040',
-    bottom: 0,
     justifyContent: 'center',
-    position: 'absolute',
-    right: 0,
-    top: 0,
     width: 86,
   },
   swipeDeleteText: {
@@ -635,18 +725,12 @@ export const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
   },
-  messageConversationMetaRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
   chatScreen: {
     flex: 1,
     paddingBottom: 18,
   },
   chatHeader: {
-    backgroundColor: '#fff7f3',
+    backgroundColor: '#f5f5f5',
     borderBottomColor: '#f0d7cf',
     borderBottomWidth: 1,
     paddingHorizontal: 20,
@@ -666,6 +750,14 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 12,
+  },
+  chatTimeDivider: {
+    color: '#8d7b75',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 14,
+    marginTop: 4,
+    textAlign: 'center',
   },
   messageUnreadBadge: {
     alignItems: 'center',
@@ -709,6 +801,25 @@ export const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 12,
   },
+  messageAvatar: {
+    backgroundColor: '#f0d7cf',
+    borderRadius: 24,
+    height: 48,
+    width: 48,
+  },
+  messageAvatarFallback: {
+    alignItems: 'center',
+    backgroundColor: '#ffe1e8',
+    borderRadius: 24,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
+  },
+  messageAvatarText: {
+    color: '#d94f70',
+    fontSize: 18,
+    fontWeight: '900',
+  },
   followingMessageScroller: {
     gap: 12,
     paddingBottom: 6,
@@ -734,25 +845,6 @@ export const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 3,
     maxWidth: 72,
-  },
-  messageAvatar: {
-    backgroundColor: '#f0d7cf',
-    borderRadius: 24,
-    height: 48,
-    width: 48,
-  },
-  messageAvatarFallback: {
-    alignItems: 'center',
-    backgroundColor: '#ffe1e8',
-    borderRadius: 24,
-    height: 48,
-    justifyContent: 'center',
-    width: 48,
-  },
-  messageAvatarText: {
-    color: '#d94f70',
-    fontSize: 18,
-    fontWeight: '900',
   },
   messageRowTextBlock: {
     flex: 1,
@@ -1004,8 +1096,11 @@ export const styles = StyleSheet.create({
   commentScreenContainer: {
     flex: 1,
   },
+  blogScreenContainer: {
+    backgroundColor: '#ffffff',
+  },
   blogBottomBarHost: {
-    backgroundColor: '#fffdfb',
+    backgroundColor: '#ffffff',
     borderTopColor: '#f0d7cf',
     borderTopWidth: 1,
     paddingBottom: 10,
@@ -1017,8 +1112,24 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
+  blogReplyTargetRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  blogReplyTargetText: {
+    color: '#806f69',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  blogReplyCancelText: {
+    color: '#d94f70',
+    fontSize: 13,
+    fontWeight: '900',
+  },
   blogBottomCommentInput: {
-    backgroundColor: '#fff7f3',
+    backgroundColor: '#ffffff',
     borderColor: '#f0d7cf',
     borderRadius: 999,
     borderWidth: 1,
@@ -1273,6 +1384,16 @@ export const styles = StyleSheet.create({
     gap: 10,
     marginTop: 12,
   },
+  analyticsMetricItemCompact: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderColor: '#f0d7cf',
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
   analyticsMetricItem: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
@@ -1370,15 +1491,19 @@ export const styles = StyleSheet.create({
     borderTopColor: '#efd8d0',
     borderTopWidth: 1,
     flexDirection: 'row',
-    gap: 18,
+    gap: 6,
     justifyContent: 'space-around',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
   tabButton: {
     alignItems: 'center',
     flex: 1,
-    paddingVertical: 10,
+    justifyContent: 'center',
+    minHeight: 58,
+    minWidth: 72,
+    paddingHorizontal: 10,
+    paddingVertical: 14,
     position: 'relative',
   },
   tabBadge: {
@@ -1403,11 +1528,11 @@ export const styles = StyleSheet.create({
   createButton: {
     alignItems: 'center',
     backgroundColor: '#d94f70',
-    borderRadius: 28,
-    height: 56,
+    borderRadius: 32,
+    height: 64,
     justifyContent: 'center',
-    marginTop: -24,
-    width: 56,
+    marginTop: -28,
+    width: 64,
   },
   createButtonText: {
     color: '#ffffff',

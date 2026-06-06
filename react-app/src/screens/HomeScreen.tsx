@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { TabView } from 'react-native-tab-view';
 
 import { PostCard } from '../components/PostCard';
 import { HomePostListSkeleton } from '../components/Skeleton';
 import { styles } from '../components/styles';
 import { useDelayedLoading } from '../hooks/useDelayedLoading';
 import type { AuthSession } from '../services/authSession';
-import { getDiscoverPosts, getFollowingPosts, getTagSuggestions, type Post } from '../services/homeApi';
+import { getDiscoverPosts, getFollowingPosts, getTagSuggestions, searchPostsByTitle, searchUsers, type Post, type UserSearchResult } from '../services/homeApi';
 import { dislikePost } from '../services/postApi';
 import { Ionicons } from '@expo/vector-icons';
 
 type HomeScreenProps = {
   onOpenPost: (postId: number) => void;
+  onOpenAuthor: (authorId: number) => void;
   onOpenTag: (tag: string) => void;
   session: AuthSession | null;
   selectedRouteTag?: string;
@@ -19,11 +21,13 @@ type HomeScreenProps = {
 
 const PAGE_SIZE = 10;
 
-export function HomeScreen({ onOpenPost, onOpenTag, session, selectedRouteTag }: HomeScreenProps) {
+export function HomeScreen({ onOpenPost, onOpenAuthor, onOpenTag, session, selectedRouteTag }: HomeScreenProps) {
   const [section, setSection] = useState<'discover' | 'following'>('discover');
   const [selectedTag, setSelectedTag] = useState<string | null>(selectedRouteTag ?? null);
   const [tagQuery, setTagQuery] = useState('');
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const [userSuggestions, setUserSuggestions] = useState<UserSearchResult[]>([]);
+  const [titleMatches, setTitleMatches] = useState<Post[]>([]);
   const [discoverPosts, setDiscoverPosts] = useState<Post[]>([]);
   const [followingPosts, setFollowingPosts] = useState<Post[]>([]);
   const [discoverPage, setDiscoverPage] = useState(0);
@@ -35,9 +39,16 @@ export function HomeScreen({ onOpenPost, onOpenTag, session, selectedRouteTag }:
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [actionPostId, setActionPostId] = useState<number | null>(null);
   const [contentMessage, setContentMessage] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const layout = useWindowDimensions();
 
   const discoverSeed = useRef(Date.now());
   const isDiscover = section === 'discover';
+  const tabIndex = isDiscover ? 0 : 1;
+  const tabRoutes = [
+    { key: 'discover', title: '发现' },
+    { key: 'following', title: '关注' },
+  ];
   const posts = isDiscover ? discoverPosts : followingPosts;
   const page = isDiscover ? discoverPage : followingPage;
   const hasMore = isDiscover ? discoverHasMore : followingHasMore;
@@ -77,25 +88,35 @@ export function HomeScreen({ onOpenPost, onOpenTag, session, selectedRouteTag }:
     const query = tagQuery.trim();
     if (!query || selectedTag) {
       setTagSuggestions([]);
+      setUserSuggestions([]);
+      setTitleMatches([]);
       return;
     }
-    async function loadSuggestions() {
+    async function loadSearchResults() {
       try {
-        const data = await getTagSuggestions(query);
+        const [tags, users, posts] = await Promise.all([
+          getTagSuggestions(query),
+          searchUsers(query, session?.accessToken),
+          searchPostsByTitle(query, session?.accessToken),
+        ]);
         if (isMounted) {
-          setTagSuggestions(data);
+          setTagSuggestions(tags);
+          setUserSuggestions(users);
+          setTitleMatches(posts.items);
         }
       } catch {
         if (isMounted) {
           setTagSuggestions([]);
+          setUserSuggestions([]);
+          setTitleMatches([]);
         }
       }
     }
-    void loadSuggestions();
+    void loadSearchResults();
     return () => {
       isMounted = false;
     };
-  }, [tagQuery, selectedTag]);
+  }, [tagQuery, selectedTag, session?.accessToken]);
 
   useEffect(() => {
     if (section === 'following' && session?.accessToken && followingPage === 0) {
@@ -177,6 +198,8 @@ export function HomeScreen({ onOpenPost, onOpenTag, session, selectedRouteTag }:
     setSelectedTag(normalized);
     setTagQuery('');
     setTagSuggestions([]);
+    setUserSuggestions([]);
+    setTitleMatches([]);
     setDiscoverPosts([]);
     setDiscoverPage(0);
     setDiscoverHasMore(true);
@@ -235,6 +258,75 @@ export function HomeScreen({ onOpenPost, onOpenTag, session, selectedRouteTag }:
     return null;
   }
 
+  function renderPostItem(item: Post) {
+    return (
+      <View>
+        {actionPostId === item.id ? (
+          <View style={styles.postCardActionMenuRow}>
+            <Pressable style={styles.postCardActionButton} onPress={() => void markPostDisliked(item.id)}>
+              <Text style={styles.postCardActionText}>不喜欢</Text>
+            </Pressable>
+            <Pressable style={[styles.postCardActionButton, styles.postCardActionButtonMuted]} onPress={() => setActionPostId(null)}>
+              <Ionicons name="close" size={16} color="#a05d6f" />
+            </Pressable>
+          </View>
+        ) : null}
+        <PostCard
+          post={item}
+          showAuthor
+          showStats
+          onPress={() => {
+            setActionPostId(null);
+            onOpenPost(item.id);
+          }}
+          onLongPress={() => setActionPostId(item.id)}
+          onOpenTag={selectTag}
+        />
+      </View>
+    );
+  }
+
+  function renderHomeList(target: 'discover' | 'following') {
+    const targetPosts = target === 'discover' ? discoverPosts : followingPosts;
+    return (
+      <View style={styles.homeScreen}>
+        <FlatList
+          style={styles.homeScreen}
+          contentContainerStyle={styles.pageContent}
+          data={targetPosts}
+          renderItem={({ item }) => renderPostItem(item)}
+          keyExtractor={(item) => String(item.id)}
+          ListHeaderComponent={target === 'discover' ? (
+            <DiscoverHeader
+              selectedTag={selectedTag}
+              tagQuery={tagQuery}
+              tagSuggestions={tagSuggestions}
+              userSuggestions={userSuggestions}
+              titleMatches={titleMatches}
+              onChangeQuery={setTagQuery}
+              onClearTag={clearTag}
+              onOpenPost={onOpenPost}
+              onOpenAuthor={onOpenAuthor}
+              onSelectTag={selectTag}
+              onSearchFocusChange={setIsSearchFocused}
+            />
+          ) : null}
+          ListFooterComponent={target === section ? renderFooter : null}
+          onEndReached={() => {
+            if (target === section) void loadMore();
+          }}
+          onEndReachedThreshold={0.35}
+          refreshing={target === section && isRefreshing}
+          onRefresh={() => {
+            if (target === section) void refresh();
+          }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.homeScreen}>
       <View style={styles.segmentedControl}>
@@ -254,79 +346,105 @@ export function HomeScreen({ onOpenPost, onOpenTag, session, selectedRouteTag }:
         </Pressable>
       </View>
 
-      <FlatList
-        key={section}
+      <TabView
+        navigationState={{ index: tabIndex, routes: tabRoutes }}
+        renderScene={({ route }) => renderHomeList(route.key as 'discover' | 'following')}
+        renderTabBar={() => null}
+        onIndexChange={(nextIndex) => switchSection(nextIndex === 0 ? 'discover' : 'following')}
+        initialLayout={{ width: layout.width }}
         style={styles.homeScreen}
-        contentContainerStyle={styles.pageContent}
-        data={posts}
-        renderItem={({ item }) => (
-          <View>
-            {actionPostId === item.id ? (
-              <View style={styles.postCardActionMenuRow}>
-                <Pressable style={styles.postCardActionButton} onPress={() => void markPostDisliked(item.id)}>
-                  <Text style={styles.postCardActionText}>不喜欢</Text>
-                </Pressable>
-                <Pressable style={[styles.postCardActionButton, styles.postCardActionButtonMuted]} onPress={() => setActionPostId(null)}>
-                  <Ionicons name="close" size={16} color="#a05d6f" />
-                </Pressable>
-              </View>
-            ) : null}
-            <PostCard
-              post={item}
-              showAuthor
-              showStats
-              onPress={() => {
-                setActionPostId(null);
-                onOpenPost(item.id);
-              }}
-              onLongPress={() => setActionPostId(item.id)}
-              onOpenTag={selectTag}
-            />
-          </View>
-        )}
-        keyExtractor={(item) => String(item.id)}
-        ListHeaderComponent={
-          isDiscover ? (
-            <>
-              {selectedTag ? (
-                <View style={styles.selectedTagRow}>
-                  <Text style={styles.selectedTagText}>#{selectedTag}</Text>
-                  <Pressable onPress={clearTag}>
-                    <Text style={styles.backButtonText}>清除</Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <>
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="输入 tag 搜索博客"
-                    placeholderTextColor="#9a8f8a"
-                    value={tagQuery}
-                    onChangeText={setTagQuery}
-                  />
-                  {tagSuggestions.length > 0 && (
-                    <View style={styles.suggestionPanel}>
-                      {tagSuggestions.map((tag) => (
-                        <Pressable key={tag} style={styles.suggestionItem} onPress={() => selectTag(tag)}>
-                          <Text style={styles.suggestionText}>#{tag}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  )}
-                </>
-              )}
-              <Text style={styles.sectionTitle}>{selectedTag ? '标签博客' : '今日推荐'}</Text>
-            </>
-          ) : null
-        }
-        ListFooterComponent={renderFooter}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.35}
-        refreshing={isRefreshing}
-        onRefresh={refresh}
-        showsVerticalScrollIndicator={false}
+        swipeEnabled={!isSearchFocused}
+        lazy
       />
     </View>
+  );
+}
+
+type DiscoverHeaderProps = {
+  selectedTag: string | null;
+  tagQuery: string;
+  tagSuggestions: string[];
+  userSuggestions: UserSearchResult[];
+  titleMatches: Post[];
+  onChangeQuery: (query: string) => void;
+  onClearTag: () => void;
+  onOpenPost: (postId: number) => void;
+  onOpenAuthor: (authorId: number) => void;
+  onSelectTag: (tag: string) => void;
+  onSearchFocusChange: (isFocused: boolean) => void;
+};
+
+function DiscoverHeader({
+  selectedTag,
+  tagQuery,
+  tagSuggestions,
+  userSuggestions,
+  titleMatches,
+  onChangeQuery,
+  onClearTag,
+  onOpenPost,
+  onOpenAuthor,
+  onSelectTag,
+  onSearchFocusChange,
+}: DiscoverHeaderProps) {
+  const hasQuery = tagQuery.trim().length > 0;
+  const hasResults = userSuggestions.length > 0 || titleMatches.length > 0 || tagSuggestions.length > 0;
+
+  return (
+    <>
+      {selectedTag ? (
+        <View style={styles.selectedTagRow}>
+          <Text style={styles.selectedTagText}>#{selectedTag}</Text>
+          <Pressable onPress={onClearTag}>
+            <Text style={styles.backButtonText}>清除</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="搜索用户、标题或 tag"
+            placeholderTextColor="#9a8f8a"
+            value={tagQuery}
+            onChangeText={onChangeQuery}
+            onFocus={() => onSearchFocusChange(true)}
+            onBlur={() => onSearchFocusChange(false)}
+          />
+          {hasResults && (
+            <View style={styles.suggestionPanel}>
+              {userSuggestions.length > 0 ? <Text style={styles.suggestionSectionTitle}>用户</Text> : null}
+              {userSuggestions.map((user) => (
+                <Pressable key={`user-${user.id}`} style={styles.suggestionItem} onPress={() => onOpenAuthor(user.id)}>
+                  <Text style={styles.suggestionText}>{user.display_name}</Text>
+                  <Text style={styles.suggestionMeta}>@{user.username}{user.bio ? ` · ${user.bio}` : ''}</Text>
+                </Pressable>
+              ))}
+
+              {titleMatches.length > 0 ? <Text style={styles.suggestionSectionTitle}>标题匹配</Text> : null}
+              {titleMatches.map((post) => (
+                <Pressable key={`post-${post.id}`} style={styles.suggestionItem} onPress={() => onOpenPost(post.id)}>
+                  <Text style={styles.suggestionText}>{post.title}</Text>
+                  <Text style={styles.suggestionMeta}>{post.author.display_name}{post.tags.length > 0 ? ` · #${post.tags.slice(0, 2).join(' #')}` : ''}</Text>
+                </Pressable>
+              ))}
+
+              {tagSuggestions.length > 0 ? <Text style={styles.suggestionSectionTitle}>标签</Text> : null}
+              {tagSuggestions.map((tag) => (
+                <Pressable key={`tag-${tag}`} style={styles.suggestionItem} onPress={() => onSelectTag(tag)}>
+                  <Text style={styles.suggestionText}>#{tag}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+          {hasQuery && !hasResults ? (
+            <View style={styles.suggestionPanel}>
+              <Text style={styles.suggestionEmptyText}>没有找到相关用户、标题或标签</Text>
+            </View>
+          ) : null}
+        </>
+      )}
+      <Text style={styles.sectionTitle}>{selectedTag ? '标签博客' : '今日推荐'}</Text>
+    </>
   );
 }
 
