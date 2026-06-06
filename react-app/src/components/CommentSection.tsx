@@ -1,14 +1,30 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Platform, Pressable, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  FlatList,
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 
-import { useScrollItemAboveKeyboard } from '../hooks/useScrollItemAboveKeyboard';
-import type { AuthSession } from '../services/authSession';
-import { createComment, deleteComment, getComments, setCommentLiked, type CommentItem } from '../services/commentsApi';
-import { useAuthStore } from '../stores/authStore';
-import { useNotificationStore } from '../stores/notificationStore';
-import { formatDateTimeMinute } from '../utils/time';
-import { styles } from './styles';
+import { useScrollItemAboveKeyboard } from "../hooks/useScrollItemAboveKeyboard";
+import type { AuthSession } from "../services/authSession";
+import {
+  createComment,
+  deleteComment,
+  getComments,
+  setCommentLiked,
+  type CommentItem,
+} from "../services/commentsApi";
+import { useAuthStore } from "../stores/authStore";
+import { useNotificationStore } from "../stores/notificationStore";
+import { formatDateTimeMinute } from "../utils/time";
+import { styles } from "./styles";
+import { useTranslation } from "react-i18next";
 
 type CommentSectionProps = {
   postId: number;
@@ -24,7 +40,7 @@ type CommentSectionProps = {
 
 type FlatCommentItem = {
   id: string;
-  type: 'root' | 'reply';
+  type: "root" | "reply";
   comment: CommentItem;
   rootId: number;
   replyCount: number;
@@ -43,18 +59,24 @@ export function CommentSection({
 }: CommentSectionProps) {
   const storeSession = useAuthStore((state) => state.session);
   const requireAuthSession = useAuthStore((state) => state.requireSession);
-  const unreadCount = useNotificationStore((state) => state.unreadByPostId[postId] || 0);
+  const unreadCount = useNotificationStore(
+    (state) => state.unreadByPostId[postId] || 0,
+  );
   const markPostRead = useNotificationStore((state) => state.markPostRead);
   const currentSession = storeSession ?? session;
   const [comments, setComments] = useState<CommentItem[]>([]);
-  const [body, setBody] = useState('');
+  const [body, setBody] = useState("");
   const [replyingTo, setReplyingTo] = useState<CommentItem | null>(null);
   const [expandedRoots, setExpandedRoots] = useState<Set<number>>(new Set());
-  const [highlightedCommentId, setHighlightedCommentId] = useState<number | null>(null);
+  const [highlightedCommentId, setHighlightedCommentId] = useState<
+    number | null
+  >(null);
   const [hasScrolledToFocus, setHasScrolledToFocus] = useState(false);
-  const [pendingReplyFocusId, setPendingReplyFocusId] = useState<number | null>(null);
+  const [pendingReplyFocusId, setPendingReplyFocusId] = useState<number | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const composerRef = useRef<TextInput>(null);
   const {
     bottomAccessoryHeight: composerHeight,
@@ -65,13 +87,14 @@ export function CommentSection({
     registerItemLayout,
     scrollItemAboveKeyboard,
   } = useScrollItemAboveKeyboard<FlatCommentItem>();
+  const { t } = useTranslation();
 
   useEffect(() => {
     let isMounted = true;
     const accessToken = currentSession?.accessToken;
     async function loadComments() {
       setIsLoading(true);
-      setMessage('');
+      setMessage("");
       setHasScrolledToFocus(false);
       try {
         const data = await getComments(postId, accessToken);
@@ -81,7 +104,7 @@ export function CommentSection({
         }
       } catch (error) {
         if (isMounted) {
-          setMessage(error instanceof Error ? error.message : '评论加载失败。');
+          setMessage(error instanceof Error ? error.message : "评论加载失败。");
         }
       } finally {
         if (isMounted) {
@@ -102,7 +125,10 @@ export function CommentSection({
     void markPostRead(currentSession, postId);
   }, [currentSession, markPostRead, postId]);
 
-  const commentsById = useMemo(() => new Map(comments.map((comment) => [comment.id, comment])), [comments]);
+  const commentsById = useMemo(
+    () => new Map(comments.map((comment) => [comment.id, comment])),
+    [comments],
+  );
 
   const { roots, repliesByRoot } = useMemo(() => {
     const replyMap = new Map<number, CommentItem[]>();
@@ -124,10 +150,22 @@ export function CommentSection({
     const items: FlatCommentItem[] = [];
     for (const root of roots) {
       const replies = repliesByRoot.get(root.id) || [];
-      items.push({ id: `root-${root.id}`, type: 'root', comment: root, rootId: root.id, replyCount: replies.length });
+      items.push({
+        id: `root-${root.id}`,
+        type: "root",
+        comment: root,
+        rootId: root.id,
+        replyCount: replies.length,
+      });
       if (expandedRoots.has(root.id)) {
         for (const reply of replies) {
-          items.push({ id: `reply-${reply.id}`, type: 'reply', comment: reply, rootId: root.id, replyCount: 0 });
+          items.push({
+            id: `reply-${reply.id}`,
+            type: "reply",
+            comment: reply,
+            rootId: root.id,
+            replyCount: 0,
+          });
         }
       }
     }
@@ -154,12 +192,18 @@ export function CommentSection({
     if (!focusCommentId || hasScrolledToFocus || !flatComments.length) {
       return;
     }
-    const targetIndex = flatComments.findIndex((item) => item.comment.id === focusCommentId);
+    const targetIndex = flatComments.findIndex(
+      (item) => item.comment.id === focusCommentId,
+    );
     if (targetIndex < 0) {
       return;
     }
     const timer = setTimeout(() => {
-      listRef.current?.scrollToIndex({ index: targetIndex, animated: true, viewPosition: 0.28 });
+      listRef.current?.scrollToIndex({
+        index: targetIndex,
+        animated: true,
+        viewPosition: 0.28,
+      });
       setHighlightedCommentId(focusCommentId);
       setHasScrolledToFocus(true);
     }, 80);
@@ -178,22 +222,34 @@ export function CommentSection({
     if (!pendingReplyFocusId || !flatComments.length) {
       return;
     }
-    const targetIndex = flatComments.findIndex((item) => item.comment.id === pendingReplyFocusId);
+    const targetIndex = flatComments.findIndex(
+      (item) => item.comment.id === pendingReplyFocusId,
+    );
     if (targetIndex < 0) {
       return;
     }
     composerRef.current?.focus();
 
-    const delays = keyboardInset > 0 || Platform.OS === 'web' ? [80] : [120, 320];
-    const timers = delays.map((delay) => setTimeout(() => {
-      scrollItemAboveKeyboard(pendingReplyFocusId, { fallbackIndex: targetIndex });
-      setHighlightedCommentId(pendingReplyFocusId);
-      if (keyboardInset > 0 || Platform.OS === 'web' || delay === 320) {
-        setPendingReplyFocusId(null);
-      }
-    }, delay));
+    const delays =
+      keyboardInset > 0 || Platform.OS === "web" ? [80] : [120, 320];
+    const timers = delays.map((delay) =>
+      setTimeout(() => {
+        scrollItemAboveKeyboard(pendingReplyFocusId, {
+          fallbackIndex: targetIndex,
+        });
+        setHighlightedCommentId(pendingReplyFocusId);
+        if (keyboardInset > 0 || Platform.OS === "web" || delay === 320) {
+          setPendingReplyFocusId(null);
+        }
+      }, delay),
+    );
     return () => timers.forEach((timer) => clearTimeout(timer));
-  }, [flatComments, keyboardInset, pendingReplyFocusId, scrollItemAboveKeyboard]);
+  }, [
+    flatComments,
+    keyboardInset,
+    pendingReplyFocusId,
+    scrollItemAboveKeyboard,
+  ]);
 
   async function requireSession() {
     const activeSession = await requireAuthSession();
@@ -208,14 +264,19 @@ export function CommentSection({
     const target = parent ?? replyingTo;
     const text = body.trim();
     if (!text) {
-      setMessage('评论不能为空。');
+      setMessage("评论不能为空。");
       return;
     }
     const activeSession = await requireSession();
     if (!activeSession) return;
-    setMessage('');
+    setMessage("");
     try {
-      const created = await createComment(postId, text, activeSession.accessToken, target?.id);
+      const created = await createComment(
+        postId,
+        text,
+        activeSession.accessToken,
+        target?.id,
+      );
       setComments((current) => [...current, created]);
       onCommentCountChange(comments.length + 1);
       if (target) {
@@ -223,9 +284,9 @@ export function CommentSection({
         setExpandedRoots((current) => new Set(current).add(rootId));
         setReplyingTo(null);
       }
-      setBody('');
+      setBody("");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '评论发布失败。');
+      setMessage(error instanceof Error ? error.message : "评论发布失败。");
     }
   }
 
@@ -233,10 +294,20 @@ export function CommentSection({
     const activeSession = await requireSession();
     if (!activeSession) return;
     try {
-      const data = await setCommentLiked(comment.id, !comment.is_liked, activeSession.accessToken);
-      setComments((current) => current.map((item) => item.id === comment.id ? { ...item, is_liked: data.liked, like_count: data.like_count } : item));
+      const data = await setCommentLiked(
+        comment.id,
+        !comment.is_liked,
+        activeSession.accessToken,
+      );
+      setComments((current) =>
+        current.map((item) =>
+          item.id === comment.id
+            ? { ...item, is_liked: data.liked, like_count: data.like_count }
+            : item,
+        ),
+      );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '评论点赞失败。');
+      setMessage(error instanceof Error ? error.message : "评论点赞失败。");
     }
   }
 
@@ -245,14 +316,21 @@ export function CommentSection({
     if (!activeSession) return;
     try {
       await deleteComment(comment.id, activeSession.accessToken);
-      const deletedIds = comment.parent_id ? new Set<number>([comment.id]) : collectDeletedIds(comment.id, comments);
-      setComments((current) => current
-        .map((item) => comment.parent_id && item.parent_id === comment.id ? { ...item, parent_id: comment.parent_id } : item)
-        .filter((item) => !deletedIds.has(item.id))
+      const deletedIds = comment.parent_id
+        ? new Set<number>([comment.id])
+        : collectDeletedIds(comment.id, comments);
+      setComments((current) =>
+        current
+          .map((item) =>
+            comment.parent_id && item.parent_id === comment.id
+              ? { ...item, parent_id: comment.parent_id }
+              : item,
+          )
+          .filter((item) => !deletedIds.has(item.id)),
       );
       onCommentCountChange(Math.max(0, comments.length - deletedIds.size));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '评论删除失败。');
+      setMessage(error instanceof Error ? error.message : "评论删除失败。");
     }
   }
 
@@ -275,22 +353,24 @@ export function CommentSection({
   function startReply(comment: CommentItem) {
     const rootId = findRootId(comment, commentsById);
     setReplyingTo(comment);
-    setBody('');
+    setBody("");
     setExpandedRoots((current) => new Set(current).add(rootId));
     setPendingReplyFocusId(comment.id);
   }
 
   function cancelReply() {
     setReplyingTo(null);
-    setBody('');
+    setBody("");
     composerRef.current?.blur();
   }
 
   function renderCommentItem({ item }: { item: FlatCommentItem }) {
     const comment = item.comment;
-    const isReply = item.type === 'reply';
+    const isReply = item.type === "reply";
     const isExpanded = expandedRoots.has(item.rootId);
-    const replyTarget = comment.parent_id ? commentsById.get(comment.parent_id) : null;
+    const replyTarget = comment.parent_id
+      ? commentsById.get(comment.parent_id)
+      : null;
     const isHighlighted = highlightedCommentId === comment.id;
 
     return (
@@ -298,35 +378,69 @@ export function CommentSection({
         style={[styles.commentThread, isReply && styles.commentReplyThread]}
         onLayout={(event) => registerItemLayout(comment.id, event)}
       >
-        <View style={[
-          styles.commentCard,
-          isReply && styles.commentReplyCard,
-          isHighlighted && styles.commentFocusedCard,
-        ]}>
+        <View
+          style={[
+            styles.commentCard,
+            isReply && styles.commentReplyCard,
+            isHighlighted && styles.commentFocusedCard,
+          ]}
+        >
           <View style={styles.commentHeader}>
             <Text style={styles.cardAuthor}>
-              {comment.author?.display_name || '匿名用户'}
-              {replyTarget ? ` 回复 ${replyTarget.author?.display_name || '匿名用户'}` : ''}
+              {comment.author?.display_name || "匿名用户"}
+              {replyTarget
+                ? ` ${t("回复 {{name}}", { name: replyTarget.author?.display_name || "匿名用户" })}`
+                : ""}
             </Text>
-            <Text style={styles.cardMeta}>{formatDateTimeMinute(comment.created_at)}</Text>
+            <Text style={styles.cardMeta}>
+              {formatDateTimeMinute(comment.created_at)}
+            </Text>
           </View>
           <Text style={styles.commentBody}>{comment.body}</Text>
           <View style={styles.compactActionRow}>
-            <Pressable style={styles.compactActionButton} onPress={() => toggleLike(comment)}>
-              <Ionicons name={comment.is_liked ? 'heart' : 'heart-outline'} size={14} color={comment.is_liked ? '#e74c3c' : '#a05d6f'} />
-              <Text style={styles.compactActionText}> {comment.like_count}</Text>
+            <Pressable
+              style={styles.compactActionButton}
+              onPress={() => toggleLike(comment)}
+            >
+              <Ionicons
+                name={comment.is_liked ? "heart" : "heart-outline"}
+                size={14}
+                color={comment.is_liked ? "#e74c3c" : "#a05d6f"}
+              />
+
+              <Text style={styles.compactActionText}>
+                {" "}
+                {comment.like_count}
+              </Text>
             </Pressable>
-            <Pressable style={styles.compactActionButton} onPress={() => startReply(comment)}>
-              <Text style={styles.compactActionText}>回复</Text>
+            <Pressable
+              style={styles.compactActionButton}
+              onPress={() => startReply(comment)}
+            >
+              <Text style={styles.compactActionText}>{t("回复")}</Text>
             </Pressable>
             {!isReply && item.replyCount > 0 ? (
-              <Pressable style={styles.compactActionButton} onPress={() => toggleRoot(comment.id)}>
-                <Text style={styles.compactActionText}>{isExpanded ? '收起回复' : `展开 ${item.replyCount} 条回复`}</Text>
+              <Pressable
+                style={styles.compactActionButton}
+                onPress={() => toggleRoot(comment.id)}
+              >
+                <Text style={styles.compactActionText}>
+                  {isExpanded
+                    ? t("收起回复")
+                    : t("展开 {{count}} 条回复", { count: item.replyCount })}
+                </Text>
               </Pressable>
             ) : null}
             {canDelete(comment) ? (
-              <Pressable style={[styles.compactActionButton, styles.compactDangerButton]} onPress={() => removeComment(comment)}>
-                <Text style={[styles.compactActionText, styles.compactDangerText]}>删除</Text>
+              <Pressable
+                style={[styles.compactActionButton, styles.compactDangerButton]}
+                onPress={() => removeComment(comment)}
+              >
+                <Text
+                  style={[styles.compactActionText, styles.compactDangerText]}
+                >
+                  {t("删除")}
+                </Text>
               </Pressable>
             ) : null}
           </View>
@@ -339,7 +453,11 @@ export function CommentSection({
     <View style={styles.commentScreenContainer}>
       <FlatList
         ref={listRef}
-        contentContainerStyle={[styles.pageContent, contentContainerStyle, bottomComposerEnabled && { paddingBottom: composerHeight + 24 }]}
+        contentContainerStyle={[
+          styles.pageContent,
+          contentContainerStyle,
+          bottomComposerEnabled && { paddingBottom: composerHeight + 24 },
+        ]}
         data={flatComments}
         keyExtractor={(item) => item.id}
         renderItem={renderCommentItem}
@@ -348,29 +466,61 @@ export function CommentSection({
             {headerComponent}
             <View style={styles.commentSection}>
               <View style={styles.sectionTitleRow}>
-                <Text style={styles.sectionTitle}>评论区</Text>
-                {unreadCount > 0 ? <View style={styles.cardNotificationDot} /> : null}
+                <Text style={styles.sectionTitle}>{t("评论区")}</Text>
+                {unreadCount > 0 ? (
+                  <View style={styles.cardNotificationDot} />
+                ) : null}
               </View>
-              {unreadCount > 0 ? <Text style={styles.commentNotificationHint}>有新的评论或回复</Text> : null}
-              {isLoading ? <Text style={styles.profileBio}>正在加载评论...</Text> : null}
-              {message ? <Text style={[styles.authApiHint, { color: '#a05d6f' }]}>{message}</Text> : null}
-              {!isLoading && flatComments.length === 0 ? <Text style={styles.profileBio}>暂无评论，来抢第一条。</Text> : null}
+              {unreadCount > 0 ? (
+                <Text style={styles.commentNotificationHint}>
+                  {t("有新的评论或回复")}
+                </Text>
+              ) : null}
+              {isLoading ? (
+                <Text style={styles.profileBio}>{t("正在加载评论...")}</Text>
+              ) : null}
+              {message ? (
+                <Text style={[styles.authApiHint, { color: "#a05d6f" }]}>
+                  {message}
+                </Text>
+              ) : null}
+              {!isLoading && flatComments.length === 0 ? (
+                <Text style={styles.profileBio}>
+                  {t("暂无评论，来抢第一条。")}
+                </Text>
+              ) : null}
             </View>
           </>
         }
         showsVerticalScrollIndicator={false}
         onLayout={handleListLayout}
         onScrollToIndexFailed={({ index }) => {
-          setTimeout(() => listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.28 }), 120);
+          setTimeout(
+            () =>
+              listRef.current?.scrollToIndex({
+                index,
+                animated: true,
+                viewPosition: 0.28,
+              }),
+            120,
+          );
         }}
       />
+
       {bottomComposerEnabled ? (
-        <View style={styles.blogBottomBarHost} onLayout={handleBottomAccessoryLayout}>
+        <View
+          style={styles.blogBottomBarHost}
+          onLayout={handleBottomAccessoryLayout}
+        >
           {replyingTo ? (
             <View style={styles.blogReplyTargetRow}>
-              <Text style={styles.blogReplyTargetText}>回复 {replyingTo.author?.display_name || '匿名用户'}</Text>
+              <Text style={styles.blogReplyTargetText}>
+                {t("回复 {{name}}", {
+                  name: replyingTo.author?.display_name || "匿名用户",
+                })}
+              </Text>
               <Pressable onPress={cancelReply}>
-                <Text style={styles.blogReplyCancelText}>取消</Text>
+                <Text style={styles.blogReplyCancelText}>{t("取消")}</Text>
               </Pressable>
             </View>
           ) : null}
@@ -378,13 +528,20 @@ export function CommentSection({
             <TextInput
               ref={composerRef}
               style={styles.blogBottomCommentInput}
-              placeholder={replyingTo ? `回复 ${replyingTo.author?.display_name || '评论'}...` : '说点什么...'}
+              placeholder={
+                replyingTo
+                  ? t("回复 {{name}}...", {
+                      name: replyingTo.author?.display_name || "评论",
+                    })
+                  : t("说点什么...")
+              }
               placeholderTextColor="#a89994"
               value={body}
               onChangeText={setBody}
               returnKeyType="send"
               onSubmitEditing={() => submitComment()}
             />
+
             {bottomAccessory}
           </View>
         </View>
@@ -393,7 +550,10 @@ export function CommentSection({
   );
 }
 
-function findRootId(comment: CommentItem, commentsById: Map<number, CommentItem>) {
+function findRootId(
+  comment: CommentItem,
+  commentsById: Map<number, CommentItem>,
+) {
   let current = comment;
   while (current.parent_id && commentsById.has(current.parent_id)) {
     const parent = commentsById.get(current.parent_id)!;
@@ -411,7 +571,11 @@ function collectDeletedIds(commentId: number, comments: CommentItem[]) {
   while (changed) {
     changed = false;
     for (const comment of comments) {
-      if (comment.parent_id && deletedIds.has(comment.parent_id) && !deletedIds.has(comment.id)) {
+      if (
+        comment.parent_id &&
+        deletedIds.has(comment.parent_id) &&
+        !deletedIds.has(comment.id)
+      ) {
         deletedIds.add(comment.id);
         changed = true;
       }

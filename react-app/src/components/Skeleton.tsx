@@ -1,14 +1,14 @@
-import { Pressable, View } from 'react-native';
-import type { DimensionValue } from 'react-native';
+import { Pressable, View } from "react-native";
+import type { DimensionValue } from "react-native";
 
-import { styles } from './styles';
+import { styles } from "./styles";
 
 type SkeletonBlockProps = {
   width?: DimensionValue;
   height?: number;
 };
 
-function SkeletonBlock({ width = '100%', height = 14 }: SkeletonBlockProps) {
+function SkeletonBlock({ width = "100%", height = 14 }: SkeletonBlockProps) {
   return <View style={[styles.skeletonBlock, { width, height }]} />;
 }
 

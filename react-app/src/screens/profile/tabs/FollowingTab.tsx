@@ -1,15 +1,19 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from "react-native";
 
-import { styles } from '../../../components/styles';
-import type { FollowingUser } from '../../../services/profileApi';
+import { styles } from "../../../components/styles";
+import type { FollowingUser } from "../../../services/profileApi";
 
 type FollowingTabItemProps = {
   user: FollowingUser;
   onOpenAuthor: (authorId: number) => void;
 };
 
-export function FollowingTabItem({ user, onOpenAuthor }: FollowingTabItemProps) {
-  const avatarText = user.display_name.slice(0, 1) || user.username.slice(0, 1) || '关';
+export function FollowingTabItem({
+  user,
+  onOpenAuthor,
+}: FollowingTabItemProps) {
+  const avatarText =
+    user.display_name.slice(0, 1) || user.username.slice(0, 1) || "关";
   return (
     <Pressable style={styles.card} onPress={() => onOpenAuthor(user.id)}>
       <View style={styles.profileHeader}>

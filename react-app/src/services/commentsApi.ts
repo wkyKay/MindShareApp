@@ -1,4 +1,4 @@
-import { API_V1_BASE_URL } from '../config/api';
+import { API_V1_BASE_URL } from "../config/api";
 
 export type CommentItem = {
   id: number;
@@ -23,40 +23,50 @@ export type CommentPage = {
 
 async function readErrorMessage(response: Response) {
   try {
-    const data = (await response.json()) as { detail?: string | { msg?: string }[] };
-    if (typeof data.detail === 'string') {
+    const data = (await response.json()) as {
+      detail?: string | { msg?: string }[];
+    };
+    if (typeof data.detail === "string") {
       return data.detail;
     }
     if (Array.isArray(data.detail) && data.detail[0]?.msg) {
       return data.detail[0].msg;
     }
   } catch {
-    return '请求失败，请稍后重试。';
+    return i18n.t("请求失败，请稍后重试。");
   }
-  return '请求失败，请稍后重试。';
+  return i18n.t("请求失败，请稍后重试。");
 }
 
 function authHeaders(accessToken?: string, contentType = false) {
   if (!accessToken && !contentType) return undefined;
   return {
     ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    ...(contentType ? { 'Content-Type': 'application/json' } : {}),
+    ...(contentType ? { "Content-Type": "application/json" } : {}),
   };
 }
 
 export async function getComments(postId: number, accessToken?: string) {
-  const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}/comments?page=1&page_size=100`, {
-    headers: authHeaders(accessToken),
-  });
+  const response = await fetch(
+    `${API_V1_BASE_URL}/posts/${postId}/comments?page=1&page_size=100`,
+    {
+      headers: authHeaders(accessToken),
+    },
+  );
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }
   return (await response.json()) as CommentPage;
 }
 
-export async function createComment(postId: number, body: string, accessToken: string, parentId?: number | null) {
+export async function createComment(
+  postId: number,
+  body: string,
+  accessToken: string,
+  parentId?: number | null,
+) {
   const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}/comments`, {
-    method: 'POST',
+    method: "POST",
     headers: authHeaders(accessToken, true),
     body: JSON.stringify({ body, parent_id: parentId ?? null }),
   });
@@ -68,7 +78,7 @@ export async function createComment(postId: number, body: string, accessToken: s
 
 export async function deleteComment(commentId: number, accessToken: string) {
   const response = await fetch(`${API_V1_BASE_URL}/comments/${commentId}`, {
-    method: 'DELETE',
+    method: "DELETE",
     headers: authHeaders(accessToken),
   });
   if (!response.ok) {
@@ -76,14 +86,22 @@ export async function deleteComment(commentId: number, accessToken: string) {
   }
 }
 
-export async function setCommentLiked(commentId: number, liked: boolean, accessToken: string) {
-  const response = await fetch(`${API_V1_BASE_URL}/comments/${commentId}/like`, {
-    method: 'POST',
-    headers: authHeaders(accessToken, true),
-    body: JSON.stringify({ liked }),
-  });
+export async function setCommentLiked(
+  commentId: number,
+  liked: boolean,
+  accessToken: string,
+) {
+  const response = await fetch(
+    `${API_V1_BASE_URL}/comments/${commentId}/like`,
+    {
+      method: "POST",
+      headers: authHeaders(accessToken, true),
+      body: JSON.stringify({ liked }),
+    },
+  );
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }
   return (await response.json()) as { liked: boolean; like_count: number };
 }
+import i18n from "../i18n";

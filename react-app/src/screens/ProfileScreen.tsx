@@ -1,11 +1,12 @@
-import { useCallback, useRef } from 'react';
-import { ScrollView, Text } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useRef } from "react";
+import { ScrollView, Text } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 
-import { styles } from '../components/styles';
-import { useAuthStore } from '../stores/authStore';
-import { GuestProfileScreen } from './profile/GuestProfileScreen';
-import { LoggedInProfileScreen } from './profile/LoggedInProfileScreen';
+import { styles } from "../components/styles";
+import { useAuthStore } from "../stores/authStore";
+import { GuestProfileScreen } from "./profile/GuestProfileScreen";
+import { LoggedInProfileScreen } from "./profile/LoggedInProfileScreen";
 
 type ProfileScreenProps = {
   onOpenAuth: () => void;
@@ -16,7 +17,15 @@ type ProfileScreenProps = {
   onOpenAnalytics: () => void;
 };
 
-export function ProfileScreen({ onOpenAuth, onOpenPost, onEditPost, onOpenAuthor, onOpenTag, onOpenAnalytics }: ProfileScreenProps) {
+export function ProfileScreen({
+  onOpenAuth,
+  onOpenPost,
+  onEditPost,
+  onOpenAuthor,
+  onOpenTag,
+  onOpenAnalytics,
+}: ProfileScreenProps) {
+  const { t } = useTranslation();
   const session = useAuthStore((state) => state.session);
   const isAuthLoading = useAuthStore((state) => state.isLoading);
   const refreshAuth = useAuthStore((state) => state.refresh);
@@ -39,14 +48,14 @@ export function ProfileScreen({ onOpenAuth, onOpenPost, onEditPost, onOpenAuthor
       return () => {
         isMounted = false;
       };
-    }, [refreshAuth])
+    }, [refreshAuth]),
   );
 
   if (isAuthLoading) {
     return (
       <ScrollView contentContainerStyle={styles.pageContent}>
-        <Text style={styles.pageTitle}>我的主页</Text>
-        <Text style={styles.profileBio}>正在加载账号信息...</Text>
+        <Text style={styles.pageTitle}>{t("我的主页")}</Text>
+        <Text style={styles.profileBio}>{t("正在加载账号信息...")}</Text>
       </ScrollView>
     );
   }

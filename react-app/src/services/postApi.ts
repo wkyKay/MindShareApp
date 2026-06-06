@@ -1,6 +1,6 @@
-import { Platform } from 'react-native';
+import { Platform } from "react-native";
 
-import { API_BASE_URL, API_V1_BASE_URL } from '../config/api';
+import { API_BASE_URL, API_V1_BASE_URL } from "../config/api";
 
 export type CreatePostPayload = {
   title: string;
@@ -9,8 +9,8 @@ export type CreatePostPayload = {
   image_asset_ids?: number[];
   document_asset_ids?: number[];
   tags: string[];
-  visibility: 'public' | 'private';
-  status: 'published' | 'draft';
+  visibility: "public" | "private";
+  status: "published" | "draft";
 };
 
 export type CreatedPost = {
@@ -78,25 +78,30 @@ export type ParsedDocument = {
 
 async function readErrorMessage(response: Response) {
   try {
-    const data = (await response.json()) as { detail?: string | { msg?: string }[] };
-    if (typeof data.detail === 'string') {
+    const data = (await response.json()) as {
+      detail?: string | { msg?: string }[];
+    };
+    if (typeof data.detail === "string") {
       return data.detail;
     }
     if (Array.isArray(data.detail) && data.detail[0]?.msg) {
       return data.detail[0].msg;
     }
   } catch {
-    return '请求失败，请稍后重试。';
+    return i18n.t("请求失败，请稍后重试。");
   }
-  return '请求失败，请稍后重试。';
+  return i18n.t("请求失败，请稍后重试。");
 }
 
-export async function createPost(payload: CreatePostPayload, accessToken: string) {
+export async function createPost(
+  payload: CreatePostPayload,
+  accessToken: string,
+) {
   const response = await fetch(`${API_V1_BASE_URL}/posts`, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
   });
@@ -126,12 +131,16 @@ export async function getPost(postId: number, accessToken?: string) {
   };
 }
 
-export async function updatePost(postId: number, payload: UpdatePostPayload, accessToken: string) {
+export async function updatePost(
+  postId: number,
+  payload: UpdatePostPayload,
+  accessToken: string,
+) {
   const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}`, {
-    method: 'PATCH',
+    method: "PATCH",
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
   });
@@ -143,7 +152,7 @@ export async function updatePost(postId: number, payload: UpdatePostPayload, acc
 
 export async function deletePost(postId: number, accessToken: string) {
   const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}`, {
-    method: 'DELETE',
+    method: "DELETE",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -153,12 +162,16 @@ export async function deletePost(postId: number, accessToken: string) {
   }
 }
 
-export async function setPostLiked(postId: number, liked: boolean, accessToken: string) {
+export async function setPostLiked(
+  postId: number,
+  liked: boolean,
+  accessToken: string,
+) {
   const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}/like`, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ liked }),
   });
@@ -168,12 +181,16 @@ export async function setPostLiked(postId: number, liked: boolean, accessToken: 
   return (await response.json()) as LikeResponse;
 }
 
-export async function setPostFavorited(postId: number, favorited: boolean, accessToken: string) {
+export async function setPostFavorited(
+  postId: number,
+  favorited: boolean,
+  accessToken: string,
+) {
   const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}/favorite`, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ favorited }),
   });
@@ -185,7 +202,7 @@ export async function setPostFavorited(postId: number, favorited: boolean, acces
 
 export async function dislikePost(postId: number, accessToken: string) {
   const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}/dislike`, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -196,14 +213,22 @@ export async function dislikePost(postId: number, accessToken: string) {
   return (await response.json()) as { disliked: boolean };
 }
 
-export async function uploadPostImage(uri: string, fileName: string, accessToken: string) {
+export async function uploadPostImage(
+  uri: string,
+  fileName: string,
+  accessToken: string,
+) {
   const formData = new FormData();
-  formData.append('kind', 'image');
-  const imageFile = await createUploadFile(uri, fileName, guessMimeType(fileName, 'image/jpeg'));
-  formData.append('file', imageFile);
+  formData.append("kind", "image");
+  const imageFile = await createUploadFile(
+    uri,
+    fileName,
+    guessMimeType(fileName, "image/jpeg"),
+  );
+  formData.append("file", imageFile);
 
   const response = await fetch(`${API_V1_BASE_URL}/uploads/images`, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -219,14 +244,23 @@ export async function uploadPostImage(uri: string, fileName: string, accessToken
   };
 }
 
-export async function uploadPostDocument(uri: string, fileName: string, accessToken: string, mimeType?: string | null) {
+export async function uploadPostDocument(
+  uri: string,
+  fileName: string,
+  accessToken: string,
+  mimeType?: string | null,
+) {
   const formData = new FormData();
-  formData.append('kind', 'document');
-  const documentFile = await createUploadFile(uri, fileName, mimeType || undefined);
-  formData.append('file', documentFile);
+  formData.append("kind", "document");
+  const documentFile = await createUploadFile(
+    uri,
+    fileName,
+    mimeType || undefined,
+  );
+  formData.append("file", documentFile);
 
   const response = await fetch(`${API_V1_BASE_URL}/uploads/documents`, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -242,13 +276,22 @@ export async function uploadPostDocument(uri: string, fileName: string, accessTo
   };
 }
 
-export async function parsePostDocument(uri: string, fileName: string, accessToken: string, mimeType?: string | null) {
+export async function parsePostDocument(
+  uri: string,
+  fileName: string,
+  accessToken: string,
+  mimeType?: string | null,
+) {
   const formData = new FormData();
-  const documentFile = await createUploadFile(uri, fileName, mimeType || undefined);
-  formData.append('file', documentFile);
+  const documentFile = await createUploadFile(
+    uri,
+    fileName,
+    mimeType || undefined,
+  );
+  formData.append("file", documentFile);
 
   const response = await fetch(`${API_V1_BASE_URL}/uploads/parse-document`, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -260,30 +303,37 @@ export async function parsePostDocument(uri: string, fileName: string, accessTok
   return (await response.json()) as ParsedDocument;
 }
 
-async function createUploadFile(uri: string, fileName: string, mimeType?: string) {
-  if (Platform.OS !== 'web') {
+async function createUploadFile(
+  uri: string,
+  fileName: string,
+  mimeType?: string,
+) {
+  if (Platform.OS !== "web") {
     return {
       uri,
       name: fileName,
-      type: mimeType || guessMimeType(fileName, 'application/octet-stream'),
+      type: mimeType || guessMimeType(fileName, "application/octet-stream"),
     } as unknown as Blob;
   }
 
   const response = await fetch(uri);
   const blob = await response.blob();
-  return new File([blob], fileName, { type: mimeType || blob.type || 'application/octet-stream' });
+  return new File([blob], fileName, {
+    type: mimeType || blob.type || "application/octet-stream",
+  });
 }
 
 function guessMimeType(fileName: string, fallback: string) {
-  const ext = fileName.split('.').pop()?.toLowerCase();
-  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
-  if (ext === 'png') return 'image/png';
-  if (ext === 'webp') return 'image/webp';
-  if (ext === 'gif') return 'image/gif';
-  if (ext === 'pdf') return 'application/pdf';
-  if (ext === 'doc') return 'application/msword';
-  if (ext === 'docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  if (ext === 'md') return 'text/markdown';
+  const ext = fileName.split(".").pop()?.toLowerCase();
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  if (ext === "gif") return "image/gif";
+  if (ext === "pdf") return "application/pdf";
+  if (ext === "doc") return "application/msword";
+  if (ext === "docx")
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (ext === "md") return "text/markdown";
   return fallback;
 }
 
@@ -294,11 +344,15 @@ function normalizeAssetUrl(url?: string | null) {
   if (/^https?:\/\//i.test(url)) {
     return url;
   }
-  return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+  return `${API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 
 function normalizeMarkdownAssetUrls(markdown: string) {
-  return markdown.replace(/!\[([^\]]*)\]\((\/uploads\/[^)]+)\)/g, (_match, altText, relativeUrl) => {
-    return `![${altText}](${normalizeAssetUrl(relativeUrl)})`;
-  });
+  return markdown.replace(
+    /!\[([^\]]*)\]\((\/uploads\/[^)]+)\)/g,
+    (_match, altText, relativeUrl) => {
+      return `![${altText}](${normalizeAssetUrl(relativeUrl)})`;
+    },
+  );
 }
+import i18n from "../i18n";

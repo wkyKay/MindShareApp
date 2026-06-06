@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
 export function useDelayedLoading(isLoading: boolean, delayMs = 250) {
   const [showLoading, setShowLoading] = useState(false);

@@ -1,8 +1,15 @@
-import { API_BASE_URL, API_V1_BASE_URL } from '../config/api';
+import { API_BASE_URL, API_V1_BASE_URL } from "../config/api";
 
 export type NotificationItem = {
   id: number;
-  type: 'comment_created' | 'comment_reply' | 'comment_liked' | 'post_liked' | 'post_favorited' | 'collection_favorited' | 'user_followed';
+  type:
+    | "comment_created"
+    | "comment_reply"
+    | "comment_liked"
+    | "post_liked"
+    | "post_favorited"
+    | "collection_favorited"
+    | "user_followed";
   recipient_id: number;
   actor: {
     id: number;
@@ -33,16 +40,19 @@ export type NotificationPage = {
 async function readErrorMessage(response: Response) {
   try {
     const data = (await response.json()) as { detail?: string };
-    return data.detail || '请求失败，请稍后重试。';
+    return data.detail || i18n.t("请求失败，请稍后重试。");
   } catch {
-    return '请求失败，请稍后重试。';
+    return i18n.t("请求失败，请稍后重试。");
   }
 }
 
 export async function getNotificationUnreadCount(accessToken: string) {
-  const response = await fetch(`${API_V1_BASE_URL}/notifications/unread-count`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const response = await fetch(
+    `${API_V1_BASE_URL}/notifications/unread-count`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }
@@ -50,9 +60,12 @@ export async function getNotificationUnreadCount(accessToken: string) {
 }
 
 export async function listNotifications(accessToken: string) {
-  const response = await fetch(`${API_V1_BASE_URL}/notifications?page=1&page_size=100`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const response = await fetch(
+    `${API_V1_BASE_URL}/notifications?page=1&page_size=100`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }
@@ -60,23 +73,32 @@ export async function listNotifications(accessToken: string) {
 }
 
 export async function getPostUnreadCounts(accessToken: string) {
-  const response = await fetch(`${API_V1_BASE_URL}/notifications/posts/unread`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const response = await fetch(
+    `${API_V1_BASE_URL}/notifications/posts/unread`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }
   return (await response.json()) as PostUnreadCount[];
 }
 
-export async function markNotificationsRead(accessToken: string, options: { postId?: number; notificationId?: number } = {}) {
+export async function markNotificationsRead(
+  accessToken: string,
+  options: { postId?: number; notificationId?: number } = {},
+) {
   const response = await fetch(`${API_V1_BASE_URL}/notifications/read`, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ post_id: options.postId ?? null, notification_id: options.notificationId ?? null }),
+    body: JSON.stringify({
+      post_id: options.postId ?? null,
+      notification_id: options.notificationId ?? null,
+    }),
   });
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
@@ -84,6 +106,7 @@ export async function markNotificationsRead(accessToken: string, options: { post
 }
 
 export function getNotificationsWebSocketUrl(accessToken: string) {
-  const wsBaseUrl = API_BASE_URL.replace(/^http/i, 'ws');
+  const wsBaseUrl = API_BASE_URL.replace(/^http/i, "ws");
   return `${wsBaseUrl}/api/v1/notifications/ws?token=${encodeURIComponent(accessToken)}`;
 }
+import i18n from "../i18n";

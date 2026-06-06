@@ -1,7 +1,13 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 
-import { clearAuthSession, loadAuthSession, refreshAuthSession, saveAuthSession, type AuthSession } from '../services/authSession';
-import type { TokenResponse } from '../services/authApi';
+import {
+  clearAuthSession,
+  loadAuthSession,
+  refreshAuthSession,
+  saveAuthSession,
+  type AuthSession,
+} from "../services/authSession";
+import type { TokenResponse } from "../services/authApi";
 
 type AuthStore = {
   session: AuthSession | null;

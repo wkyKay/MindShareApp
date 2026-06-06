@@ -1,5 +1,5 @@
-import { API_BASE_URL, API_V1_BASE_URL } from '../config/api';
-import { getMyFollowing, type FollowingUser } from './profileApi';
+import { API_BASE_URL, API_V1_BASE_URL } from "../config/api";
+import { getMyFollowing, type FollowingUser } from "./profileApi";
 
 export type MessageUserSummary = {
   id: number;
@@ -18,8 +18,8 @@ export type Message = {
 };
 
 export type MessageSocketEvent =
-  | { type: 'message.created'; message: Message }
-  | { type: 'conversation.read'; conversation_id: number };
+  | { type: "message.created"; message: Message }
+  | { type: "conversation.read"; conversation_id: number };
 
 export type ConversationItem = {
   id: number;
@@ -46,19 +46,22 @@ export type SearchUserItem = {
 
 async function readErrorMessage(response: Response) {
   try {
-    const data = (await response.json()) as { detail?: string | { msg?: string }[] };
-    if (typeof data.detail === 'string') return data.detail;
-    if (Array.isArray(data.detail) && data.detail[0]?.msg) return data.detail[0].msg;
+    const data = (await response.json()) as {
+      detail?: string | { msg?: string }[];
+    };
+    if (typeof data.detail === "string") return data.detail;
+    if (Array.isArray(data.detail) && data.detail[0]?.msg)
+      return data.detail[0].msg;
   } catch {
-    return '请求失败，请稍后重试。';
+    return i18n.t("请求失败，请稍后重试。");
   }
-  return '请求失败，请稍后重试。';
+  return i18n.t("请求失败，请稍后重试。");
 }
 
 function authHeaders(accessToken: string, contentType = false) {
   return {
     Authorization: `Bearer ${accessToken}`,
-    ...(contentType ? { 'Content-Type': 'application/json' } : {}),
+    ...(contentType ? { "Content-Type": "application/json" } : {}),
   };
 }
 
@@ -70,9 +73,12 @@ export async function listConversations(accessToken: string) {
   return (await response.json()) as ConversationItem[];
 }
 
-export async function createOrGetConversation(accessToken: string, partnerId: number) {
+export async function createOrGetConversation(
+  accessToken: string,
+  partnerId: number,
+) {
   const response = await fetch(`${API_V1_BASE_URL}/messages/conversations`, {
-    method: 'POST',
+    method: "POST",
     headers: authHeaders(accessToken, true),
     body: JSON.stringify({ partner_id: partnerId }),
   });
@@ -80,37 +86,62 @@ export async function createOrGetConversation(accessToken: string, partnerId: nu
   return (await response.json()) as ConversationSummary;
 }
 
-export async function listMessages(accessToken: string, conversationId: number) {
-  const response = await fetch(`${API_V1_BASE_URL}/messages/conversations/${conversationId}/messages`, {
-    headers: authHeaders(accessToken),
-  });
+export async function listMessages(
+  accessToken: string,
+  conversationId: number,
+) {
+  const response = await fetch(
+    `${API_V1_BASE_URL}/messages/conversations/${conversationId}/messages`,
+    {
+      headers: authHeaders(accessToken),
+    },
+  );
   if (!response.ok) throw new Error(await readErrorMessage(response));
   return (await response.json()) as Message[];
 }
 
-export async function sendMessage(accessToken: string, conversationId: number, body: string) {
-  const response = await fetch(`${API_V1_BASE_URL}/messages/conversations/${conversationId}/messages`, {
-    method: 'POST',
-    headers: authHeaders(accessToken, true),
-    body: JSON.stringify({ body }),
-  });
+export async function sendMessage(
+  accessToken: string,
+  conversationId: number,
+  body: string,
+) {
+  const response = await fetch(
+    `${API_V1_BASE_URL}/messages/conversations/${conversationId}/messages`,
+    {
+      method: "POST",
+      headers: authHeaders(accessToken, true),
+      body: JSON.stringify({ body }),
+    },
+  );
   if (!response.ok) throw new Error(await readErrorMessage(response));
   return (await response.json()) as Message;
 }
 
-export async function markConversationRead(accessToken: string, conversationId: number) {
-  const response = await fetch(`${API_V1_BASE_URL}/messages/conversations/${conversationId}/read`, {
-    method: 'POST',
-    headers: authHeaders(accessToken),
-  });
+export async function markConversationRead(
+  accessToken: string,
+  conversationId: number,
+) {
+  const response = await fetch(
+    `${API_V1_BASE_URL}/messages/conversations/${conversationId}/read`,
+    {
+      method: "POST",
+      headers: authHeaders(accessToken),
+    },
+  );
   if (!response.ok) throw new Error(await readErrorMessage(response));
 }
 
-export async function deleteConversation(accessToken: string, conversationId: number) {
-  const response = await fetch(`${API_V1_BASE_URL}/messages/conversations/${conversationId}`, {
-    method: 'DELETE',
-    headers: authHeaders(accessToken),
-  });
+export async function deleteConversation(
+  accessToken: string,
+  conversationId: number,
+) {
+  const response = await fetch(
+    `${API_V1_BASE_URL}/messages/conversations/${conversationId}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(accessToken),
+    },
+  );
   if (!response.ok) throw new Error(await readErrorMessage(response));
 }
 
@@ -123,9 +154,12 @@ export async function getMessageUnreadCount(accessToken: string) {
 }
 
 export async function searchUsers(accessToken: string, query: string) {
-  const response = await fetch(`${API_V1_BASE_URL}/users/search?q=${encodeURIComponent(query)}&limit=20`, {
-    headers: authHeaders(accessToken),
-  });
+  const response = await fetch(
+    `${API_V1_BASE_URL}/users/search?q=${encodeURIComponent(query)}&limit=20`,
+    {
+      headers: authHeaders(accessToken),
+    },
+  );
   if (!response.ok) throw new Error(await readErrorMessage(response));
   return (await response.json()) as SearchUserItem[];
 }
@@ -136,6 +170,7 @@ export async function getFollowingUsers(accessToken: string) {
 }
 
 export function getMessagesWebSocketUrl(accessToken: string) {
-  const wsBaseUrl = API_BASE_URL.replace(/^http/i, 'ws');
+  const wsBaseUrl = API_BASE_URL.replace(/^http/i, "ws");
   return `${wsBaseUrl}/api/v1/messages/ws?token=${encodeURIComponent(accessToken)}`;
 }
+import i18n from "../i18n";

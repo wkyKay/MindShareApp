@@ -1,4 +1,4 @@
-import { API_V1_BASE_URL } from '../config/api';
+import { API_V1_BASE_URL } from "../config/api";
 
 export type Post = {
   id: number;
@@ -39,26 +39,36 @@ type PageResponse = {
 
 async function readErrorMessage(response: Response) {
   try {
-    const data = (await response.json()) as { detail?: string | { msg?: string }[] };
-    if (typeof data.detail === 'string') {
+    const data = (await response.json()) as {
+      detail?: string | { msg?: string }[];
+    };
+    if (typeof data.detail === "string") {
       return data.detail;
     }
     if (Array.isArray(data.detail) && data.detail[0]?.msg) {
       return data.detail[0].msg;
     }
   } catch {
-    return '请求失败，请稍后重试。';
+    return i18n.t("请求失败，请稍后重试。");
   }
-  return '请求失败，请稍后重试。';
+  return i18n.t("请求失败，请稍后重试。");
 }
 
-export async function getDiscoverPosts(page: number = 1, pageSize: number = 10, seed: number = 1, tag?: string | null, accessToken?: string) {
-  const tagParam = tag ? `&tag=${encodeURIComponent(tag)}` : '';
+export async function getDiscoverPosts(
+  page: number = 1,
+  pageSize: number = 10,
+  seed: number = 1,
+  tag?: string | null,
+  accessToken?: string,
+) {
+  const tagParam = tag ? `&tag=${encodeURIComponent(tag)}` : "";
   const response = await fetch(
     `${API_V1_BASE_URL}/posts?tab=discover&page=${page}&page_size=${pageSize}&seed=${seed}${tagParam}`,
     {
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    }
+      headers: accessToken
+        ? { Authorization: `Bearer ${accessToken}` }
+        : undefined,
+    },
   );
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
@@ -66,12 +76,18 @@ export async function getDiscoverPosts(page: number = 1, pageSize: number = 10, 
   return (await response.json()) as PageResponse;
 }
 
-export async function searchPostsByTitle(query: string, accessToken?: string, pageSize: number = 5) {
+export async function searchPostsByTitle(
+  query: string,
+  accessToken?: string,
+  pageSize: number = 5,
+) {
   const response = await fetch(
     `${API_V1_BASE_URL}/posts?tab=discover&page=1&page_size=${pageSize}&seed=1&q=${encodeURIComponent(query)}`,
     {
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    }
+      headers: accessToken
+        ? { Authorization: `Bearer ${accessToken}` }
+        : undefined,
+    },
   );
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
@@ -80,34 +96,50 @@ export async function searchPostsByTitle(query: string, accessToken?: string, pa
 }
 
 export async function getTagSuggestions(query: string) {
-  const response = await fetch(`${API_V1_BASE_URL}/search/tags?q=${encodeURIComponent(query)}`);
+  const response = await fetch(
+    `${API_V1_BASE_URL}/search/tags?q=${encodeURIComponent(query)}`,
+  );
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }
   return (await response.json()) as string[];
 }
 
-export async function searchUsers(query: string, accessToken?: string, limit: number = 5) {
-  const response = await fetch(`${API_V1_BASE_URL}/users/search?q=${encodeURIComponent(query)}&limit=${limit}`, {
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-  });
+export async function searchUsers(
+  query: string,
+  accessToken?: string,
+  limit: number = 5,
+) {
+  const response = await fetch(
+    `${API_V1_BASE_URL}/users/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+    {
+      headers: accessToken
+        ? { Authorization: `Bearer ${accessToken}` }
+        : undefined,
+    },
+  );
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }
   return (await response.json()) as UserSearchResult[];
 }
 
-export async function getFollowingPosts(page: number = 1, accessToken: string, pageSize: number = 10) {
+export async function getFollowingPosts(
+  page: number = 1,
+  accessToken: string,
+  pageSize: number = 10,
+) {
   const response = await fetch(
     `${API_V1_BASE_URL}/posts?tab=following&page=${page}&page_size=${pageSize}`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
-    }
+    },
   );
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));
   }
   return (await response.json()) as PageResponse;
 }
+import i18n from "../i18n";

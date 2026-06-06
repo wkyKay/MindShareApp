@@ -1,8 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { getMe, type AuthUser, type TokenResponse } from './authApi';
+import { getMe, type AuthUser, type TokenResponse } from "./authApi";
 
-const AUTH_SESSION_KEY = 'auth.session.v1';
+const AUTH_SESSION_KEY = "auth.session.v1";
 
 export type AuthSession = {
   accessToken: string;
@@ -43,7 +43,10 @@ export async function refreshAuthSession() {
 
   const user = await getMe(session.accessToken);
   const refreshedSession = { ...session, user };
-  await AsyncStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(refreshedSession));
+  await AsyncStorage.setItem(
+    AUTH_SESSION_KEY,
+    JSON.stringify(refreshedSession),
+  );
   return refreshedSession;
 }
 

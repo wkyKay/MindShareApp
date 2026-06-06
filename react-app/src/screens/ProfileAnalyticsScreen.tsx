@@ -1,11 +1,19 @@
-import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import type { DimensionValue } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useState } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import type { DimensionValue } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 
-import { styles } from '../components/styles';
-import { getMyCollections, getMyFavorites, getMyPosts, type FavoritePost, type ProfileFavorite, type ProfilePost } from '../services/profileApi';
-import { useAuthStore } from '../stores/authStore';
+import { styles } from "../components/styles";
+import {
+  getMyCollections,
+  getMyFavorites,
+  getMyPosts,
+  type FavoritePost,
+  type ProfileFavorite,
+  type ProfilePost,
+} from "../services/profileApi";
+import { useAuthStore } from "../stores/authStore";
+import { useTranslation } from "react-i18next";
 
 type ProfileAnalyticsScreenProps = {
   onBack: () => void;
@@ -19,7 +27,7 @@ type TagCount = {
 };
 
 function isFavoritePost(item: ProfileFavorite): item is FavoritePost {
-  return 'tags' in item;
+  return "tags" in item;
 }
 
 function buildTagCounts(posts: ProfilePost[]) {
@@ -35,7 +43,15 @@ function buildTagCounts(posts: ProfilePost[]) {
     .slice(0, 8);
 }
 
-function AnalyticsBarList({ title, emptyText, data }: { title: string; emptyText: string; data: TagCount[] }) {
+function AnalyticsBarList({
+  title,
+  emptyText,
+  data,
+}: {
+  title: string;
+  emptyText: string;
+  data: TagCount[];
+}) {
   const maxCount = data[0]?.count || 0;
 
   return (
@@ -45,7 +61,10 @@ function AnalyticsBarList({ title, emptyText, data }: { title: string; emptyText
         <Text style={styles.analyticsEmptyText}>{emptyText}</Text>
       ) : (
         data.map((item) => {
-          const width: DimensionValue = maxCount > 0 ? `${Math.max(12, Math.round((item.count / maxCount) * 100))}%` : '0%';
+          const width: DimensionValue =
+            maxCount > 0
+              ? `${Math.max(12, Math.round((item.count / maxCount) * 100))}%`
+              : "0%";
           return (
             <View key={item.tag} style={styles.analyticsBarItem}>
               <View style={styles.analyticsBarLabelRow}>
@@ -63,23 +82,40 @@ function AnalyticsBarList({ title, emptyText, data }: { title: string; emptyText
   );
 }
 
-function AnalyticsMetric({ label, value, compact = false }: { label: string; value: number | string; compact?: boolean }) {
+function AnalyticsMetric({
+  label,
+  value,
+  compact = false,
+}: {
+  label: string;
+  value: number | string;
+  compact?: boolean;
+}) {
   return (
-    <View style={compact ? styles.analyticsMetricItemCompact : styles.analyticsMetricItem}>
+    <View
+      style={
+        compact ? styles.analyticsMetricItemCompact : styles.analyticsMetricItem
+      }
+    >
       <Text style={styles.analyticsMetricValue}>{value}</Text>
       <Text style={styles.analyticsMetricLabel}>{label}</Text>
     </View>
   );
 }
 
-export function ProfileAnalyticsScreen({ onBack, onOpenAuth, onOpenPost }: ProfileAnalyticsScreenProps) {
+export function ProfileAnalyticsScreen({
+  onBack,
+  onOpenAuth,
+  onOpenPost,
+}: ProfileAnalyticsScreenProps) {
   const session = useAuthStore((state) => state.session);
   const requireAuthSession = useAuthStore((state) => state.requireSession);
   const [posts, setPosts] = useState<ProfilePost[]>([]);
   const [favorites, setFavorites] = useState<ProfileFavorite[]>([]);
   const [collectionsCount, setCollectionsCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
+  const { t } = useTranslation();
 
   useFocusEffect(
     useCallback(() => {
@@ -87,22 +123,24 @@ export function ProfileAnalyticsScreen({ onBack, onOpenAuth, onOpenPost }: Profi
 
       async function loadAnalytics() {
         setIsLoading(true);
-        setMessage('');
+        setMessage("");
         const activeSession = session ?? (await requireAuthSession());
         if (!activeSession) {
           if (isMounted) {
             setIsLoading(false);
-            setMessage('请先登录后查看资料分析。');
+            setMessage("请先登录后查看资料分析。");
           }
           return;
         }
 
         try {
-          const [postsData, favoritesData, collectionsData] = await Promise.all([
-            getMyPosts(activeSession.accessToken),
-            getMyFavorites(activeSession.accessToken),
-            getMyCollections(activeSession.accessToken),
-          ]);
+          const [postsData, favoritesData, collectionsData] = await Promise.all(
+            [
+              getMyPosts(activeSession.accessToken),
+              getMyFavorites(activeSession.accessToken),
+              getMyCollections(activeSession.accessToken),
+            ],
+          );
           if (isMounted) {
             setPosts(postsData.items);
             setFavorites(favoritesData.items);
@@ -110,7 +148,11 @@ export function ProfileAnalyticsScreen({ onBack, onOpenAuth, onOpenPost }: Profi
           }
         } catch (error) {
           if (isMounted) {
-            setMessage(error instanceof Error ? error.message : '资料分析加载失败，请稍后重试。');
+            setMessage(
+              error instanceof Error
+                ? error.message
+                : "资料分析加载失败，请稍后重试。",
+            );
           }
         } finally {
           if (isMounted) {
@@ -124,75 +166,128 @@ export function ProfileAnalyticsScreen({ onBack, onOpenAuth, onOpenPost }: Profi
       return () => {
         isMounted = false;
       };
-    }, [requireAuthSession, session])
+    }, [requireAuthSession, session]),
   );
 
   const favoritePosts = favorites.filter(isFavoritePost);
-  const authoredTags = buildTagCounts(posts.filter((post) => post.status !== 'deleted'));
+  const authoredTags = buildTagCounts(
+    posts.filter((post) => post.status !== "deleted"),
+  );
   const favoritedTags = buildTagCounts(favoritePosts);
   const totalLikes = posts.reduce((sum, post) => sum + post.like_count, 0);
-  const totalComments = posts.reduce((sum, post) => sum + post.comment_count, 0);
-  const totalFavorites = posts.reduce((sum, post) => sum + post.favorite_count, 0);
-  const draftCount = posts.filter((post) => post.status === 'draft').length;
+  const totalComments = posts.reduce(
+    (sum, post) => sum + post.comment_count,
+    0,
+  );
+  const totalFavorites = posts.reduce(
+    (sum, post) => sum + post.favorite_count,
+    0,
+  );
+  const draftCount = posts.filter((post) => post.status === "draft").length;
   const topPosts = [...posts]
-    .filter((post) => post.status !== 'deleted')
-    .sort((a, b) => (b.like_count + b.comment_count + b.favorite_count) - (a.like_count + a.comment_count + a.favorite_count))
+    .filter((post) => post.status !== "deleted")
+    .sort(
+      (a, b) =>
+        b.like_count +
+        b.comment_count +
+        b.favorite_count -
+        (a.like_count + a.comment_count + a.favorite_count),
+    )
     .slice(0, 3);
-  const authoredTopTag = authoredTags[0]?.tag || '暂无';
-  const favoritedTopTag = favoritedTags[0]?.tag || '暂无';
+  const authoredTopTag = authoredTags[0]?.tag || "暂无";
+  const favoritedTopTag = favoritedTags[0]?.tag || "暂无";
 
   return (
-    <ScrollView contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={styles.pageContent}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.pageHeaderRow}>
         <Pressable style={styles.backButtonCompact} onPress={onBack}>
-          <Text style={styles.backButtonText}>‹ 返回</Text>
+          <Text style={styles.backButtonText}>{t("‹ 返回")}</Text>
         </Pressable>
-        <Text style={styles.pageTitle}>资料分析</Text>
+        <Text style={styles.pageTitle}>{t("资料分析")}</Text>
       </View>
 
       {!session && !isLoading ? (
         <Pressable style={styles.primaryButton} onPress={onOpenAuth}>
-          <Text style={styles.primaryButtonText}>去登录</Text>
+          <Text style={styles.primaryButtonText}>{t("去登录")}</Text>
         </Pressable>
       ) : null}
 
-      {isLoading ? <Text style={styles.profileBio}>正在生成你的内容画像...</Text> : null}
-      {!!message ? <Text style={[styles.authApiHint, { color: '#a05d6f' }]}>{message}</Text> : null}
+      {isLoading ? (
+        <Text style={styles.profileBio}>{t("正在生成你的内容画像...")}</Text>
+      ) : null}
+      {!!message ? (
+        <Text style={[styles.authApiHint, { color: "#a05d6f" }]}>
+          {message}
+        </Text>
+      ) : null}
 
       <View style={styles.analyticsMetricGrid}>
-        <AnalyticsMetric label="发布" value={posts.length} />
-        <AnalyticsMetric label="草稿" value={draftCount} />
-        <AnalyticsMetric label="收藏文章" value={favoritePosts.length} />
-        <AnalyticsMetric label="合集" value={collectionsCount} />
+        <AnalyticsMetric label={t("发布")} value={posts.length} />
+
+        <AnalyticsMetric label={t("草稿")} value={draftCount} />
+
+        <AnalyticsMetric label={t("收藏文章")} value={favoritePosts.length} />
+
+        <AnalyticsMetric label={t("合集")} value={collectionsCount} />
       </View>
 
       <View style={styles.analyticsCard}>
-        <Text style={styles.analyticsCardTitle}>互动总览</Text>
+        <Text style={styles.analyticsCardTitle}>{t("互动总览")}</Text>
         <View style={styles.analyticsMetricGridCompact}>
-          <AnalyticsMetric label="获赞" value={totalLikes} compact />
-          <AnalyticsMetric label="评论" value={totalComments} compact />
-          <AnalyticsMetric label="被收藏" value={totalFavorites} compact />
+          <AnalyticsMetric label={t("获赞")} value={totalLikes} compact />
+
+          <AnalyticsMetric label={t("评论")} value={totalComments} compact />
+
+          <AnalyticsMetric label={t("被收藏")} value={totalFavorites} compact />
         </View>
       </View>
 
-      <AnalyticsBarList title="我的发布 Tag 分布" emptyText="发布内容还没有标签。" data={authoredTags} />
-      <AnalyticsBarList title="我的收藏 Tag 分布" emptyText="收藏文章还没有标签。" data={favoritedTags} />
+      <AnalyticsBarList
+        title={t("我的发布 Tag 分布")}
+        emptyText={t("发布内容还没有标签。")}
+        data={authoredTags}
+      />
+
+      <AnalyticsBarList
+        title={t("我的收藏 Tag 分布")}
+        emptyText={t("收藏文章还没有标签。")}
+        data={favoritedTags}
+      />
 
       <View style={styles.analyticsCard}>
-        <Text style={styles.analyticsCardTitle}>创作与收藏偏好</Text>
-        <Text style={styles.analyticsInsightText}>你最常发布：#{authoredTopTag}</Text>
-        <Text style={styles.analyticsInsightText}>你最常收藏：#{favoritedTopTag}</Text>
+        <Text style={styles.analyticsCardTitle}>{t("创作与收藏偏好")}</Text>
+        <Text style={styles.analyticsInsightText}>
+          {t("你最常发布：#{{tag}}", { tag: authoredTopTag })}
+        </Text>
+        <Text style={styles.analyticsInsightText}>
+          {t("你最常收藏：#{{tag}}", { tag: favoritedTopTag })}
+        </Text>
       </View>
 
       <View style={styles.analyticsCard}>
-        <Text style={styles.analyticsCardTitle}>表现较好的内容</Text>
+        <Text style={styles.analyticsCardTitle}>{t("表现较好的内容")}</Text>
         {topPosts.length === 0 ? (
-          <Text style={styles.analyticsEmptyText}>还没有可分析的发布内容。</Text>
+          <Text style={styles.analyticsEmptyText}>
+            {t("还没有可分析的发布内容。")}
+          </Text>
         ) : (
           topPosts.map((post) => (
-            <Pressable key={post.id} style={styles.analyticsTopPostItem} onPress={() => onOpenPost(post.id)}>
+            <Pressable
+              key={post.id}
+              style={styles.analyticsTopPostItem}
+              onPress={() => onOpenPost(post.id)}
+            >
               <Text style={styles.analyticsTopPostTitle}>{post.title}</Text>
-              <Text style={styles.analyticsCountText}>赞 {post.like_count} · 评论 {post.comment_count} · 收藏 {post.favorite_count}</Text>
+              <Text style={styles.analyticsCountText}>
+                {t("赞 {{likes}} · 评论 {{comments}} · 收藏 {{favorites}}", {
+                  likes: String(post.like_count),
+                  comments: String(post.comment_count),
+                  favorites: String(post.favorite_count),
+                })}
+              </Text>
             </Pressable>
           ))
         )}

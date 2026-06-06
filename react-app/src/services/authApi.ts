@@ -1,6 +1,6 @@
-import { API_V1_BASE_URL } from '../config/api';
+import { API_V1_BASE_URL } from "../config/api";
 
-export type AuthMode = 'login' | 'register';
+export type AuthMode = "login" | "register";
 
 export type CaptchaResponse = {
   captcha_key: string;
@@ -41,17 +41,19 @@ export type AuthUser = {
 
 async function readErrorMessage(response: Response) {
   try {
-    const data = (await response.json()) as { detail?: string | { msg?: string }[] };
-    if (typeof data.detail === 'string') {
+    const data = (await response.json()) as {
+      detail?: string | { msg?: string }[];
+    };
+    if (typeof data.detail === "string") {
       return data.detail;
     }
     if (Array.isArray(data.detail) && data.detail[0]?.msg) {
       return data.detail[0].msg;
     }
   } catch {
-    return '请求失败，请稍后重试。';
+    return i18n.t("请求失败，请稍后重试。");
   }
-  return '请求失败，请稍后重试。';
+  return i18n.t("请求失败，请稍后重试。");
 }
 
 async function apiRequest<T>(path: string, options?: RequestInit) {
@@ -67,29 +69,30 @@ export function getCaptcha(purpose: AuthMode) {
 }
 
 export function login(payload: LoginPayload) {
-  return apiRequest<TokenResponse>('/auth/login', {
-    method: 'POST',
+  return apiRequest<TokenResponse>("/auth/login", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
   });
 }
 
 export function register(payload: RegisterPayload) {
-  return apiRequest<TokenResponse>('/auth/register', {
-    method: 'POST',
+  return apiRequest<TokenResponse>("/auth/register", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
   });
 }
 
 export function getMe(accessToken: string) {
-  return apiRequest<AuthUser>('/auth/me', {
+  return apiRequest<AuthUser>("/auth/me", {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
   });
 }
+import i18n from "../i18n";
