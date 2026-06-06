@@ -15,6 +15,7 @@ import {
   updatePost,
   type PostDetail,
 } from "../services/postApi";
+import { translateContent } from "../services/translationsApi";
 import type { AuthSession } from "../services/authSession";
 import { useAuthStore } from "../stores/authStore";
 import { Ionicons } from "@expo/vector-icons";
@@ -56,7 +57,11 @@ export function BlogScreen({
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const showSkeleton = useDelayedLoading(isLoading, 250);
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
+  const [translatedBody, setTranslatedBody] = useState<string | null>(null);
+  const [isBodyTranslationVisible, setIsBodyTranslationVisible] =
+    useState(false);
+  const [isTranslatingBody, setIsTranslatingBody] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -70,6 +75,8 @@ export function BlogScreen({
           setPost(data);
           setTitle(data.title);
           setBody(data.body);
+          setTranslatedBody(null);
+          setIsBodyTranslationVisible(false);
           setIsEditing(startEditing && data.is_owner);
         }
       } catch (error) {
@@ -192,6 +199,44 @@ export function BlogScreen({
     }
   }
 
+  async function toggleBodyTranslation() {
+    if (!post) {
+      return;
+    }
+    if (isBodyTranslationVisible) {
+      setIsBodyTranslationVisible(false);
+      return;
+    }
+    if (translatedBody) {
+      setIsBodyTranslationVisible(true);
+      return;
+    }
+    const activeSession = await requireSession();
+    if (!activeSession) {
+      return;
+    }
+    setIsTranslatingBody(true);
+    try {
+      const result = await translateContent(
+        {
+          content_type: "post",
+          content_id: post.id,
+          field: "body",
+          target_language: i18n.language,
+        },
+        activeSession.accessToken,
+      );
+      setTranslatedBody(result.translated_text);
+      setIsBodyTranslationVisible(true);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : t("翻译失败，请稍后重试。"),
+      );
+    } finally {
+      setIsTranslatingBody(false);
+    }
+  }
+
   const handleCommentCountChange = useCallback((commentCount: number) => {
     setPost((currentPost) =>
       currentPost
@@ -308,7 +353,24 @@ export function BlogScreen({
           ))}
         </View>
       ) : null}
-      <MarkdownText style={markdownStyles}>{post.body}</MarkdownText>
+      <MarkdownText style={markdownStyles}>
+        {isBodyTranslationVisible && translatedBody
+          ? translatedBody
+          : post.body}
+      </MarkdownText>
+      <Pressable
+        style={styles.translationInlineAction}
+        onPress={() => void toggleBodyTranslation()}
+        disabled={isTranslatingBody}
+      >
+        <Text style={styles.translationInlineText}>
+          {isTranslatingBody
+            ? t("翻译中...")
+            : isBodyTranslationVisible
+              ? t("查看原文")
+              : t("查看译文")}
+        </Text>
+      </Pressable>
       {/* {post.is_owner && (
       <>
        <Pressable style={styles.primaryButton} onPress={() => setIsEditing(true)}>

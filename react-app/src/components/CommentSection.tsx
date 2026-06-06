@@ -20,6 +20,7 @@ import {
   setCommentLiked,
   type CommentItem,
 } from "../services/commentsApi";
+import { translateContent } from "../services/translationsApi";
 import { useAuthStore } from "../stores/authStore";
 import { useNotificationStore } from "../stores/notificationStore";
 import { formatDateTimeMinute } from "../utils/time";
@@ -77,6 +78,15 @@ export function CommentSection({
   );
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [translatedComments, setTranslatedComments] = useState<
+    Record<number, string>
+  >({});
+  const [visibleTranslatedComments, setVisibleTranslatedComments] = useState<
+    Set<number>
+  >(new Set());
+  const [translatingCommentId, setTranslatingCommentId] = useState<
+    number | null
+  >(null);
   const composerRef = useRef<TextInput>(null);
   const {
     bottomAccessoryHeight: composerHeight,
@@ -87,7 +97,7 @@ export function CommentSection({
     registerItemLayout,
     scrollItemAboveKeyboard,
   } = useScrollItemAboveKeyboard<FlatCommentItem>();
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
 
   useEffect(() => {
     let isMounted = true;
@@ -364,6 +374,52 @@ export function CommentSection({
     composerRef.current?.blur();
   }
 
+  async function toggleCommentTranslation(comment: CommentItem) {
+    if (visibleTranslatedComments.has(comment.id)) {
+      setVisibleTranslatedComments((current) => {
+        const next = new Set(current);
+        next.delete(comment.id);
+        return next;
+      });
+      return;
+    }
+    if (translatedComments[comment.id]) {
+      setVisibleTranslatedComments((current) =>
+        new Set(current).add(comment.id),
+      );
+      return;
+    }
+    const activeSession = await requireSession();
+    if (!activeSession) {
+      return;
+    }
+    setTranslatingCommentId(comment.id);
+    try {
+      const result = await translateContent(
+        {
+          content_type: "comment",
+          content_id: comment.id,
+          field: "body",
+          target_language: i18n.language,
+        },
+        activeSession.accessToken,
+      );
+      setTranslatedComments((current) => ({
+        ...current,
+        [comment.id]: result.translated_text,
+      }));
+      setVisibleTranslatedComments((current) =>
+        new Set(current).add(comment.id),
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : t("翻译失败，请稍后重试。"),
+      );
+    } finally {
+      setTranslatingCommentId(null);
+    }
+  }
+
   function renderCommentItem({ item }: { item: FlatCommentItem }) {
     const comment = item.comment;
     const isReply = item.type === "reply";
@@ -396,7 +452,25 @@ export function CommentSection({
               {formatDateTimeMinute(comment.created_at)}
             </Text>
           </View>
-          <Text style={styles.commentBody}>{comment.body}</Text>
+          <Text style={styles.commentBody}>
+            {visibleTranslatedComments.has(comment.id) &&
+            translatedComments[comment.id]
+              ? translatedComments[comment.id]
+              : comment.body}
+          </Text>
+          <Pressable
+            style={styles.translationInlineAction}
+            onPress={() => void toggleCommentTranslation(comment)}
+            disabled={translatingCommentId === comment.id}
+          >
+            <Text style={styles.translationInlineText}>
+              {translatingCommentId === comment.id
+                ? t("翻译中...")
+                : visibleTranslatedComments.has(comment.id)
+                  ? t("查看原文")
+                  : t("查看译文")}
+            </Text>
+          </Pressable>
           <View style={styles.compactActionRow}>
             <Pressable
               style={styles.compactActionButton}

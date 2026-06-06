@@ -1,0 +1,140 @@
+export const blogStyles = {
+  commentNotificationHint: {
+    color: "#a05d6f",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  translationInlineAction: {
+    alignSelf: "flex-start",
+    marginTop: 6,
+    paddingVertical: 2,
+  },
+  translationInlineText: {
+    color: "#8d7b75",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  blogImage: {
+    alignSelf: "center",
+    backgroundColor: "#f4e3dc",
+    borderRadius: 18,
+    maxHeight: 420,
+    width: "100%",
+  },
+  imagePreviewOverlay: {
+    alignItems: "center",
+    backgroundColor: "rgba(47, 35, 32, 0.92)",
+    flex: 1,
+    justifyContent: "center",
+    padding: 18,
+  },
+  imagePreview: {
+    height: "82%",
+    width: "100%",
+  },
+  imagePreviewHint: {
+    color: "#fff7f3",
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 12,
+  },
+  commentSection: {
+    borderTopColor: "#f0d7cf",
+    borderTopWidth: 1,
+    marginTop: 28,
+    paddingTop: 4,
+  },
+  commentScreenContainer: {
+    flex: 1,
+  },
+  blogBottomBarHost: {
+    backgroundColor: "#ffffff",
+    borderTopColor: "#f0d7cf",
+    borderTopWidth: 1,
+    paddingBottom: 10,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+  },
+  blogBottomBar: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  blogReplyTargetRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  blogReplyTargetText: {
+    color: "#806f69",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  blogReplyCancelText: {
+    color: "#d94f70",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  blogBottomCommentInput: {
+    backgroundColor: "#ffffff",
+    borderColor: "#f0d7cf",
+    borderRadius: 999,
+    borderWidth: 1,
+    color: "#2f2320",
+    flex: 1,
+    fontSize: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  blogBottomActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  blogBottomActionButton: {
+    alignItems: "center",
+    minWidth: 34,
+  },
+  blogBottomActionText: {
+    color: "#7a6862",
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 2,
+  },
+  commentCard: {
+    backgroundColor: "#ffffff",
+    borderColor: "#f2ddd6",
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 14,
+  },
+  commentThread: {
+    marginTop: 12,
+  },
+  commentReplyThread: {
+    marginLeft: 18,
+  },
+  commentReplyCard: {
+    backgroundColor: "#fff8f5",
+  },
+  commentFocusedCard: {
+    backgroundColor: "#fff0f5",
+    borderColor: "#d94f70",
+  },
+  commentHeader: {
+    alignItems: "baseline",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "space-between",
+  },
+  commentBody: {
+    color: "#3d302c",
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 10,
+  },
+} as const;
