@@ -27,6 +27,8 @@ web-build/
 /ios
 /android
 .kotlin/
+backend-server/uploads/
+backend-server/forum.db
 *.orig.*
 *.jks
 *.p8
