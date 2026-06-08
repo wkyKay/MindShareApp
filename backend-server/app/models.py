@@ -35,6 +35,7 @@ class User(TimestampMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False, comment="密码哈希，不保存明文")
     display_name: Mapped[str] = mapped_column(String(64), nullable=False, comment="展示昵称")
     avatar_asset_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, comment="头像资源 ID，对应 assets.id")
+    background_asset_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, comment="个人主页背景图资源 ID，对应 assets.id")
     bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True, comment="个人简介")
     status: Mapped[str] = mapped_column(
         String(20), default="active", nullable=False, index=True, comment="账号状态：active、disabled、deleted"
@@ -96,6 +97,19 @@ class PostTag(Base):
 
     post_id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="博客 ID，对应 posts.id")
     tag_id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="标签 ID，对应 tags.id")
+
+
+class PostDislike(Base):
+    __tablename__ = "post_dislikes"
+    __table_args__ = (
+        UniqueConstraint("user_id", "post_id", name="uq_post_dislikes_user_post"),
+        {"comment": "用户不喜欢的博客，用于推荐过滤"},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="记录 ID")
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="用户 ID，对应 users.id")
+    post_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="博客 ID，对应 posts.id")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), comment="创建时间")
 
 
 class Asset(Base):
@@ -260,6 +274,7 @@ class ConversationParticipant(TimestampMixin, Base):
     conversation_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="会话 ID")
     user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="用户 ID")
     last_read_message_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True, comment="最后已读消息 ID")
+    is_hidden: Mapped[bool] = mapped_column(default=False, nullable=False, index=True, comment="当前用户是否隐藏该会话")
 
 
 class Message(TimestampMixin, Base):
@@ -271,3 +286,28 @@ class Message(TimestampMixin, Base):
     sender_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="发送者用户 ID")
     body: Mapped[str] = mapped_column(Text, nullable=False, comment="消息正文")
     status: Mapped[str] = mapped_column(String(20), default="sent", nullable=False, index=True, comment="消息状态：sent、deleted")
+
+
+class TranslationCache(TimestampMixin, Base):
+    __tablename__ = "translation_caches"
+    __table_args__ = (
+        UniqueConstraint(
+            "content_type",
+            "content_id",
+            "field",
+            "source_text_hash",
+            "target_language",
+            name="uq_translation_cache_content_hash_language",
+        ),
+        {"comment": "用户生成内容翻译缓存"},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="翻译缓存 ID")
+    content_type: Mapped[str] = mapped_column(String(30), nullable=False, index=True, comment="内容类型：post、comment、message、collection")
+    content_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="内容 ID")
+    field: Mapped[str] = mapped_column(String(30), nullable=False, index=True, comment="翻译字段")
+    source_text_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment="原文 SHA-256")
+    source_language: Mapped[str] = mapped_column(String(20), default="auto", nullable=False, comment="源语言")
+    target_language: Mapped[str] = mapped_column(String(20), nullable=False, index=True, comment="目标语言")
+    translated_text: Mapped[str] = mapped_column(Text, nullable=False, comment="译文")
+    provider: Mapped[str] = mapped_column(String(30), default="mock", nullable=False, comment="翻译服务提供方")

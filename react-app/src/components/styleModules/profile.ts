@@ -1,3 +1,5 @@
+import { StyleSheet } from "react-native";
+
 import type { AppColors } from "../../theme/colors";
 
 export function createProfileStyles(colors: AppColors) {
@@ -6,6 +8,21 @@ export function createProfileStyles(colors: AppColors) {
       alignItems: "center",
       flexDirection: "row",
       gap: 14,
+    },
+    profileHeaderWithBackground: {
+      borderRadius: 24,
+      marginBottom: 14,
+      minHeight: 190,
+      overflow: "hidden",
+    },
+    profileHeaderBackgroundImage: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    profileHeaderOverlay: {
+      backgroundColor: "rgba(0, 0, 0, 0.18)",
+      justifyContent: "flex-end",
+      minHeight: 190,
+      padding: 16,
     },
     profileHeaderText: {
       flex: 1,
@@ -30,6 +47,11 @@ export function createProfileStyles(colors: AppColors) {
       borderRadius: 30,
       height: 60,
       justifyContent: "center",
+      width: 60,
+    },
+    avatarImage: {
+      borderRadius: 30,
+      height: 60,
       width: 60,
     },
     avatarMuted: {
@@ -192,6 +214,31 @@ export function createProfileStyles(colors: AppColors) {
       fontSize: 15,
       fontWeight: "800",
       marginBottom: 6,
+    },
+    profileSettingsCard: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 20,
+      borderWidth: 1,
+      marginTop: 16,
+      padding: 16,
+    },
+    profileBackgroundPreview: {
+      borderRadius: 16,
+      height: 220,
+      marginTop: 12,
+      width: "100%",
+    },
+    profileBackgroundPlaceholder: {
+      alignItems: "center",
+      backgroundColor: colors.surfaceSoft,
+      borderColor: colors.border,
+      borderRadius: 16,
+      borderStyle: "dashed",
+      borderWidth: 1,
+      height: 220,
+      justifyContent: "center",
+      marginTop: 12,
     },
   } as const;
 }

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from jose import JWTError, jwt
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -23,14 +23,14 @@ router = APIRouter()
 
 @router.get("/unread-count", response_model=ConversationUnreadCount)
 def get_unread_count(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> ConversationUnreadCount:
-    conversation_ids = [row[0] for row in db.query(ConversationParticipant.conversation_id).filter(ConversationParticipant.user_id == current_user.id).all()]
+    conversation_ids = [row[0] for row in db.query(ConversationParticipant.conversation_id).filter(ConversationParticipant.user_id == current_user.id, ConversationParticipant.is_hidden == False).all()]
     unread_count = sum(_unread_count(db, conversation_id, current_user.id) for conversation_id in conversation_ids)
     return ConversationUnreadCount(unread_count=unread_count)
 
 
 @router.get("/conversations", response_model=list[ConversationListItem])
 def list_conversations(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> list[ConversationListItem]:
-    conversation_ids = [row[0] for row in db.query(ConversationParticipant.conversation_id).filter(ConversationParticipant.user_id == current_user.id).all()]
+    conversation_ids = [row[0] for row in db.query(ConversationParticipant.conversation_id).filter(ConversationParticipant.user_id == current_user.id, ConversationParticipant.is_hidden == False).all()]
     rows = db.query(Conversation).filter(Conversation.id.in_(conversation_ids)).order_by(Conversation.updated_at.desc()).all()
     items: list[ConversationListItem] = []
     for conversation in rows:
@@ -70,6 +70,7 @@ def create_or_get_conversation(
         raise HTTPException(status_code=404, detail="用户不存在")
 
     conversation = _find_or_create_conversation(db, current_user.id, partner.id)
+    _unhide_conversation_for_user(db, conversation.id, current_user.id)
     unread_count = _unread_count(db, conversation.id, current_user.id)
     return ConversationOut(id=conversation.id, partner=_user_summary(partner), unread_count=unread_count)
 
@@ -77,11 +78,21 @@ def create_or_get_conversation(
 @router.get("/conversations/{conversation_id}/messages", response_model=list[MessageOut])
 def list_messages(
     conversation_id: int,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[MessageOut]:
     _require_participant(db, conversation_id, current_user.id)
-    messages = db.query(Message).filter(Message.conversation_id == conversation_id, Message.status == "sent").order_by(Message.created_at.asc()).all()
+    messages = (
+        db.query(Message)
+        .filter(Message.conversation_id == conversation_id, Message.status == "sent")
+        .order_by(Message.created_at.desc(), Message.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    messages.reverse()
     return [_message_out(db, message.id) for message in messages if message.id is not None]
 
 
@@ -98,6 +109,7 @@ def send_message(
     db.flush()
     conversation.last_message_id = message.id
     conversation.updated_at = message.created_at
+    db.query(ConversationParticipant).filter(ConversationParticipant.conversation_id == conversation.id).update({ConversationParticipant.is_hidden: False})
     db.commit()
     db.refresh(message)
     message_out = _message_out(db, message.id)
@@ -120,6 +132,25 @@ def read_conversation(
     ).first()
     if participant is not None:
         participant.last_read_message_id = last_message_id
+        db.commit()
+        _push_conversation_read(current_user.id, conversation_id)
+    return None
+
+
+@router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
+def hide_conversation(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    conversation = _require_participant(db, conversation_id, current_user.id)
+    participant = db.query(ConversationParticipant).filter(
+        ConversationParticipant.conversation_id == conversation_id,
+        ConversationParticipant.user_id == current_user.id,
+    ).first()
+    if participant is not None:
+        participant.is_hidden = True
+        participant.last_read_message_id = conversation.last_message_id
         db.commit()
         _push_conversation_read(current_user.id, conversation_id)
     return None
@@ -175,10 +206,21 @@ def _require_participant(db: Session, conversation_id: int, user_id: int) -> Con
     participant = db.query(ConversationParticipant.id).filter(
         ConversationParticipant.conversation_id == conversation_id,
         ConversationParticipant.user_id == user_id,
+        ConversationParticipant.is_hidden == False,
     ).first()
     if participant is None:
         raise HTTPException(status_code=403, detail="无权访问该会话")
     return conversation
+
+
+def _unhide_conversation_for_user(db: Session, conversation_id: int, user_id: int) -> None:
+    participant = db.query(ConversationParticipant).filter(
+        ConversationParticipant.conversation_id == conversation_id,
+        ConversationParticipant.user_id == user_id,
+    ).first()
+    if participant is not None and participant.is_hidden:
+        participant.is_hidden = False
+        db.commit()
 
 
 def _unread_count(db: Session, conversation_id: int, user_id: int) -> int:

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .database import BASE_DIR, init_db
-from .routers import auth, collections, comments, messages, notifications, posts, search, uploads, users
+from .routers import auth, collections, comments, messages, notifications, posts, search, translations, uploads, users
 
 init_db()
 
@@ -31,6 +31,7 @@ app.include_router(messages.router, prefix="/api/v1/messages", tags=["messages"]
 app.include_router(collections.router, prefix="/api/v1/collections", tags=["collections"])
 app.include_router(search.router, prefix="/api/v1/search", tags=["search"])
 app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["notifications"])
+app.include_router(translations.router, prefix="/api/v1/translations", tags=["translations"])
 
 
 @app.get("/health")

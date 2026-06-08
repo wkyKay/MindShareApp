@@ -15,6 +15,7 @@ type ProfileScreenProps = {
   onOpenAuthor: (authorId: number) => void;
   onOpenTag: (tag: string) => void;
   onOpenAnalytics: () => void;
+  onOpenSettings: () => void;
 };
 
 export function ProfileScreen({
@@ -24,6 +25,7 @@ export function ProfileScreen({
   onOpenAuthor,
   onOpenTag,
   onOpenAnalytics,
+  onOpenSettings,
 }: ProfileScreenProps) {
   const styles = useAppStyles();
   const { t } = useTranslation();
@@ -73,6 +75,7 @@ export function ProfileScreen({
       onOpenAuthor={onOpenAuthor}
       onOpenTag={onOpenTag}
       onOpenAnalytics={onOpenAnalytics}
+      onOpenSettings={onOpenSettings}
     />
   );
 }

@@ -50,6 +50,15 @@ export async function refreshAuthSession() {
   return refreshedSession;
 }
 
+export async function persistAuthSession(session: AuthSession | null) {
+  if (!session) {
+    await clearAuthSession();
+    return null;
+  }
+  await AsyncStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+  return session;
+}
+
 export function clearAuthSession() {
   return AsyncStorage.removeItem(AUTH_SESSION_KEY);
 }

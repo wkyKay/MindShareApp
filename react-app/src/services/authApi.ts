@@ -1,4 +1,4 @@
-import { API_V1_BASE_URL } from "../config/api";
+import { API_BASE_URL, API_V1_BASE_URL } from "../config/api";
 
 export type AuthMode = "login" | "register";
 
@@ -36,7 +36,18 @@ export type AuthUser = {
   email: string;
   display_name: string;
   avatar_url?: string | null;
+  background_url?: string | null;
   bio?: string | null;
+};
+
+export type UpdateMePayload = {
+  username?: string;
+  email?: string;
+  display_name?: string;
+  bio?: string | null;
+  avatar_asset_id?: number;
+  background_asset_id?: number;
+  password?: string;
 };
 
 async function readErrorMessage(response: Response) {
@@ -93,6 +104,31 @@ export function getMe(accessToken: string) {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
-  });
+  }).then(normalizeAuthUser);
+}
+
+export function updateMe(payload: UpdateMePayload, accessToken: string) {
+  return apiRequest<AuthUser>("/users/me", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  }).then(normalizeAuthUser);
+}
+
+function normalizeAuthUser(user: AuthUser) {
+  return {
+    ...user,
+    avatar_url: normalizeAssetUrl(user.avatar_url),
+    background_url: normalizeAssetUrl(user.background_url),
+  };
+}
+
+function normalizeAssetUrl(url?: string | null) {
+  if (!url) return url;
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 import i18n from "../i18n";

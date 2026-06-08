@@ -14,6 +14,7 @@ class UserPublic(BaseModel):
     username: str
     display_name: str
     avatar_url: Optional[str] = None
+    background_url: Optional[str] = None
     bio: Optional[str] = None
     is_following: bool = False
 
@@ -23,9 +24,13 @@ class UserPrivate(UserPublic):
 
 
 class UserUpdate(BaseModel):
+    username: Optional[str] = Field(default=None, max_length=32)
+    email: Optional[EmailStr] = None
     display_name: Optional[str] = Field(default=None, max_length=64)
     bio: Optional[str] = None
     avatar_asset_id: Optional[int] = None
+    background_asset_id: Optional[int] = None
+    password: Optional[str] = Field(default=None, min_length=8)
 
 
 class CaptchaResponse(BaseModel):
@@ -256,6 +261,25 @@ class ConversationCreate(BaseModel):
 
 class MessageCreate(BaseModel):
     body: str = Field(min_length=1, max_length=2000)
+
+
+class TranslationContentRequest(BaseModel):
+    content_type: str
+    content_id: int
+    field: str
+    target_language: str = Field(min_length=2, max_length=20)
+    source_language: str = Field(default="auto", max_length=20)
+
+
+class TranslationContentResponse(BaseModel):
+    content_type: str
+    content_id: int
+    field: str
+    source_language: str
+    target_language: str
+    translated_text: str
+    provider: str
+    cached: bool
 
 
 class MessageReadRequest(BaseModel):

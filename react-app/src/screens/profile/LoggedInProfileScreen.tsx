@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
-import { FlatList, Modal, Pressable, Text, View } from "react-native";
+import { FlatList, Image, Modal, Pressable, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useTranslation } from "react-i18next";
 
 import { CollectionCard } from "../../components/CollectionCard";
@@ -29,15 +30,14 @@ import {
 } from "../../services/profileApi";
 import { useAuthStore } from "../../stores/authStore";
 import { useNotificationStore } from "../../stores/notificationStore";
-import { deletePost } from "../../services/postApi";
+import { updateMe } from "../../services/authApi";
+import { deletePost, uploadPostImage } from "../../services/postApi";
 import { CollectionForm } from "./CollectionForm";
 import { MovePostPanel } from "./MovePostPanel";
 import { ProfileStats, type ProfileTab } from "./ProfileStats";
 import { CollectionsTabItem } from "./tabs/CollectionsTab";
 import { FollowingTabItem } from "./tabs/FollowingTab";
-import { changeAppLanguage, type SupportedLanguage } from "../../i18n";
-import { useAppStyles, useAppTheme } from "../../theme/ThemeProvider";
-import type { AppThemeMode } from "../../theme/colors";
+import { useAppStyles } from "../../theme/ThemeProvider";
 
 type LoggedInProfileScreenProps = {
   session: AuthSession;
@@ -46,6 +46,7 @@ type LoggedInProfileScreenProps = {
   onOpenAuthor: (authorId: number) => void;
   onOpenTag: (tag: string) => void;
   onOpenAnalytics: () => void;
+  onOpenSettings: () => void;
 };
 
 export function LoggedInProfileScreen({
@@ -55,11 +56,12 @@ export function LoggedInProfileScreen({
   onOpenAuthor,
   onOpenTag,
   onOpenAnalytics,
+  onOpenSettings,
 }: LoggedInProfileScreenProps) {
   const styles = useAppStyles();
-  const { mode, setMode } = useAppTheme();
-  const { i18n, t } = useTranslation();
+  const { t } = useTranslation();
   const logoutAuth = useAuthStore((state) => state.logout);
+  const setAuthSession = useAuthStore((state) => state.setSession);
   const unreadByPostId = useNotificationStore((state) => state.unreadByPostId);
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
   const [posts, setPosts] = useState<ProfilePost[]>([]);
@@ -80,7 +82,6 @@ export function LoggedInProfileScreen({
   const [actionPostId, setActionPostId] = useState<number | null>(null);
   const [postPendingDelete, setPostPendingDelete] =
     useState<ProfilePost | null>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -413,6 +414,41 @@ export function LoggedInProfileScreen({
     }
   }
 
+  async function pickAvatar() {
+    setContentMessage("");
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setContentMessage("需要相册权限才能设置头像。");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.85,
+      allowsMultipleSelection: false,
+    });
+    if (result.canceled || !result.assets.length) return;
+
+    setIsContentLoading(true);
+    try {
+      const asset = result.assets[0];
+      const uploaded = await uploadPostImage(
+        asset.uri,
+        asset.fileName || `avatar-${Date.now()}.jpg`,
+        session.accessToken,
+        "avatar",
+      );
+      const updatedUser = await updateMe(
+        { avatar_asset_id: uploaded.id },
+        session.accessToken,
+      );
+      setAuthSession({ ...session, user: updatedUser });
+    } catch (error) {
+      setContentMessage(error instanceof Error ? error.message : "头像上传失败。");
+    } finally {
+      setIsContentLoading(false);
+    }
+  }
+
   const sectionTitle = selectedCollection
     ? selectedCollection.title
     : activeTab === "posts"
@@ -471,48 +507,60 @@ export function LoggedInProfileScreen({
       />
     ) : null;
 
-  async function selectLanguage(language: SupportedLanguage) {
-    await changeAppLanguage(language);
-    setIsSettingsOpen(false);
-  }
-
-  async function selectThemeMode(themeMode: AppThemeMode) {
-    await setMode(themeMode);
-    setIsSettingsOpen(false);
-  }
+  const profileHeaderContent = (
+    <View style={styles.profileHeader}>
+      <Pressable
+        style={styles.avatar}
+        onPress={() => void pickAvatar()}
+        accessibilityRole="button"
+        accessibilityLabel={t("上传头像")}
+      >
+        {session.user.avatar_url ? (
+          <Image source={{ uri: session.user.avatar_url }} style={styles.avatarImage} />
+        ) : (
+          <Text style={styles.avatarText}>{avatarText}</Text>
+        )}
+      </Pressable>
+      <View style={styles.profileHeaderText}>
+        <Text style={styles.pageTitle}>{session.user.display_name}</Text>
+        <Text style={styles.profileBio}>
+          {session.user.bio || `@${session.user.username} · ${session.user.email}`}
+        </Text>
+      </View>
+      <View style={styles.profileHeaderActions}>
+        <Pressable
+          style={styles.profileAnalyticsButton}
+          onPress={onOpenAnalytics}
+          accessibilityRole="button"
+          accessibilityLabel={t("查看资料分析")}
+        >
+          <Ionicons name="bar-chart-outline" size={22} color="#a05d6f" />
+        </Pressable>
+        <Pressable
+          style={styles.profileAnalyticsButton}
+          onPress={onOpenSettings}
+          accessibilityRole="button"
+          accessibilityLabel={t("打开设置")}
+        >
+          <Ionicons name="settings-outline" size={22} color="#a05d6f" />
+        </Pressable>
+      </View>
+    </View>
+  );
 
   const header = (
     <>
-      <View style={styles.profileHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{avatarText}</Text>
+      {session.user.background_url ? (
+        <View style={styles.profileHeaderWithBackground}>
+          <Image
+            source={{ uri: session.user.background_url }}
+            style={styles.profileHeaderBackgroundImage}
+          />
+          <View style={styles.profileHeaderOverlay}>{profileHeaderContent}</View>
         </View>
-        <View style={styles.profileHeaderText}>
-          <Text style={styles.pageTitle}>{session.user.display_name}</Text>
-          <Text style={styles.profileBio}>
-            {session.user.bio ||
-              `@${session.user.username} · ${session.user.email}`}
-          </Text>
-        </View>
-        <View style={styles.profileHeaderActions}>
-          <Pressable
-            style={styles.profileAnalyticsButton}
-            onPress={onOpenAnalytics}
-            accessibilityRole="button"
-            accessibilityLabel={t("查看资料分析")}
-          >
-            <Ionicons name="bar-chart-outline" size={22} color="#a05d6f" />
-          </Pressable>
-          <Pressable
-            style={styles.profileAnalyticsButton}
-            onPress={() => setIsSettingsOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel={t("打开设置")}
-          >
-            <Ionicons name="settings-outline" size={22} color="#a05d6f" />
-          </Pressable>
-        </View>
-      </View>
+      ) : (
+        profileHeaderContent
+      )}
 
       <Pressable style={styles.backButton} onPress={logoutAuth}>
         <Text style={styles.backButtonText}>{t("退出登录")}</Text>
@@ -766,99 +814,6 @@ export function LoggedInProfileScreen({
                 <Text style={styles.confirmDangerText}>{t("确认删除")}</Text>
               </Pressable>
             </View>
-          </View>
-        </View>
-      </Modal>
-      <Modal
-        visible={isSettingsOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsSettingsOpen(false)}
-      >
-        <View style={styles.confirmOverlay}>
-          <View style={styles.confirmDialog}>
-            <Text style={styles.confirmTitle}>{t("设置")}</Text>
-            <Text style={styles.confirmMessage}>
-              {t("选择 App 显示语言。")}
-            </Text>
-            <View style={styles.languageOptionList}>
-              <Pressable
-                style={[
-                  styles.languageOptionButton,
-                  i18n.language === "zh-CN" &&
-                    styles.languageOptionButtonActive,
-                ]}
-                onPress={() => void selectLanguage("zh-CN")}
-              >
-                <Text
-                  style={[
-                    styles.languageOptionText,
-                    i18n.language === "zh-CN" &&
-                      styles.languageOptionTextActive,
-                  ]}
-                >
-                  {t("中文")}
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.languageOptionButton,
-                  i18n.language === "en-US" &&
-                    styles.languageOptionButtonActive,
-                ]}
-                onPress={() => void selectLanguage("en-US")}
-              >
-                <Text
-                  style={[
-                    styles.languageOptionText,
-                    i18n.language === "en-US" &&
-                      styles.languageOptionTextActive,
-                  ]}
-                >
-                  {t("profile.languageEnglish")}
-                </Text>
-              </Pressable>
-            </View>
-            <Text style={[styles.confirmMessage, { marginTop: 16 }]}>
-              {t("外观")}
-            </Text>
-            <View style={styles.languageOptionList}>
-              {(
-                [
-                  ["system", t("跟随系统")],
-                  ["light", t("浅色")],
-                  ["dark", t("深色")],
-                ] as const
-              ).map(([themeMode, label]) => (
-                <Pressable
-                  key={themeMode}
-                  style={[
-                    styles.languageOptionButton,
-                    mode === themeMode && styles.languageOptionButtonActive,
-                  ]}
-                  onPress={() => void selectThemeMode(themeMode)}
-                >
-                  <Text
-                    style={[
-                      styles.languageOptionText,
-                      mode === themeMode && styles.languageOptionTextActive,
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            <Pressable
-              style={[
-                styles.confirmButton,
-                styles.confirmCancelButton,
-                { marginTop: 14 },
-              ]}
-              onPress={() => setIsSettingsOpen(false)}
-            >
-              <Text style={styles.confirmCancelText}>{t("取消")}</Text>
-            </Pressable>
           </View>
         </View>
       </Modal>

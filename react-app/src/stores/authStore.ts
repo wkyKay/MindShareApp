@@ -3,6 +3,7 @@ import { create } from "zustand";
 import {
   clearAuthSession,
   loadAuthSession,
+  persistAuthSession,
   refreshAuthSession,
   saveAuthSession,
   type AuthSession,
@@ -55,6 +56,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     return session;
   },
   setSession(session) {
+    void persistAuthSession(session);
     set({ session, hasHydrated: true });
   },
   async logout() {

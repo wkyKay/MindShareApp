@@ -1,9 +1,11 @@
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Keyboard, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   createNavigationContainerRef,
+  DarkTheme,
+  DefaultTheme,
   NavigationContainer,
   type NavigationProp,
 } from "@react-navigation/native";
@@ -22,6 +24,7 @@ import { ChatScreen } from "./src/screens/ChatScreen";
 import { NotificationScreen } from "./src/screens/NotificationScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
 import { ProfileAnalyticsScreen } from "./src/screens/ProfileAnalyticsScreen";
+import { ProfileSettingsScreen } from "./src/screens/ProfileSettingsScreen";
 import { UploadScreen } from "./src/screens/UploadScreen";
 import { AuthorScreen } from "./src/screens/AuthorScreen";
 import { useAuthStore } from "./src/stores/authStore";
@@ -37,6 +40,7 @@ type RootStackParamList = {
   notifications: { category: "comments" | "likes" | "follows" };
   profile: undefined;
   profileAnalytics: undefined;
+  profileSettings: undefined;
   auth: undefined;
   blog: { postId: number; focusCommentId?: number; startEditing?: boolean };
   author: { authorId: number };
@@ -66,6 +70,21 @@ export default function App() {
 
 function AppShell() {
   const { colors, resolvedMode, styles } = useAppTheme();
+  const navigationTheme = useMemo(
+    () => ({
+      ...(resolvedMode === "dark" ? DarkTheme : DefaultTheme),
+      colors: {
+        ...(resolvedMode === "dark" ? DarkTheme.colors : DefaultTheme.colors),
+        background: colors.background,
+        card: colors.background,
+        border: colors.border,
+        notification: colors.primary,
+        primary: colors.primary,
+        text: colors.text,
+      },
+    }),
+    [colors, resolvedMode],
+  );
   const [activePage, setActivePage] =
     useState<keyof RootStackParamList>("home");
   const [keyboardInset, setKeyboardInset] = useState(0);
@@ -116,6 +135,7 @@ function AppShell() {
     <GestureHandlerRootView style={styles.gestureRoot}>
       <NavigationContainer
         ref={navigationRef}
+        theme={navigationTheme}
         onStateChange={(state) => {
           const routeName = state?.routes[state.index]?.name;
           if (routeName) {
@@ -134,6 +154,7 @@ function AppShell() {
               initialRouteName="home"
               screenOptions={{
                 animation: "slide_from_right",
+                contentStyle: { backgroundColor: colors.background },
                 gestureEnabled: true,
                 headerShown: false,
               }}
@@ -226,6 +247,17 @@ function AppShell() {
                     onOpenAnalytics={() =>
                       navigation.navigate("profileAnalytics")
                     }
+                    onOpenSettings={() => navigation.navigate("profileSettings")}
+                  />
+                )}
+              </Stack.Screen>
+
+              <Stack.Screen name="profileSettings">
+                {({ navigation }: AppScreenProps<"profileSettings">) => (
+                  <ProfileSettingsScreen
+                    session={authSession}
+                    onBack={() => navigation.goBack()}
+                    onRequireAuth={() => navigation.navigate("auth")}
                   />
                 )}
               </Stack.Screen>

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import random
 import string
+from typing import Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import create_access_token, get_current_user, hash_password, verify_password
 from ..database import get_db
-from ..models import Captcha, User
+from ..models import Asset, Captcha, User
 from ..schemas import CaptchaResponse, LoginRequest, RegisterRequest, TokenResponse, UserPrivate
 
 router = APIRouter()
@@ -19,13 +20,20 @@ CAPTCHA_EXPIRE_MINUTES = 5
 CAPTCHA_MAX_FAILED_ATTEMPTS = 5
 
 
-def _user_response(user: User) -> UserPrivate:
+def _asset_url(db: Session, asset_id: Optional[int]) -> Optional[str]:
+    if not asset_id:
+        return None
+    return db.query(Asset.public_url).filter(Asset.id == asset_id).scalar()
+
+
+def _user_response(user: User, db: Session) -> UserPrivate:
     return UserPrivate(
         id=user.id,
         username=user.username,
         email=user.email,
         display_name=user.display_name,
-        avatar_url=None,
+        avatar_url=_asset_url(db, user.avatar_asset_id),
+        background_url=_asset_url(db, user.background_asset_id),
         bio=user.bio,
     )
 
@@ -117,7 +125,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> TokenRe
         raise HTTPException(status_code=400, detail="用户名或邮箱已存在") from None
     db.refresh(user)
 
-    return TokenResponse(user=_user_response(user), access_token=create_access_token(user.id))
+    return TokenResponse(user=_user_response(user, db), access_token=create_access_token(user.id))
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -133,9 +141,9 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse
     if user is None or user.status != "active" or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="账号或密码错误")
 
-    return TokenResponse(user=_user_response(user), access_token=create_access_token(user.id))
+    return TokenResponse(user=_user_response(user, db), access_token=create_access_token(user.id))
 
 
 @router.get("/me", response_model=UserPrivate)
-def me(current_user: User = Depends(get_current_user)) -> UserPrivate:
-    return _user_response(current_user)
+def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> UserPrivate:
+    return _user_response(current_user, db)

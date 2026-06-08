@@ -312,6 +312,41 @@ function SwipeConversationRow({
   t: (key: string) => string;
 }) {
   const swipeableRef = useRef<Swipeable>(null);
+  const isSwipingRef = useRef(false);
+  const swipeReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  useEffect(() => {
+    return () => {
+      if (swipeReleaseTimerRef.current) {
+        clearTimeout(swipeReleaseTimerRef.current);
+      }
+    };
+  }, []);
+
+  function markSwiping() {
+    if (swipeReleaseTimerRef.current) {
+      clearTimeout(swipeReleaseTimerRef.current);
+    }
+    isSwipingRef.current = true;
+  }
+
+  function releaseSwipePressBlock() {
+    if (swipeReleaseTimerRef.current) {
+      clearTimeout(swipeReleaseTimerRef.current);
+    }
+    swipeReleaseTimerRef.current = setTimeout(() => {
+      isSwipingRef.current = false;
+    }, 220);
+  }
+
+  function handleOpen() {
+    if (isSwipingRef.current) {
+      return;
+    }
+    onOpen();
+  }
 
   function renderRightActions() {
     return (
@@ -328,9 +363,13 @@ function SwipeConversationRow({
         friction={1.6}
         rightThreshold={36}
         overshootRight={false}
+        onSwipeableOpenStartDrag={markSwiping}
+        onSwipeableCloseStartDrag={markSwiping}
+        onSwipeableWillOpen={releaseSwipePressBlock}
+        onSwipeableWillClose={releaseSwipePressBlock}
         renderRightActions={renderRightActions}
       >
-        <Pressable style={styles.messageConversationCard} onPress={onOpen}>
+        <Pressable style={styles.messageConversationCard} onPress={handleOpen}>
           <MessageAvatar
             name={item.partner.display_name}
             avatarUrl={item.partner.avatar_url}

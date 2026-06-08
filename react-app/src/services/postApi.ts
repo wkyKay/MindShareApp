@@ -217,9 +217,10 @@ export async function uploadPostImage(
   uri: string,
   fileName: string,
   accessToken: string,
+  kind: "image" | "cover" | "avatar" = "image",
 ) {
   const formData = new FormData();
-  formData.append("kind", "image");
+  formData.append("kind", kind);
   const imageFile = await createUploadFile(
     uri,
     fileName,

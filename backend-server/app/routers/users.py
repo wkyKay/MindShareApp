@@ -2,15 +2,41 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..auth import get_current_user, get_optional_current_user
+from ..auth import get_current_user, get_optional_current_user, hash_password
 from ..database import get_db
 from ..models import Asset, Collection, CollectionFavorite, Favorite, Follow, Like, Post, PostTag, Tag, User
 from ..notification_service import create_notification, delete_unread_notification, push_notification
 from ..schemas import AuthorSummary, FollowRequest, FollowResponse, PageResponse, PostListItem, UserPrivate, UserPublic, UserSearchResult, UserUpdate
 
 router = APIRouter()
+
+
+def _asset_url(db: Session, asset_id: Optional[int]) -> Optional[str]:
+    if not asset_id:
+        return None
+    return db.query(Asset.public_url).filter(Asset.id == asset_id).scalar()
+
+
+def _user_private(user: User, db: Session) -> UserPrivate:
+    return UserPrivate(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        display_name=user.display_name,
+        avatar_url=_asset_url(db, user.avatar_asset_id),
+        background_url=_asset_url(db, user.background_asset_id),
+        bio=user.bio,
+    )
+
+
+def _require_user_asset(db: Session, asset_id: int, user_id: int, kinds: set[str]) -> Asset:
+    asset = db.query(Asset).filter(Asset.id == asset_id, Asset.uploader_id == user_id).first()
+    if asset is None or asset.kind not in kinds:
+        raise HTTPException(status_code=400, detail="图片资源无效")
+    return asset
 
 
 @router.get("/search", response_model=list[UserSearchResult])
@@ -101,16 +127,51 @@ def _post_item(post: Post, author: User, db: Session, current_user: Optional[Use
 
 @router.patch("/me", response_model=UserPrivate)
 def update_me(
-    payload: UserUpdate, current_user: User = Depends(get_current_user)
+    payload: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> UserPrivate:
-    return UserPrivate(
-        id=current_user.id,
-        username=current_user.username,
-        email=current_user.email,
-        display_name=payload.display_name or current_user.display_name,
-        avatar_url=None,
-        bio=payload.bio if payload.bio is not None else current_user.bio,
-    )
+    username = payload.username.strip() if payload.username is not None else None
+    email = str(payload.email).strip().lower() if payload.email is not None else None
+    display_name = payload.display_name.strip() if payload.display_name is not None else None
+
+    if payload.username is not None and not username:
+        raise HTTPException(status_code=400, detail="用户名不能为空")
+    if payload.display_name is not None and not display_name:
+        raise HTTPException(status_code=400, detail="展示昵称不能为空")
+
+    if username and username != current_user.username:
+        existing = db.query(User.id).filter(User.username == username, User.id != current_user.id).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="用户名已存在")
+        current_user.username = username
+
+    if email and email != current_user.email:
+        existing = db.query(User.id).filter(User.email == email, User.id != current_user.id).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="邮箱已存在")
+        current_user.email = email
+
+    if display_name is not None:
+        current_user.display_name = display_name
+    if payload.bio is not None:
+        current_user.bio = payload.bio.strip() or None
+    if payload.avatar_asset_id is not None:
+        _require_user_asset(db, payload.avatar_asset_id, current_user.id, {"avatar", "image"})
+        current_user.avatar_asset_id = payload.avatar_asset_id
+    if payload.background_asset_id is not None:
+        _require_user_asset(db, payload.background_asset_id, current_user.id, {"cover", "image"})
+        current_user.background_asset_id = payload.background_asset_id
+    if payload.password:
+        current_user.password_hash = hash_password(payload.password)
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="用户名或邮箱已存在") from None
+    db.refresh(current_user)
+    return _user_private(current_user, db)
 
 
 @router.get("/me/posts", response_model=PageResponse)

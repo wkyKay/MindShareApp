@@ -2,11 +2,12 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user, get_optional_current_user
 from ..database import get_db
-from ..models import Asset, Favorite, Follow, Like, Post, PostTag, Tag, User
+from ..models import Asset, Favorite, Follow, Like, Post, PostDislike, PostTag, Tag, User
 from ..notification_service import create_notification, delete_unread_notification, push_notification
 from ..schemas import (
     AuthorSummary,
@@ -123,6 +124,7 @@ def create_post(
 def list_posts(
     tab: str = "discover",
     tag: Optional[str] = None,
+    q: Optional[str] = None,
     author_id: Optional[int] = None,
     page: int = 1,
     page_size: int = 20,
@@ -143,6 +145,8 @@ def list_posts(
                 Post.visibility.in_(["public", "followers"]),
             )
         )
+        disliked_post_ids = db.query(PostDislike.post_id).filter(PostDislike.user_id == current_user.id)
+        query = query.filter(~Post.id.in_(disliked_post_ids))
         total = query.with_entities(Post.id).count()
         rows = query.order_by(Post.created_at.desc(), Post.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
         return PageResponse(
@@ -157,8 +161,14 @@ def list_posts(
     )
     if author_id:
         query = query.filter(Post.author_id == author_id)
+    elif current_user is not None:
+        disliked_post_ids = db.query(PostDislike.post_id).filter(PostDislike.user_id == current_user.id)
+        query = query.filter(~Post.id.in_(disliked_post_ids))
     if tag:
         query = query.join(PostTag, PostTag.post_id == Post.id).join(Tag, Tag.id == PostTag.tag_id).filter(Tag.name == tag)
+    normalized_query = q.strip().lower() if q else ""
+    if normalized_query:
+        query = query.filter(func.lower(Post.title).contains(normalized_query))
     total = query.with_entities(Post.id).count()
     random_order = ((Post.id * 1103515245 + seed) % 2147483647)
     rows = query.order_by(random_order, Post.id).offset((page - 1) * page_size).limit(page_size).all()
@@ -347,3 +357,19 @@ def toggle_favorite(
     if notification is not None:
         push_notification(notification, current_user)
     return FavoriteResponse(favorited=payload.favorited, favorite_count=post.favorite_count)
+
+
+@router.post("/{post_id}/dislike")
+def dislike_post(
+    post_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    post = db.query(Post).filter(Post.id == post_id, Post.status == "published").first()
+    if post is None:
+        raise HTTPException(status_code=404, detail="博客不存在")
+    dislike = db.query(PostDislike).filter(PostDislike.user_id == current_user.id, PostDislike.post_id == post_id).first()
+    if dislike is None:
+        db.add(PostDislike(user_id=current_user.id, post_id=post_id))
+        db.commit()
+    return {"disliked": True}

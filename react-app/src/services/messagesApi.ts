@@ -89,9 +89,11 @@ export async function createOrGetConversation(
 export async function listMessages(
   accessToken: string,
   conversationId: number,
+  page = 1,
+  pageSize = 50,
 ) {
   const response = await fetch(
-    `${API_V1_BASE_URL}/messages/conversations/${conversationId}/messages`,
+    `${API_V1_BASE_URL}/messages/conversations/${conversationId}/messages?page=${page}&page_size=${pageSize}`,
     {
       headers: authHeaders(accessToken),
     },
