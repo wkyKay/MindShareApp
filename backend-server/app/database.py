@@ -44,6 +44,10 @@ def _ensure_sqlite_schema_updates() -> None:
             user_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(users)"))}
             if "background_asset_id" not in user_columns:
                 connection.execute(text("ALTER TABLE users ADD COLUMN background_asset_id INTEGER"))
+        if "assets" in notification_tables:
+            asset_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(assets)"))}
+            if "file_data" not in asset_columns:
+                connection.execute(text("ALTER TABLE assets ADD COLUMN file_data BLOB"))
         if "notifications" in notification_tables:
             notification_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(notifications)"))}
             if "parent_comment_id" not in notification_columns:

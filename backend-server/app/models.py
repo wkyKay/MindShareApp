@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, Integer, LargeBinary, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -125,6 +125,7 @@ class Asset(Base):
     file_ext: Mapped[str] = mapped_column(String(16), nullable=False, comment="扩展名")
     file_size: Mapped[int] = mapped_column(Integer, nullable=False, comment="文件大小，单位 bytes")
     storage_path: Mapped[str] = mapped_column(String(500), nullable=False, comment="本地存储路径")
+    file_data: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True, comment="文件二进制内容")
     public_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True, comment="前端可访问地址")
     parse_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, comment="文档解析状态：pending、success、failed")
     parse_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True, comment="文档解析错误")

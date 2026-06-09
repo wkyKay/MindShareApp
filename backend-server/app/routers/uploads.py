@@ -1,13 +1,12 @@
 from io import BytesIO
 from pathlib import Path
-from uuid import uuid4
 
 import mammoth
 from markdownify import markdownify
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
-from ..database import BASE_DIR, get_db
+from ..database import get_db
 from ..models import Asset, User
 from ..auth import get_current_user
 from ..schemas import AssetResponse, DocumentParseResponse
@@ -16,11 +15,6 @@ router = APIRouter()
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 DOCUMENT_EXTENSIONS = {".doc", ".docx", ".pdf", ".md"}
-UPLOADS_DIR = BASE_DIR / "uploads"
-IMAGE_SUBDIR = UPLOADS_DIR / "images"
-DOCUMENT_SUBDIR = UPLOADS_DIR / "documents"
-
-
 @router.post("/images", response_model=AssetResponse, status_code=status.HTTP_201_CREATED)
 def upload_image(
     kind: str = Form(...),
@@ -31,12 +25,7 @@ def upload_image(
     ext = Path(file.filename or "").suffix.lower()
     if kind not in {"image", "cover", "avatar"} or ext not in IMAGE_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Unsupported image upload")
-    IMAGE_SUBDIR.mkdir(parents=True, exist_ok=True)
-    file_name = f"{uuid4().hex}{ext}"
-    file_path = IMAGE_SUBDIR / file_name
     file_bytes = file.file.read()
-    file_path.write_bytes(file_bytes)
-    public_url = f"/uploads/images/{file_name}"
     asset = Asset(
         uploader_id=current_user.id,
         kind=kind,
@@ -44,12 +33,15 @@ def upload_image(
         mime_type=file.content_type or "application/octet-stream",
         file_ext=ext,
         file_size=len(file_bytes),
-        storage_path=str(file_path),
-        public_url=public_url,
+        storage_path="database",
+        file_data=file_bytes,
     )
     db.add(asset)
     db.commit()
     db.refresh(asset)
+    public_url = f"/api/v1/uploads/assets/{asset.id}/content"
+    asset.public_url = public_url
+    db.commit()
     return AssetResponse(
         id=asset.id,
         kind=kind,
@@ -71,12 +63,7 @@ def upload_document(
     if kind != "document" or ext not in DOCUMENT_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Unsupported document upload")
 
-    DOCUMENT_SUBDIR.mkdir(parents=True, exist_ok=True)
-    file_name = f"{uuid4().hex}{ext}"
-    file_path = DOCUMENT_SUBDIR / file_name
     file_bytes = file.file.read()
-    file_path.write_bytes(file_bytes)
-    public_url = f"/uploads/documents/{file_name}"
     asset = Asset(
         uploader_id=current_user.id,
         kind=kind,
@@ -84,12 +71,15 @@ def upload_document(
         mime_type=file.content_type or "application/octet-stream",
         file_ext=ext,
         file_size=len(file_bytes),
-        storage_path=str(file_path),
-        public_url=public_url,
+        storage_path="database",
+        file_data=file_bytes,
     )
     db.add(asset)
     db.commit()
     db.refresh(asset)
+    public_url = f"/api/v1/uploads/assets/{asset.id}/content"
+    asset.public_url = public_url
+    db.commit()
     return AssetResponse(
         id=asset.id,
         kind=kind,
@@ -98,6 +88,14 @@ def upload_document(
         file_size=len(file_bytes),
         url=public_url,
     )
+
+
+@router.get("/assets/{asset_id}/content")
+def get_asset_content(asset_id: int, db: Session = Depends(get_db)) -> Response:
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if asset is None or asset.file_data is None:
+        raise HTTPException(status_code=404, detail="文件不存在")
+    return Response(content=asset.file_data, media_type=asset.mime_type)
 
 
 @router.post("/parse-document", response_model=DocumentParseResponse)
