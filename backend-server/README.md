@@ -1,5 +1,8 @@
 # Tongren Forum Backend
 
+cd /Users/kayw/Documents/test_project/react_proj/backend-server
+source venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 同人论坛后端服务，基于 `FastAPI + SQLite + SQLAlchemy + JWT + 本地 uploads/` 的第一版原型。
 
 ## 目录结构

@@ -3,12 +3,17 @@ import { useEffect, useMemo, useState } from "react";
 import { Keyboard, Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
-  createNavigationContainerRef,
   DarkTheme,
   DefaultTheme,
   NavigationContainer,
   type NavigationProp,
+  type NavigatorScreenParams,
 } from "@react-navigation/native";
+import {
+  createBottomTabNavigator,
+  type BottomTabBarProps,
+  type BottomTabScreenProps,
+} from "@react-navigation/bottom-tabs";
 import {
   createNativeStackNavigator,
   type NativeStackScreenProps,
@@ -27,18 +32,25 @@ import { ProfileAnalyticsScreen } from "./src/screens/ProfileAnalyticsScreen";
 import { ProfileSettingsScreen } from "./src/screens/ProfileSettingsScreen";
 import { UploadScreen } from "./src/screens/UploadScreen";
 import { AuthorScreen } from "./src/screens/AuthorScreen";
+import type { AuthSession } from "./src/services/authSession";
 import { useAuthStore } from "./src/stores/authStore";
 import { useMessageStore } from "./src/stores/messageStore";
 import { useNotificationStore } from "./src/stores/notificationStore";
 import { ThemeProvider, useAppTheme } from "./src/theme/ThemeProvider";
 
-type RootStackParamList = {
+type TabPage = Exclude<Page, "auth">;
+
+type MainTabParamList = {
   home: { tag?: string } | undefined;
   aiChat: undefined;
   messages: undefined;
   upload: undefined;
-  notifications: { category: "comments" | "likes" | "follows" };
   profile: undefined;
+};
+
+type RootStackParamList = {
+  mainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
+  notifications: { category: "comments" | "likes" | "follows" };
   profileAnalytics: undefined;
   profileSettings: undefined;
   auth: undefined;
@@ -50,15 +62,11 @@ type RootStackParamList = {
 type AppScreenProps<RouteName extends keyof RootStackParamList> =
   NativeStackScreenProps<RootStackParamList, RouteName>;
 
+type MainTabScreenProps<RouteName extends keyof MainTabParamList> =
+  BottomTabScreenProps<MainTabParamList, RouteName>;
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const tabPages = new Set<string>([
-  "home",
-  "aiChat",
-  "messages",
-  "upload",
-  "profile",
-]);
-const navigationRef = createNavigationContainerRef<RootStackParamList>();
+const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function App() {
   return (
@@ -85,8 +93,6 @@ function AppShell() {
     }),
     [colors, resolvedMode],
   );
-  const [activePage, setActivePage] =
-    useState<keyof RootStackParamList>("home");
   const [keyboardInset, setKeyboardInset] = useState(0);
   const authSession = useAuthStore((state) => state.session);
   const hydrateAuth = useAuthStore((state) => state.hydrate);
@@ -98,7 +104,7 @@ function AppShell() {
     authorId: number,
   ) {
     if (authSession?.user.id === authorId) {
-      navigation.navigate("profile");
+      navigation.navigate("mainTabs", { screen: "profile" });
       return;
     }
     navigation.navigate("author", { authorId });
@@ -133,16 +139,7 @@ function AppShell() {
 
   return (
     <GestureHandlerRootView style={styles.gestureRoot}>
-      <NavigationContainer
-        ref={navigationRef}
-        theme={navigationTheme}
-        onStateChange={(state) => {
-          const routeName = state?.routes[state.index]?.name;
-          if (routeName) {
-            setActivePage(routeName as Page);
-          }
-        }}
-      >
+      <NavigationContainer theme={navigationTheme}>
         <View style={styles.shell}>
           <View
             style={[
@@ -151,7 +148,7 @@ function AppShell() {
             ]}
           >
             <Stack.Navigator
-              initialRouteName="home"
+              initialRouteName="mainTabs"
               screenOptions={{
                 animation: "slide_from_right",
                 contentStyle: { backgroundColor: colors.background },
@@ -159,54 +156,12 @@ function AppShell() {
                 headerShown: false,
               }}
             >
-              <Stack.Screen name="home">
-                {({ navigation, route }: AppScreenProps<"home">) => (
-                  <HomeScreen
-                    session={authSession}
-                    selectedRouteTag={route.params?.tag}
-                    onOpenPost={(postId) =>
-                      navigation.navigate("blog", { postId })
-                    }
-                    onOpenAuthor={(authorId) =>
-                      openAuthorProfileAware(navigation, authorId)
-                    }
-                    onOpenTag={(tag) =>
-                      navigation.navigate("home", { tag: tag || undefined })
-                    }
-                  />
-                )}
-              </Stack.Screen>
-
-              <Stack.Screen name="aiChat">
-                {() => <AiChatScreen />}
-              </Stack.Screen>
-
-              <Stack.Screen name="messages">
-                {({ navigation }: AppScreenProps<"messages">) => (
-                  <MessagesScreen
-                    onOpenAuth={() => navigation.navigate("auth")}
-                    onOpenChat={(conversationId, partnerId, partnerName) =>
-                      navigation.navigate("chat", {
-                        conversationId,
-                        partnerId,
-                        partnerName,
-                      })
-                    }
-                    onOpenNotificationCategory={(category) =>
-                      navigation.navigate("notifications", { category })
-                    }
-                  />
-                )}
-              </Stack.Screen>
-
-              <Stack.Screen name="upload">
-                {({ navigation }: AppScreenProps<"upload">) => (
-                  <UploadScreen
-                    session={authSession}
-                    onCancel={() => navigation.goBack()}
-                    onSaved={() => {
-                      navigation.navigate("profile");
-                    }}
+              <Stack.Screen name="mainTabs">
+                {(props: AppScreenProps<"mainTabs">) => (
+                  <MainTabsScreen
+                    {...props}
+                    authSession={authSession}
+                    openAuthorProfileAware={openAuthorProfileAware}
                   />
                 )}
               </Stack.Screen>
@@ -223,31 +178,6 @@ function AppShell() {
                     onOpenAuthor={(authorId) =>
                       openAuthorProfileAware(navigation, authorId)
                     }
-                  />
-                )}
-              </Stack.Screen>
-
-              <Stack.Screen name="profile">
-                {({ navigation }: AppScreenProps<"profile">) => (
-                  <ProfileScreen
-                    onOpenAuth={() => navigation.navigate("auth")}
-                    onOpenPost={(postId) =>
-                      navigation.navigate("blog", { postId })
-                    }
-                    onEditPost={(postId) =>
-                      navigation.navigate("blog", {
-                        postId,
-                        startEditing: true,
-                      })
-                    }
-                    onOpenAuthor={(authorId) =>
-                      openAuthorProfileAware(navigation, authorId)
-                    }
-                    onOpenTag={(tag) => navigation.navigate("home", { tag })}
-                    onOpenAnalytics={() =>
-                      navigation.navigate("profileAnalytics")
-                    }
-                    onOpenSettings={() => navigation.navigate("profileSettings")}
                   />
                 )}
               </Stack.Screen>
@@ -279,7 +209,7 @@ function AppShell() {
                   <AuthScreen
                     onBack={() => navigation.goBack()}
                     onDone={() => {
-                      navigation.navigate("profile");
+                      navigation.navigate("mainTabs", { screen: "profile" });
                     }}
                   />
                 )}
@@ -294,13 +224,18 @@ function AppShell() {
                     session={authSession}
                     onBack={() => navigation.goBack()}
                     onDeleted={() => {
-                      navigation.navigate("profile");
+                      navigation.navigate("mainTabs", { screen: "profile" });
                     }}
                     onRequireAuth={() => navigation.navigate("auth")}
                     onOpenAuthor={(authorId) =>
                       openAuthorProfileAware(navigation, authorId)
                     }
-                    onOpenTag={(tag) => navigation.navigate("home", { tag })}
+                    onOpenTag={(tag) =>
+                      navigation.navigate("mainTabs", {
+                        screen: "home",
+                        params: { tag },
+                      })
+                    }
                   />
                 )}
               </Stack.Screen>
@@ -315,7 +250,12 @@ function AppShell() {
                     onOpenPost={(postId) =>
                       navigation.navigate("blog", { postId })
                     }
-                    onOpenTag={(tag) => navigation.navigate("home", { tag })}
+                    onOpenTag={(tag) =>
+                      navigation.navigate("mainTabs", {
+                        screen: "home",
+                        params: { tag },
+                      })
+                    }
                     onOpenMessage={(conversationId, partnerId, partnerName) =>
                       navigation.navigate("chat", {
                         conversationId,
@@ -339,16 +279,6 @@ function AppShell() {
                 )}
               </Stack.Screen>
             </Stack.Navigator>
-            {tabPages.has(activePage) && (
-              <BottomTabs
-                activePage={activePage as Exclude<Page, "auth">}
-                onChangePage={(page) => {
-                  if (navigationRef.isReady()) {
-                    navigationRef.navigate(page);
-                  }
-                }}
-              />
-            )}
           </View>
           <StatusBar
             style={resolvedMode === "dark" ? "light" : "dark"}
@@ -357,5 +287,107 @@ function AppShell() {
         </View>
       </NavigationContainer>
     </GestureHandlerRootView>
+  );
+}
+
+type MainTabsScreenProps = AppScreenProps<"mainTabs"> & {
+  authSession: AuthSession | null;
+  openAuthorProfileAware: (
+    navigation: NavigationProp<RootStackParamList>,
+    authorId: number,
+  ) => void;
+};
+
+function MainTabsScreen({
+  authSession,
+  navigation,
+  openAuthorProfileAware,
+}: MainTabsScreenProps) {
+  return (
+    <Tab.Navigator
+      initialRouteName="home"
+      screenOptions={{ headerShown: false, lazy: true }}
+      tabBar={(props) => <MainTabBar {...props} />}
+    >
+      <Tab.Screen name="home">
+        {({ navigation: tabNavigation, route }: MainTabScreenProps<"home">) => (
+          <HomeScreen
+            session={authSession}
+            selectedRouteTag={route.params?.tag}
+            onOpenPost={(postId) => navigation.navigate("blog", { postId })}
+            onOpenAuthor={(authorId) =>
+              openAuthorProfileAware(navigation, authorId)
+            }
+            onOpenTag={(tag) =>
+              tabNavigation.navigate("home", { tag: tag || undefined })
+            }
+          />
+        )}
+      </Tab.Screen>
+
+      <Tab.Screen name="aiChat" component={AiChatScreen} />
+
+      <Tab.Screen name="upload">
+        {({ navigation: tabNavigation }: MainTabScreenProps<"upload">) => (
+          <UploadScreen
+            session={authSession}
+            onCancel={() => tabNavigation.navigate("home")}
+            onSaved={() => tabNavigation.navigate("profile")}
+          />
+        )}
+      </Tab.Screen>
+
+      <Tab.Screen name="messages">
+        {() => (
+          <MessagesScreen
+            onOpenAuth={() => navigation.navigate("auth")}
+            onOpenChat={(conversationId, partnerId, partnerName) =>
+              navigation.navigate("chat", {
+                conversationId,
+                partnerId,
+                partnerName,
+              })
+            }
+            onOpenNotificationCategory={(category) =>
+              navigation.navigate("notifications", { category })
+            }
+          />
+        )}
+      </Tab.Screen>
+
+      <Tab.Screen name="profile">
+        {({ navigation: tabNavigation }: MainTabScreenProps<"profile">) => (
+          <ProfileScreen
+            onOpenAuth={() => navigation.navigate("auth")}
+            onOpenPost={(postId) => navigation.navigate("blog", { postId })}
+            onEditPost={(postId) =>
+              navigation.navigate("blog", {
+                postId,
+                startEditing: true,
+              })
+            }
+            onOpenAuthor={(authorId) =>
+              openAuthorProfileAware(navigation, authorId)
+            }
+            onOpenTag={(tag) =>
+              tabNavigation.navigate("home", { tag: tag || undefined })
+            }
+            onOpenAnalytics={() => navigation.navigate("profileAnalytics")}
+            onOpenSettings={() => navigation.navigate("profileSettings")}
+          />
+        )}
+      </Tab.Screen>
+    </Tab.Navigator>
+  );
+}
+
+function MainTabBar({ navigation, state }: BottomTabBarProps) {
+  const activePage = state.routes[state.index]?.name as TabPage;
+
+  return (
+    <BottomTabs
+      activePage={activePage}
+      onChangePage={(page) => navigation.navigate(page)}
+    />
   );
 }
