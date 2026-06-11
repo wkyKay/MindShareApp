@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Image, Modal, Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
 
 import { CommentSection } from "../components/CommentSection";
-import { MarkdownText } from "../components/MarkdownText";
 import { BlogDetailSkeleton } from "../components/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import {
@@ -17,10 +16,12 @@ import {
 import { translateContent } from "../services/translationsApi";
 import type { AuthSession } from "../services/authSession";
 import { useAuthStore } from "../stores/authStore";
-import { Ionicons } from "@expo/vector-icons";
-import { formatDateTimeMinute } from "../utils/time";
 import { useTranslation } from "react-i18next";
 import { useAppTheme } from "../theme/ThemeProvider";
+import { BlogBottomActions } from "./blog/BlogBottomActions";
+import { BlogEditForm } from "./blog/BlogEditForm";
+import { BlogImagePreviewModal } from "./blog/BlogImagePreviewModal";
+import { BlogReadContent } from "./blog/BlogReadContent";
 
 type BlogScreenProps = {
   postId: number;
@@ -268,185 +269,65 @@ export function BlogScreen({
   }
 
   const content = isEditing ? (
-    <>
-      <Pressable style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backButtonText}>{t("‹ 返回")}</Text>
-      </Pressable>
-      <TextInput
-        style={styles.input}
-        placeholder={t("标题")}
-        placeholderTextColor={colors.textSubtle}
-        value={title}
-        onChangeText={setTitle}
-      />
-
-      <TextInput
-        multiline
-        style={[styles.input, styles.bodyInput, styles.longBodyInput]}
-        placeholder={t("正文")}
-        placeholderTextColor={colors.textSubtle}
-        textAlignVertical="top"
-        value={body}
-        onChangeText={setBody}
-      />
-
-      <Pressable style={styles.primaryButton} onPress={saveEdit}>
-        <Text style={styles.primaryButtonText}>{t("保存修改")}</Text>
-      </Pressable>
-      <Pressable style={styles.draftButton} onPress={() => setIsEditing(false)}>
-        <Text style={styles.draftButtonText}>{t("取消编辑")}</Text>
-      </Pressable>
-    </>
+    <BlogEditForm
+      title={title}
+      body={body}
+      textSubtleColor={colors.textSubtle}
+      onBack={onBack}
+      onChangeTitle={setTitle}
+      onChangeBody={setBody}
+      onSave={() => void saveEdit()}
+      onCancel={() => setIsEditing(false)}
+      styles={styles}
+      t={t}
+    />
   ) : (
     <>
-      <Pressable style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backButtonText}>{t("‹ 返回")}</Text>
-      </Pressable>
-      <Text style={styles.pageTitle}>{post.title}</Text>
-      <Pressable onPress={() => onOpenAuthor(post.author.id)}>
-        <Text style={styles.cardAuthor}>{post.author.display_name}</Text>
-      </Pressable>
-      <Text style={styles.cardMeta}>
-        {t("发布时间：")}
-        {formatDateTimeMinute(post.created_at)}
-      </Text>
-      {post.tags.length > 0 && (
-        <View style={styles.tagList}>
-          {post.tags.map((tag) => (
-            <Pressable
-              key={tag}
-              style={styles.tagChip}
-              onPress={() => onOpenTag(tag)}
-            >
-              <Text style={styles.tagChipText}>#{tag}</Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
-      {post.image_urls.length > 0 ? (
-        <View style={styles.inlineImageList}>
-          {post.image_urls.map((imageUrl) => (
-            <Pressable
-              key={imageUrl}
-              onPress={() => setPreviewImageUrl(imageUrl)}
-            >
-              <Image
-                source={{ uri: imageUrl }}
-                resizeMode="contain"
-                style={[
-                  styles.blogImage,
-                  imageRatios[imageUrl]
-                    ? { aspectRatio: imageRatios[imageUrl] }
-                    : null,
-                ]}
-                onLoad={(event) => {
-                  const { width, height } = event.nativeEvent.source;
-                  if (width && height) {
-                    setImageRatios((current) =>
-                      current[imageUrl] === width / height
-                        ? current
-                        : { ...current, [imageUrl]: width / height },
-                    );
-                  }
-                }}
-              />
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-      <MarkdownText>
-        {isBodyTranslationVisible && translatedBody
-          ? translatedBody
-          : post.body}
-      </MarkdownText>
-      <Pressable
-        style={styles.translationInlineAction}
-        onPress={() => void toggleBodyTranslation()}
-        disabled={isTranslatingBody}
-      >
-        <Text style={styles.translationInlineText}>
-          {isTranslatingBody
-            ? t("翻译中...")
-            : isBodyTranslationVisible
-              ? t("查看原文")
-              : t("查看译文")}
-        </Text>
-      </Pressable>
-      {/* {post.is_owner && (
-      <>
-       <Pressable style={styles.primaryButton} onPress={() => setIsEditing(true)}>
-         <Text style={styles.primaryButtonText}>编辑</Text>
-       </Pressable>
-       <Pressable style={styles.dangerButton} onPress={removePost}>
-         <Text style={styles.dangerButtonText}>删除</Text>
-       </Pressable>
-      </>
-      )} */}
-      {!!message && (
-        <Text style={[styles.authApiHint, { color: colors.primaryText }]}>
-          {message}
-        </Text>
-      )}
-      <Modal
-        visible={!!previewImageUrl}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPreviewImageUrl(null)}
-      >
-        <Pressable
-          style={styles.imagePreviewOverlay}
-          onPress={() => setPreviewImageUrl(null)}
-        >
-          {previewImageUrl ? (
-            <Image
-              source={{ uri: previewImageUrl }}
-              resizeMode="contain"
-              style={styles.imagePreview}
-            />
-          ) : null}
-          <Text style={styles.imagePreviewHint}>{t("点击关闭")}</Text>
-        </Pressable>
-      </Modal>
+      <BlogReadContent
+        post={post}
+        message={message}
+        primaryTextColor={colors.primaryText}
+        translatedBody={translatedBody}
+        isBodyTranslationVisible={isBodyTranslationVisible}
+        isTranslatingBody={isTranslatingBody}
+        imageRatios={imageRatios}
+        onBack={onBack}
+        onOpenAuthor={onOpenAuthor}
+        onOpenTag={onOpenTag}
+        onPreviewImage={setPreviewImageUrl}
+        onImageRatio={(imageUrl, ratio) =>
+          setImageRatios((current) =>
+            current[imageUrl] === ratio
+              ? current
+              : { ...current, [imageUrl]: ratio },
+          )
+        }
+        onToggleBodyTranslation={() => void toggleBodyTranslation()}
+        styles={styles}
+        t={t}
+      />
+      <BlogImagePreviewModal
+        imageUrl={previewImageUrl}
+        onClose={() => setPreviewImageUrl(null)}
+        styles={styles}
+        t={t}
+      />
     </>
   );
 
   const bottomAccessory = !isEditing ? (
-    <View style={styles.blogBottomActions}>
-      <Pressable
-        style={styles.blogBottomActionButton}
-        onPress={post.is_owner ? undefined : toggleLike}
-        disabled={post.is_owner}
-      >
-        <Ionicons
-          name={post.is_liked ? "heart" : "heart-outline"}
-          size={22}
-          color={post.is_liked ? colors.danger : colors.textMuted}
-        />
-
-        <Text style={styles.blogBottomActionText}>{post.like_count}</Text>
-      </Pressable>
-      <View style={styles.blogBottomActionButton}>
-        <Ionicons
-          name="chatbubble-outline"
-          size={21}
-          color={colors.textMuted}
-        />
-        <Text style={styles.blogBottomActionText}>{post.comment_count}</Text>
-      </View>
-      <Pressable
-        style={styles.blogBottomActionButton}
-        onPress={post.is_owner ? undefined : toggleFavorite}
-        disabled={post.is_owner}
-      >
-        <Ionicons
-          name={post.is_favorited ? "star" : "star-outline"}
-          size={22}
-          color={post.is_favorited ? colors.warningText : colors.textMuted}
-        />
-
-        <Text style={styles.blogBottomActionText}>{post.favorite_count}</Text>
-      </Pressable>
-    </View>
+    <BlogBottomActions
+      isOwner={post.is_owner}
+      isLiked={post.is_liked}
+      isFavorited={post.is_favorited}
+      likeCount={post.like_count}
+      commentCount={post.comment_count}
+      favoriteCount={post.favorite_count}
+      onToggleLike={() => void toggleLike()}
+      onToggleFavorite={() => void toggleFavorite()}
+      styles={styles}
+      colors={colors}
+    />
   ) : null;
 
   return (

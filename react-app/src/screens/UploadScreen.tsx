@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Image,
   Pressable,
   ScrollView,
   Text,
@@ -10,7 +9,6 @@ import {
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 
-import { MarkdownText } from "../components/MarkdownText";
 import {
   createPost,
   parsePostDocument,
@@ -22,6 +20,11 @@ import type { AuthSession } from "../services/authSession";
 import { useAuthStore } from "../stores/authStore";
 import { useTranslation } from "react-i18next";
 import { useAppTheme } from "../theme/ThemeProvider";
+import { DocumentUploadPanel } from "./upload/DocumentUploadPanel";
+import { ImageUploadPanel } from "./upload/ImageUploadPanel";
+import { MarkdownPreviewPanel } from "./upload/MarkdownPreviewPanel";
+import { PublishActions } from "./upload/PublishActions";
+import { TagEditor } from "./upload/TagEditor";
 
 type UploadScreenProps = {
   session: AuthSession | null;
@@ -294,138 +297,48 @@ export function UploadScreen({
         onChangeText={setBody}
       />
 
-      <View style={styles.uploadPreviewPanel}>
-        <Text style={styles.uploadTitle}>{t("渲染预览")}</Text>
-        {body.trim() ? (
-          <>
-            {previewBody.renderedMarkdown.trim() ? (
-              <View style={styles.renderedParagraphCard}>
-                <MarkdownText>{previewBody.renderedMarkdown}</MarkdownText>
-              </View>
-            ) : null}
-            {previewBody.rawDraft.trim() ? (
-              <View style={styles.editingParagraphCard}>
-                <Text style={styles.rawPreviewText}>
-                  {previewBody.rawDraft}
-                </Text>
-              </View>
-            ) : null}
-          </>
-        ) : (
-          <Text style={styles.uploadHint}>
-            {t("上方输入 Markdown 后，这里会实时显示渲染效果。")}
-          </Text>
-        )}
-      </View>
+      <MarkdownPreviewPanel
+        renderedMarkdown={previewBody.renderedMarkdown}
+        rawDraft={previewBody.rawDraft}
+        styles={styles}
+        t={t}
+      />
 
-      <View style={styles.uploadBox}>
-        <Text style={styles.uploadTitle}>{t("插入图片")}</Text>
-        <Text style={styles.uploadHint}>
-          {t("选择图片后会自动上传，并把 Markdown 图片语法插入正文。")}
-        </Text>
-        <Pressable
-          style={styles.secondaryButton}
-          onPress={() => void pickImage()}
-        >
-          <Text style={styles.secondaryButtonText}>{t("选择图片")}</Text>
-        </Pressable>
-        {images.length > 0 ? (
-          <View style={styles.inlineImageList}>
-            {images.map((image) => (
-              <Image
-                key={image.id}
-                source={{ uri: image.url }}
-                style={styles.inlineImagePreview}
-              />
-            ))}
-          </View>
-        ) : null}
-      </View>
+      <ImageUploadPanel
+        images={images}
+        onPickImage={() => void pickImage()}
+        styles={styles}
+        t={t}
+      />
 
-      <View style={styles.uploadBox}>
-        <Text style={styles.uploadTitle}>{t("插入文件")}</Text>
-        <Text style={styles.uploadHint}>
-          {t(
-            "支持 PDF、Word（.doc/.docx）和 Markdown（.md）。选择后会自动上传，并把文件链接插入正文；也可以把 .md/.docx 解析成正文。",
-          )}
-        </Text>
-        <Pressable
-          style={styles.secondaryButton}
-          onPress={() => void pickDocument()}
-        >
-          <Text style={styles.secondaryButtonText}>{t("选择文件")}</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.secondaryButton, styles.uploadStackedButton]}
-          onPress={() => void parseTextDocument()}
-        >
-          <Text style={styles.secondaryButtonText}>
-            {t("解析 Markdown/Word 到正文")}
-          </Text>
-        </Pressable>
-        {documents.length > 0 ? (
-          <View style={styles.documentList}>
-            {documents.map((document) => (
-              <Text key={document.id} style={styles.documentListItem}>
-                {t("附件：")}
-                {document.name}
-              </Text>
-            ))}
-          </View>
-        ) : null}
-      </View>
+      <DocumentUploadPanel
+        documents={documents}
+        onPickDocument={() => void pickDocument()}
+        onParseTextDocument={() => void parseTextDocument()}
+        styles={styles}
+        t={t}
+      />
 
-      <View style={styles.tagPanel}>
-        <Text style={styles.uploadTitle}>{t("添加 Tag")}</Text>
-        <View style={styles.tagInputRow}>
-          <TextInput
-            style={styles.tagInput}
-            placeholder={t("输入标签")}
-            placeholderTextColor="#9a8f8a"
-            value={tagInput}
-            onChangeText={setTagInput}
-            onSubmitEditing={addTag}
-          />
+      <TagEditor
+        tagInput={tagInput}
+        tags={tags}
+        onChangeTagInput={setTagInput}
+        onAddTag={addTag}
+        onRemoveTag={(tag) =>
+          setTags((currentTags) =>
+            currentTags.filter((item) => item !== tag),
+          )
+        }
+        styles={styles}
+        t={t}
+      />
 
-          <Pressable style={styles.tagAddButton} onPress={addTag}>
-            <Text style={styles.tagAddButtonText}>{t("增加")}</Text>
-          </Pressable>
-        </View>
-        {tags.length > 0 && (
-          <View style={styles.tagList}>
-            {tags.map((tag) => (
-              <Pressable
-                key={tag}
-                style={styles.tagChip}
-                onPress={() =>
-                  setTags((currentTags) =>
-                    currentTags.filter((item) => item !== tag),
-                  )
-                }
-              >
-                <Text style={styles.tagChipText}>#{tag} ×</Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
-      </View>
-
-      <Pressable
-        style={[styles.primaryButton, isSubmitting && { opacity: 0.65 }]}
-        onPress={() => submitPost("published")}
-        disabled={isSubmitting}
-      >
-        <Text style={styles.primaryButtonText}>
-          {isSubmitting ? "提交中..." : "上传"}
-        </Text>
-      </Pressable>
-      <Pressable
-        style={[styles.draftButton, isSubmitting && { opacity: 0.65 }]}
-        onPress={() => submitPost("draft")}
-        disabled={isSubmitting}
-      >
-        <Text style={styles.draftButtonText}>{t("保存草稿")}</Text>
-      </Pressable>
+      <PublishActions
+        isSubmitting={isSubmitting}
+        onSubmit={(status) => void submitPost(status)}
+        styles={styles}
+        t={t}
+      />
       {!!message && (
         <Text style={[styles.authApiHint, { color: "#a05d6f" }]}>
           {message}

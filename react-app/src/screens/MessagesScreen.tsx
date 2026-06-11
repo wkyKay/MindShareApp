@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  Image,
   Pressable,
   ScrollView,
   Text,
@@ -9,7 +8,6 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { Swipeable } from "react-native-gesture-handler";
 
 import {
   createOrGetConversation,
@@ -23,10 +21,11 @@ import {
 import { useAuthStore } from "../stores/authStore";
 import { useMessageStore } from "../stores/messageStore";
 import { useNotificationStore } from "../stores/notificationStore";
-import { formatDateTimeMinute } from "../utils/time";
 import { useTranslation } from "react-i18next";
 import { useAppStyles } from "../theme/ThemeProvider";
-import type { AppStyles } from "../components/styles";
+import { MessageAvatar } from "./messages/MessageAvatar";
+import { MessageShortcut } from "./messages/MessageShortcut";
+import { SwipeConversationRow } from "./messages/SwipeConversationRow";
 
 type NotificationCategory = "comments" | "likes" | "follows";
 
@@ -291,152 +290,5 @@ export function MessagesScreen({
         </Text>
       )}
     </ScrollView>
-  );
-}
-
-function SwipeConversationRow({
-  item,
-  latestBody,
-  unreadCount,
-  onOpen,
-  onDelete,
-  styles,
-  t,
-}: {
-  item: ConversationItem;
-  latestBody: string;
-  unreadCount: number;
-  onOpen: () => void;
-  onDelete: () => void;
-  styles: AppStyles;
-  t: (key: string) => string;
-}) {
-  const swipeableRef = useRef<Swipeable>(null);
-  const isSwipingRef = useRef(false);
-  const swipeReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-
-  useEffect(() => {
-    return () => {
-      if (swipeReleaseTimerRef.current) {
-        clearTimeout(swipeReleaseTimerRef.current);
-      }
-    };
-  }, []);
-
-  function markSwiping() {
-    if (swipeReleaseTimerRef.current) {
-      clearTimeout(swipeReleaseTimerRef.current);
-    }
-    isSwipingRef.current = true;
-  }
-
-  function releaseSwipePressBlock() {
-    if (swipeReleaseTimerRef.current) {
-      clearTimeout(swipeReleaseTimerRef.current);
-    }
-    swipeReleaseTimerRef.current = setTimeout(() => {
-      isSwipingRef.current = false;
-    }, 220);
-  }
-
-  function handleOpen() {
-    if (isSwipingRef.current) {
-      return;
-    }
-    onOpen();
-  }
-
-  function renderRightActions() {
-    return (
-      <Pressable style={styles.swipeDeleteButton} onPress={onDelete}>
-        <Text style={styles.swipeDeleteText}>{t("删除")}</Text>
-      </Pressable>
-    );
-  }
-
-  return (
-    <View style={styles.swipeConversationContainer}>
-      <Swipeable
-        ref={swipeableRef}
-        friction={1.6}
-        rightThreshold={36}
-        overshootRight={false}
-        onSwipeableOpenStartDrag={markSwiping}
-        onSwipeableCloseStartDrag={markSwiping}
-        onSwipeableWillOpen={releaseSwipePressBlock}
-        onSwipeableWillClose={releaseSwipePressBlock}
-        renderRightActions={renderRightActions}
-      >
-        <Pressable style={styles.messageConversationCard} onPress={handleOpen}>
-          <MessageAvatar
-            name={item.partner.display_name}
-            avatarUrl={item.partner.avatar_url}
-            styles={styles}
-          />
-
-          <View style={styles.messageRowTextBlock}>
-            <Text style={styles.cardTitle}>{item.partner.display_name}</Text>
-            <Text style={styles.messageLastText}>{latestBody}</Text>
-          </View>
-          <View style={styles.messageConversationSideMeta}>
-            <Text style={styles.messageTimeText}>
-              {formatDateTimeMinute(item.updated_at)}
-            </Text>
-            {unreadCount > 0 ? (
-              <View style={styles.messageUnreadBadge}>
-                <Text style={styles.messageUnreadText}>{unreadCount}</Text>
-              </View>
-            ) : null}
-          </View>
-        </Pressable>
-      </Swipeable>
-    </View>
-  );
-}
-
-function MessageAvatar({
-  name,
-  avatarUrl,
-  styles,
-}: {
-  name: string;
-  avatarUrl?: string | null;
-  styles: AppStyles;
-}) {
-  const { t } = useTranslation();
-  const initial = name.trim().slice(0, 1) || t("聊");
-  if (avatarUrl) {
-    return <Image source={{ uri: avatarUrl }} style={styles.messageAvatar} />;
-  }
-  return (
-    <View style={styles.messageAvatarFallback}>
-      <Text style={styles.messageAvatarText}>{initial}</Text>
-    </View>
-  );
-}
-
-function MessageShortcut({
-  icon,
-  label,
-  unreadCount,
-  onPress,
-  styles,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  unreadCount: number;
-  onPress: () => void;
-  styles: AppStyles;
-}) {
-  return (
-    <Pressable style={styles.messageShortcutCard} onPress={onPress}>
-      <View style={styles.messageShortcutIconWrap}>
-        <Ionicons name={icon} size={25} color="#d94f70" />
-        {unreadCount > 0 ? <View style={styles.messageShortcutDot} /> : null}
-      </View>
-      <Text style={styles.messageShortcutLabel}>{label}</Text>
-    </Pressable>
   );
 }
