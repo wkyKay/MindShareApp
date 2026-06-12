@@ -1,5 +1,5 @@
 import { API_V1_BASE_URL } from "../config/api";
-import i18n from "../i18n";
+import { apiFetch, throwApiError } from "./apiError";
 
 export type TranslationContentType =
   | "post"
@@ -24,23 +24,6 @@ export type TranslationContentResponse = {
   cached: boolean;
 };
 
-async function readErrorMessage(response: Response) {
-  try {
-    const data = (await response.json()) as {
-      detail?: string | { msg?: string }[];
-    };
-    if (typeof data.detail === "string") {
-      return data.detail;
-    }
-    if (Array.isArray(data.detail) && data.detail[0]?.msg) {
-      return data.detail[0].msg;
-    }
-  } catch {
-    return i18n.t("请求失败，请稍后重试。");
-  }
-  return i18n.t("请求失败，请稍后重试。");
-}
-
 export async function translateContent(
   payload: {
     content_type: TranslationContentType;
@@ -51,7 +34,7 @@ export async function translateContent(
   },
   accessToken: string,
 ) {
-  const response = await fetch(`${API_V1_BASE_URL}/translations/content`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/translations/content`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -60,7 +43,7 @@ export async function translateContent(
     body: JSON.stringify({ source_language: "auto", ...payload }),
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as TranslationContentResponse;
 }

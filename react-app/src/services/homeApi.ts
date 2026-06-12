@@ -1,4 +1,5 @@
 import { API_V1_BASE_URL } from "../config/api";
+import { apiFetch, throwApiError } from "./apiError";
 
 export type Post = {
   id: number;
@@ -37,23 +38,6 @@ type PageResponse = {
   total: number;
 };
 
-async function readErrorMessage(response: Response) {
-  try {
-    const data = (await response.json()) as {
-      detail?: string | { msg?: string }[];
-    };
-    if (typeof data.detail === "string") {
-      return data.detail;
-    }
-    if (Array.isArray(data.detail) && data.detail[0]?.msg) {
-      return data.detail[0].msg;
-    }
-  } catch {
-    return i18n.t("请求失败，请稍后重试。");
-  }
-  return i18n.t("请求失败，请稍后重试。");
-}
-
 export async function getDiscoverPosts(
   page: number = 1,
   pageSize: number = 10,
@@ -62,7 +46,7 @@ export async function getDiscoverPosts(
   accessToken?: string,
 ) {
   const tagParam = tag ? `&tag=${encodeURIComponent(tag)}` : "";
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/posts?tab=discover&page=${page}&page_size=${pageSize}&seed=${seed}${tagParam}`,
     {
       headers: accessToken
@@ -71,7 +55,7 @@ export async function getDiscoverPosts(
     },
   );
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as PageResponse;
 }
@@ -81,7 +65,7 @@ export async function searchPostsByTitle(
   accessToken?: string,
   pageSize: number = 5,
 ) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/posts?tab=discover&page=1&page_size=${pageSize}&seed=1&q=${encodeURIComponent(query)}`,
     {
       headers: accessToken
@@ -90,17 +74,17 @@ export async function searchPostsByTitle(
     },
   );
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as PageResponse;
 }
 
 export async function getTagSuggestions(query: string) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/search/tags?q=${encodeURIComponent(query)}`,
   );
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as string[];
 }
@@ -110,7 +94,7 @@ export async function searchUsers(
   accessToken?: string,
   limit: number = 5,
 ) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/users/search?q=${encodeURIComponent(query)}&limit=${limit}`,
     {
       headers: accessToken
@@ -119,7 +103,7 @@ export async function searchUsers(
     },
   );
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as UserSearchResult[];
 }
@@ -129,7 +113,7 @@ export async function getFollowingPosts(
   accessToken: string,
   pageSize: number = 10,
 ) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/posts?tab=following&page=${page}&page_size=${pageSize}`,
     {
       headers: {
@@ -138,8 +122,7 @@ export async function getFollowingPosts(
     },
   );
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as PageResponse;
 }
-import i18n from "../i18n";

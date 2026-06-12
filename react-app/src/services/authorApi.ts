@@ -1,4 +1,5 @@
 import { API_V1_BASE_URL } from "../config/api";
+import { apiFetch, throwApiError } from "./apiError";
 import type {
   PageResponse,
   ProfilePost,
@@ -16,31 +17,14 @@ export type AuthorInfo = {
   is_following: boolean;
 };
 
-async function readErrorMessage(response: Response) {
-  try {
-    const data = (await response.json()) as {
-      detail?: string | { msg?: string }[];
-    };
-    if (typeof data.detail === "string") {
-      return data.detail;
-    }
-    if (Array.isArray(data.detail) && data.detail[0]?.msg) {
-      return data.detail[0].msg;
-    }
-  } catch {
-    return i18n.t("请求失败，请稍后重试。");
-  }
-  return i18n.t("请求失败，请稍后重试。");
-}
-
 export async function getAuthorInfo(authorId: number, accessToken?: string) {
-  const response = await fetch(`${API_V1_BASE_URL}/users/${authorId}`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/users/${authorId}`, {
     headers: accessToken
       ? { Authorization: `Bearer ${accessToken}` }
       : undefined,
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as AuthorInfo;
 }
@@ -50,7 +34,7 @@ export async function setAuthorFollowing(
   accessToken: string,
   following: boolean,
 ) {
-  const response = await fetch(`${API_V1_BASE_URL}/users/${authorId}/follow`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/users/${authorId}/follow`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -59,7 +43,7 @@ export async function setAuthorFollowing(
     body: JSON.stringify({ following }),
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as { following: boolean };
 }
@@ -69,11 +53,11 @@ export async function getAuthorPosts(
   page: number = 1,
   pageSize: number = 20,
 ) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/users/${authorId}/posts?page=${page}&page_size=${pageSize}`,
   );
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as PageResponse<ProfilePost>;
 }
@@ -82,7 +66,7 @@ export async function getAuthorCollections(
   authorId: number,
   accessToken?: string,
 ) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/users/${authorId}/collections`,
     {
       headers: accessToken
@@ -91,9 +75,8 @@ export async function getAuthorCollections(
     },
   );
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   const data = (await response.json()) as { items: ProfileCollection[] };
   return data.items;
 }
-import i18n from "../i18n";

@@ -1,4 +1,5 @@
 import { API_V1_BASE_URL } from "../config/api";
+import { apiFetch, throwApiError } from "./apiError";
 
 export type PageResponse<T> = {
   items: T[];
@@ -69,21 +70,12 @@ export type CollectionDetail = ProfileCollection & {
   }[];
 };
 
-async function readErrorMessage(response: Response) {
-  try {
-    const data = (await response.json()) as { detail?: string };
-    return data.detail || i18n.t("请求失败，请稍后重试。");
-  } catch {
-    return i18n.t("请求失败，请稍后重试。");
-  }
-}
-
 async function profileRequest<T>(
   path: string,
   accessToken: string,
   options: RequestInit = {},
 ) {
-  const response = await fetch(`${API_V1_BASE_URL}${path}`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}${path}`, {
     ...options,
     headers: {
       ...(options.headers || {}),
@@ -91,7 +83,7 @@ async function profileRequest<T>(
     },
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   if (response.status === 204) {
     return undefined as T;
@@ -138,7 +130,7 @@ export async function getPublicCollectionDetail(
   collectionId: number,
   accessToken?: string,
 ) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/collections/${collectionId}`,
     {
       headers: accessToken
@@ -147,7 +139,7 @@ export async function getPublicCollectionDetail(
     },
   );
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as CollectionDetail;
 }
@@ -160,13 +152,13 @@ export async function getPublicPostDetail(
   postId: number,
   accessToken?: string,
 ) {
-  const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/posts/${postId}`, {
     headers: accessToken
       ? { Authorization: `Bearer ${accessToken}` }
       : undefined,
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as ProfilePost;
 }
@@ -253,4 +245,3 @@ export function setCollectionFavorited(
     },
   );
 }
-import i18n from "../i18n";

@@ -1,5 +1,6 @@
 import { API_V1_BASE_URL } from "../config/api";
 import i18n from "../i18n";
+import { createApiErrorFromBody, createNetworkApiError } from "./apiError";
 
 export type AiChatRole = "user" | "assistant" | "system";
 
@@ -23,15 +24,12 @@ type StreamAiChatOptions = {
   onError?: (message: string) => void;
 };
 
-function readXhrErrorMessage(responseText: string) {
+function createXhrApiError(status: number, responseText: string) {
   try {
-    const data = JSON.parse(responseText) as { detail?: string | { msg?: string }[] };
-    if (typeof data.detail === "string") return data.detail;
-    if (Array.isArray(data.detail) && data.detail[0]?.msg) return data.detail[0].msg;
+    return createApiErrorFromBody(status, JSON.parse(responseText));
   } catch {
-    return i18n.t("请求失败，请稍后重试。");
+    return createApiErrorFromBody(status, undefined);
   }
-  return i18n.t("请求失败，请稍后重试。");
 }
 
 function parseSseBlock(block: string): AiStreamEvent | null {
@@ -125,7 +123,7 @@ export async function streamAiChat({
     xhr.onprogress = processChunk;
     xhr.onload = () => {
       if (xhr.status >= 400) {
-        settle(new Error(readXhrErrorMessage(xhr.responseText)));
+        settle(createXhrApiError(xhr.status, xhr.responseText));
         return;
       }
       processChunk();
@@ -134,7 +132,7 @@ export async function streamAiChat({
         settle();
       }
     };
-    xhr.onerror = () => settle(new Error(i18n.t("网络连接失败，请稍后重试。")));
+    xhr.onerror = () => settle(createNetworkApiError());
     xhr.onabort = () => settle(createAbortError());
     signal?.addEventListener("abort", abort);
     xhr.send(JSON.stringify({ messages }));

@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 
 import { API_BASE_URL, API_V1_BASE_URL } from "../config/api";
+import { apiFetch, throwApiError } from "./apiError";
 
 export type CreatePostPayload = {
   title: string;
@@ -76,28 +77,11 @@ export type ParsedDocument = {
   extracted_text?: string | null;
 };
 
-async function readErrorMessage(response: Response) {
-  try {
-    const data = (await response.json()) as {
-      detail?: string | { msg?: string }[];
-    };
-    if (typeof data.detail === "string") {
-      return data.detail;
-    }
-    if (Array.isArray(data.detail) && data.detail[0]?.msg) {
-      return data.detail[0].msg;
-    }
-  } catch {
-    return i18n.t("请求失败，请稍后重试。");
-  }
-  return i18n.t("请求失败，请稍后重试。");
-}
-
 export async function createPost(
   payload: CreatePostPayload,
   accessToken: string,
 ) {
-  const response = await fetch(`${API_V1_BASE_URL}/posts`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/posts`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -106,7 +90,7 @@ export async function createPost(
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as CreatedPost;
 }
@@ -116,11 +100,11 @@ function authHeaders(accessToken?: string) {
 }
 
 export async function getPost(postId: number, accessToken?: string) {
-  const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/posts/${postId}`, {
     headers: authHeaders(accessToken),
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   const post = (await response.json()) as PostDetail;
   return {
@@ -136,7 +120,7 @@ export async function updatePost(
   payload: UpdatePostPayload,
   accessToken: string,
 ) {
-  const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/posts/${postId}`, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -145,20 +129,20 @@ export async function updatePost(
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as CreatedPost;
 }
 
 export async function deletePost(postId: number, accessToken: string) {
-  const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/posts/${postId}`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
 }
 
@@ -167,7 +151,7 @@ export async function setPostLiked(
   liked: boolean,
   accessToken: string,
 ) {
-  const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}/like`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/posts/${postId}/like`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -176,7 +160,7 @@ export async function setPostLiked(
     body: JSON.stringify({ liked }),
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as LikeResponse;
 }
@@ -186,7 +170,7 @@ export async function setPostFavorited(
   favorited: boolean,
   accessToken: string,
 ) {
-  const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}/favorite`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/posts/${postId}/favorite`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -195,20 +179,20 @@ export async function setPostFavorited(
     body: JSON.stringify({ favorited }),
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as FavoriteResponse;
 }
 
 export async function dislikePost(postId: number, accessToken: string) {
-  const response = await fetch(`${API_V1_BASE_URL}/posts/${postId}/dislike`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/posts/${postId}/dislike`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as { disliked: boolean };
 }
@@ -228,7 +212,7 @@ export async function uploadPostImage(
   );
   formData.append("file", imageFile);
 
-  const response = await fetch(`${API_V1_BASE_URL}/uploads/images`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/uploads/images`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -236,7 +220,7 @@ export async function uploadPostImage(
     body: formData,
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   const uploaded = (await response.json()) as UploadedImage;
   return {
@@ -260,7 +244,7 @@ export async function uploadPostDocument(
   );
   formData.append("file", documentFile);
 
-  const response = await fetch(`${API_V1_BASE_URL}/uploads/documents`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/uploads/documents`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -268,7 +252,7 @@ export async function uploadPostDocument(
     body: formData,
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   const uploaded = (await response.json()) as UploadedDocument;
   return {
@@ -291,7 +275,7 @@ export async function parsePostDocument(
   );
   formData.append("file", documentFile);
 
-  const response = await fetch(`${API_V1_BASE_URL}/uploads/parse-document`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/uploads/parse-document`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -299,7 +283,7 @@ export async function parsePostDocument(
     body: formData,
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as ParsedDocument;
 }
@@ -356,4 +340,3 @@ function normalizeMarkdownAssetUrls(markdown: string) {
     },
   );
 }
-import i18n from "../i18n";

@@ -1,4 +1,5 @@
 import { API_BASE_URL, API_V1_BASE_URL } from "../config/api";
+import { apiFetch, throwApiError } from "./apiError";
 
 export type AuthMode = "login" | "register";
 
@@ -50,27 +51,10 @@ export type UpdateMePayload = {
   password?: string;
 };
 
-async function readErrorMessage(response: Response) {
-  try {
-    const data = (await response.json()) as {
-      detail?: string | { msg?: string }[];
-    };
-    if (typeof data.detail === "string") {
-      return data.detail;
-    }
-    if (Array.isArray(data.detail) && data.detail[0]?.msg) {
-      return data.detail[0].msg;
-    }
-  } catch {
-    return i18n.t("请求失败，请稍后重试。");
-  }
-  return i18n.t("请求失败，请稍后重试。");
-}
-
 async function apiRequest<T>(path: string, options?: RequestInit) {
-  const response = await fetch(`${API_V1_BASE_URL}${path}`, options);
+  const response = await apiFetch(`${API_V1_BASE_URL}${path}`, options);
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as T;
 }
@@ -131,4 +115,3 @@ function normalizeAssetUrl(url?: string | null) {
   if (/^https?:\/\//i.test(url)) return url;
   return `${API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
 }
-import i18n from "../i18n";

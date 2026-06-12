@@ -1,4 +1,5 @@
 import { API_BASE_URL, API_V1_BASE_URL } from "../config/api";
+import { apiFetch, throwApiError } from "./apiError";
 
 export type NotificationItem = {
   id: number;
@@ -37,50 +38,41 @@ export type NotificationPage = {
   total: number;
 };
 
-async function readErrorMessage(response: Response) {
-  try {
-    const data = (await response.json()) as { detail?: string };
-    return data.detail || i18n.t("请求失败，请稍后重试。");
-  } catch {
-    return i18n.t("请求失败，请稍后重试。");
-  }
-}
-
 export async function getNotificationUnreadCount(accessToken: string) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/notifications/unread-count`,
     {
       headers: { Authorization: `Bearer ${accessToken}` },
     },
   );
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as { unread_count: number };
 }
 
 export async function listNotifications(accessToken: string) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/notifications?page=1&page_size=100`,
     {
       headers: { Authorization: `Bearer ${accessToken}` },
     },
   );
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as NotificationPage;
 }
 
 export async function getPostUnreadCounts(accessToken: string) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/notifications/posts/unread`,
     {
       headers: { Authorization: `Bearer ${accessToken}` },
     },
   );
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
   return (await response.json()) as PostUnreadCount[];
 }
@@ -89,7 +81,7 @@ export async function markNotificationsRead(
   accessToken: string,
   options: { postId?: number; notificationId?: number } = {},
 ) {
-  const response = await fetch(`${API_V1_BASE_URL}/notifications/read`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/notifications/read`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -101,7 +93,7 @@ export async function markNotificationsRead(
     }),
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwApiError(response);
   }
 }
 
@@ -109,4 +101,3 @@ export function getNotificationsWebSocketUrl(accessToken: string) {
   const wsBaseUrl = API_BASE_URL.replace(/^http/i, "ws");
   return `${wsBaseUrl}/api/v1/notifications/ws?token=${encodeURIComponent(accessToken)}`;
 }
-import i18n from "../i18n";

@@ -1,4 +1,5 @@
 import { API_BASE_URL, API_V1_BASE_URL } from "../config/api";
+import { apiFetch, throwApiError } from "./apiError";
 import { getMyFollowing, type FollowingUser } from "./profileApi";
 
 export type MessageUserSummary = {
@@ -44,20 +45,6 @@ export type SearchUserItem = {
   is_following: boolean;
 };
 
-async function readErrorMessage(response: Response) {
-  try {
-    const data = (await response.json()) as {
-      detail?: string | { msg?: string }[];
-    };
-    if (typeof data.detail === "string") return data.detail;
-    if (Array.isArray(data.detail) && data.detail[0]?.msg)
-      return data.detail[0].msg;
-  } catch {
-    return i18n.t("请求失败，请稍后重试。");
-  }
-  return i18n.t("请求失败，请稍后重试。");
-}
-
 function authHeaders(accessToken: string, contentType = false) {
   return {
     Authorization: `Bearer ${accessToken}`,
@@ -66,10 +53,10 @@ function authHeaders(accessToken: string, contentType = false) {
 }
 
 export async function listConversations(accessToken: string) {
-  const response = await fetch(`${API_V1_BASE_URL}/messages/conversations`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/messages/conversations`, {
     headers: authHeaders(accessToken),
   });
-  if (!response.ok) throw new Error(await readErrorMessage(response));
+  if (!response.ok) await throwApiError(response);
   return (await response.json()) as ConversationItem[];
 }
 
@@ -77,12 +64,12 @@ export async function createOrGetConversation(
   accessToken: string,
   partnerId: number,
 ) {
-  const response = await fetch(`${API_V1_BASE_URL}/messages/conversations`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/messages/conversations`, {
     method: "POST",
     headers: authHeaders(accessToken, true),
     body: JSON.stringify({ partner_id: partnerId }),
   });
-  if (!response.ok) throw new Error(await readErrorMessage(response));
+  if (!response.ok) await throwApiError(response);
   return (await response.json()) as ConversationSummary;
 }
 
@@ -92,13 +79,13 @@ export async function listMessages(
   page = 1,
   pageSize = 50,
 ) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/messages/conversations/${conversationId}/messages?page=${page}&page_size=${pageSize}`,
     {
       headers: authHeaders(accessToken),
     },
   );
-  if (!response.ok) throw new Error(await readErrorMessage(response));
+  if (!response.ok) await throwApiError(response);
   return (await response.json()) as Message[];
 }
 
@@ -107,7 +94,7 @@ export async function sendMessage(
   conversationId: number,
   body: string,
 ) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/messages/conversations/${conversationId}/messages`,
     {
       method: "POST",
@@ -115,7 +102,7 @@ export async function sendMessage(
       body: JSON.stringify({ body }),
     },
   );
-  if (!response.ok) throw new Error(await readErrorMessage(response));
+  if (!response.ok) await throwApiError(response);
   return (await response.json()) as Message;
 }
 
@@ -123,46 +110,46 @@ export async function markConversationRead(
   accessToken: string,
   conversationId: number,
 ) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/messages/conversations/${conversationId}/read`,
     {
       method: "POST",
       headers: authHeaders(accessToken),
     },
   );
-  if (!response.ok) throw new Error(await readErrorMessage(response));
+  if (!response.ok) await throwApiError(response);
 }
 
 export async function deleteConversation(
   accessToken: string,
   conversationId: number,
 ) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/messages/conversations/${conversationId}`,
     {
       method: "DELETE",
       headers: authHeaders(accessToken),
     },
   );
-  if (!response.ok) throw new Error(await readErrorMessage(response));
+  if (!response.ok) await throwApiError(response);
 }
 
 export async function getMessageUnreadCount(accessToken: string) {
-  const response = await fetch(`${API_V1_BASE_URL}/messages/unread-count`, {
+  const response = await apiFetch(`${API_V1_BASE_URL}/messages/unread-count`, {
     headers: authHeaders(accessToken),
   });
-  if (!response.ok) throw new Error(await readErrorMessage(response));
+  if (!response.ok) await throwApiError(response);
   return (await response.json()) as { unread_count: number };
 }
 
 export async function searchUsers(accessToken: string, query: string) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_V1_BASE_URL}/users/search?q=${encodeURIComponent(query)}&limit=20`,
     {
       headers: authHeaders(accessToken),
     },
   );
-  if (!response.ok) throw new Error(await readErrorMessage(response));
+  if (!response.ok) await throwApiError(response);
   return (await response.json()) as SearchUserItem[];
 }
 
@@ -175,4 +162,3 @@ export function getMessagesWebSocketUrl(accessToken: string) {
   const wsBaseUrl = API_BASE_URL.replace(/^http/i, "ws");
   return `${wsBaseUrl}/api/v1/messages/ws?token=${encodeURIComponent(accessToken)}`;
 }
-import i18n from "../i18n";
