@@ -1,27 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import * as Haptics from "expo-haptics";
 
-import { CommentSection } from "../components/CommentSection";
 import { BlogDetailSkeleton } from "../components/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
-import {
-  deletePost,
-  getPost,
-  setPostFavorited,
-  setPostLiked,
-  updatePost,
-  type PostDetail,
-} from "../services/postApi";
-import { translateContent } from "../services/translationsApi";
+import { getPost, type PostDetail } from "../services/postApi";
 import type { AuthSession } from "../services/authSession";
 import { useAuthStore } from "../stores/authStore";
 import { useTranslation } from "react-i18next";
 import { useAppTheme } from "../theme/ThemeProvider";
-import { BlogBottomActions } from "./blog/BlogBottomActions";
-import { BlogEditForm } from "./blog/BlogEditForm";
-import { BlogImagePreviewModal } from "./blog/BlogImagePreviewModal";
-import { BlogReadContent } from "./blog/BlogReadContent";
+import { BlogLoadedView } from "./blog/BlogLoadedView";
+import { useBlogEditor } from "./blog/hooks/useBlogEditor";
+import { useBlogImages } from "./blog/hooks/useBlogImages";
+import { useBlogPostActions } from "./blog/hooks/useBlogPostActions";
+import { useBlogTranslation } from "./blog/hooks/useBlogTranslation";
 
 type BlogScreenProps = {
   postId: number;
@@ -52,18 +43,46 @@ export function BlogScreen({
   const currentSession = storeSession ?? session;
   const [post, setPost] = useState<PostDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [imageRatios, setImageRatios] = useState<Record<string, number>>({});
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const showSkeleton = useDelayedLoading(isLoading, 250);
   const { i18n, t } = useTranslation();
-  const [translatedBody, setTranslatedBody] = useState<string | null>(null);
-  const [isBodyTranslationVisible, setIsBodyTranslationVisible] =
-    useState(false);
-  const [isTranslatingBody, setIsTranslatingBody] = useState(false);
+  const { handleImageRatio, imageRatios, previewImageUrl, setPreviewImageUrl } =
+    useBlogImages();
+  const {
+    body,
+    isEditing,
+    title,
+    cancelEdit,
+    resetEditor,
+    saveEdit,
+    setBody,
+    setTitle,
+  } = useBlogEditor({
+    currentSession,
+    setMessage,
+    setPost,
+  });
+  const { requireSession, toggleFavorite, toggleLike } =
+    useBlogPostActions({
+      currentSession,
+      onDeleted,
+      onRequireAuth,
+      requireAuthSession,
+      setMessage,
+      setPost,
+    });
+  const {
+    isBodyTranslationVisible,
+    isTranslatingBody,
+    resetBodyTranslation,
+    toggleBodyTranslation,
+    translatedBody,
+  } = useBlogTranslation({
+    language: i18n.language,
+    requireSession,
+    setMessage,
+    t,
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -75,11 +94,8 @@ export function BlogScreen({
         const data = await getPost(postId, currentSession?.accessToken);
         if (isMounted) {
           setPost(data);
-          setTitle(data.title);
-          setBody(data.body);
-          setTranslatedBody(null);
-          setIsBodyTranslationVisible(false);
-          setIsEditing(startEditing && data.is_owner);
+          resetEditor(data, startEditing && data.is_owner);
+          resetBodyTranslation();
         }
       } catch (error) {
         if (isMounted) {
@@ -101,143 +117,13 @@ export function BlogScreen({
     return () => {
       isMounted = false;
     };
-  }, [postId, currentSession?.accessToken, startEditing]);
-
-  async function requireSession() {
-    const activeSession = await requireAuthSession();
-    if (!activeSession) {
-      onRequireAuth();
-      return null;
-    }
-    return activeSession;
-  }
-
-  async function toggleLike() {
-    if (!post) {
-      return;
-    }
-    const activeSession = await requireSession();
-    if (!activeSession) {
-      return;
-    }
-    try {
-      const data = await setPostLiked(
-        post.id,
-        !post.is_liked,
-        activeSession.accessToken,
-      );
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setPost({ ...post, is_liked: data.liked, like_count: data.like_count });
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "点赞失败。");
-    }
-  }
-
-  async function toggleFavorite() {
-    if (!post) {
-      return;
-    }
-    const activeSession = await requireSession();
-    if (!activeSession) {
-      return;
-    }
-    try {
-      const data = await setPostFavorited(
-        post.id,
-        !post.is_favorited,
-        activeSession.accessToken,
-      );
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setPost({
-        ...post,
-        is_favorited: data.favorited,
-        favorite_count: data.favorite_count,
-      });
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "收藏失败。");
-    }
-  }
-
-  async function saveEdit() {
-    if (!post || !currentSession) {
-      return;
-    }
-    if (!title.trim() || !body.trim()) {
-      setMessage("标题和正文不能为空。");
-      return;
-    }
-    try {
-      await updatePost(
-        post.id,
-        {
-          title: title.trim(),
-          body: body.trim(),
-          summary: body.trim().slice(0, 120),
-        },
-        currentSession.accessToken,
-      );
-      setPost({
-        ...post,
-        title: title.trim(),
-        body: body.trim(),
-        summary: body.trim().slice(0, 120),
-      });
-      setIsEditing(false);
-      setMessage("已保存修改。");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "保存失败。");
-    }
-  }
-
-  async function removePost() {
-    if (!post || !currentSession) {
-      return;
-    }
-    try {
-      await deletePost(post.id, currentSession.accessToken);
-      onDeleted();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "删除失败。");
-    }
-  }
-
-  async function toggleBodyTranslation() {
-    if (!post) {
-      return;
-    }
-    if (isBodyTranslationVisible) {
-      setIsBodyTranslationVisible(false);
-      return;
-    }
-    if (translatedBody) {
-      setIsBodyTranslationVisible(true);
-      return;
-    }
-    const activeSession = await requireSession();
-    if (!activeSession) {
-      return;
-    }
-    setIsTranslatingBody(true);
-    try {
-      const result = await translateContent(
-        {
-          content_type: "post",
-          content_id: post.id,
-          field: "body",
-          target_language: i18n.language,
-        },
-        activeSession.accessToken,
-      );
-      setTranslatedBody(result.translated_text);
-      setIsBodyTranslationVisible(true);
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : t("翻译失败，请稍后重试。"),
-      );
-    } finally {
-      setIsTranslatingBody(false);
-    }
-  }
+  }, [
+    postId,
+    currentSession?.accessToken,
+    resetBodyTranslation,
+    resetEditor,
+    startEditing,
+  ]);
 
   const handleCommentCountChange = useCallback((commentCount: number) => {
     setPost((currentPost) =>
@@ -246,6 +132,22 @@ export function BlogScreen({
         : currentPost,
     );
   }, []);
+
+  const handleSaveEdit = useCallback(() => {
+    void saveEdit(post);
+  }, [post, saveEdit]);
+
+  const handleToggleBodyTranslation = useCallback(() => {
+    void toggleBodyTranslation(post);
+  }, [post, toggleBodyTranslation]);
+
+  const handleToggleFavorite = useCallback(() => {
+    void toggleFavorite(post);
+  }, [post, toggleFavorite]);
+
+  const handleToggleLike = useCallback(() => {
+    void toggleLike(post);
+  }, [post, toggleLike]);
 
   if (showSkeleton) {
     return <BlogDetailSkeleton onBack={onBack} />;
@@ -268,79 +170,34 @@ export function BlogScreen({
     );
   }
 
-  const content = isEditing ? (
-    <BlogEditForm
-      title={title}
-      body={body}
-      textSubtleColor={colors.textSubtle}
-      onBack={onBack}
-      onChangeTitle={setTitle}
-      onChangeBody={setBody}
-      onSave={() => void saveEdit()}
-      onCancel={() => setIsEditing(false)}
-      styles={styles}
-      t={t}
-    />
-  ) : (
-    <>
-      <BlogReadContent
-        post={post}
-        message={message}
-        primaryTextColor={colors.primaryText}
-        translatedBody={translatedBody}
-        isBodyTranslationVisible={isBodyTranslationVisible}
-        isTranslatingBody={isTranslatingBody}
-        imageRatios={imageRatios}
-        onBack={onBack}
-        onOpenAuthor={onOpenAuthor}
-        onOpenTag={onOpenTag}
-        onPreviewImage={setPreviewImageUrl}
-        onImageRatio={(imageUrl, ratio) =>
-          setImageRatios((current) =>
-            current[imageUrl] === ratio
-              ? current
-              : { ...current, [imageUrl]: ratio },
-          )
-        }
-        onToggleBodyTranslation={() => void toggleBodyTranslation()}
-        styles={styles}
-        t={t}
-      />
-      <BlogImagePreviewModal
-        imageUrl={previewImageUrl}
-        onClose={() => setPreviewImageUrl(null)}
-        styles={styles}
-        t={t}
-      />
-    </>
-  );
-
-  const bottomAccessory = !isEditing ? (
-    <BlogBottomActions
-      isOwner={post.is_owner}
-      isLiked={post.is_liked}
-      isFavorited={post.is_favorited}
-      likeCount={post.like_count}
-      commentCount={post.comment_count}
-      favoriteCount={post.favorite_count}
-      onToggleLike={() => void toggleLike()}
-      onToggleFavorite={() => void toggleFavorite()}
-      styles={styles}
-      colors={colors}
-    />
-  ) : null;
-
   return (
-    <CommentSection
-      postId={post.id}
-      session={currentSession}
+    <BlogLoadedView
+      body={body}
       focusCommentId={focusCommentId}
-      headerComponent={content}
-      bottomAccessory={bottomAccessory}
-      bottomComposerEnabled={!isEditing}
-      contentContainerStyle={styles.blogPageContent}
-      onRequireAuth={onRequireAuth}
+      imageRatios={imageRatios}
+      isBodyTranslationVisible={isBodyTranslationVisible}
+      isEditing={isEditing}
+      isTranslatingBody={isTranslatingBody}
+      message={message}
+      onBack={onBack}
+      onCancelEdit={cancelEdit}
+      onChangeBody={setBody}
+      onChangeTitle={setTitle}
       onCommentCountChange={handleCommentCountChange}
+      onImageRatio={handleImageRatio}
+      onOpenAuthor={onOpenAuthor}
+      onOpenTag={onOpenTag}
+      onPreviewImage={setPreviewImageUrl}
+      onRequireAuth={onRequireAuth}
+      onSaveEdit={handleSaveEdit}
+      onToggleBodyTranslation={handleToggleBodyTranslation}
+      onToggleFavorite={handleToggleFavorite}
+      onToggleLike={handleToggleLike}
+      post={post}
+      previewImageUrl={previewImageUrl}
+      session={currentSession}
+      title={title}
+      translatedBody={translatedBody}
     />
   );
 }

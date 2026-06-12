@@ -1,12 +1,16 @@
 import { useCallback } from "react";
-import { FlatList, Pressable, ScrollView, Text, View } from "react-native";
+import { FlatList, type ListRenderItem } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
+import type { NotificationItem } from "../services/notificationsApi";
 import { useAuthStore } from "../stores/authStore";
 import { useNotificationStore } from "../stores/notificationStore";
-import { formatDateTimeMinute } from "../utils/time";
 import { useTranslation } from "react-i18next";
 import { useAppStyles } from "../theme/ThemeProvider";
+import { NotificationGuestView } from "./notifications/NotificationGuestView";
+import { NotificationHeader } from "./notifications/NotificationHeader";
+import { NotificationListEmpty } from "./notifications/NotificationListEmpty";
+import { NotificationListItem } from "./notifications/NotificationListItem";
 
 type NotificationScreenProps = {
   onOpenAuth: () => void;
@@ -44,22 +48,41 @@ export function NotificationScreen({
     }, [refreshNotifications, session]),
   );
 
+  const handleOpenNotification = useCallback(
+    (item: NotificationItem) => {
+      void markNotificationRead(session, item.id);
+      if (item.type === "user_followed") {
+        onOpenAuthor(item.actor.id);
+        return;
+      }
+      if (item.post_id > 0) {
+        void markPostRead(session, item.post_id);
+        onOpenPost(item.post_id, item.comment_id > 0 ? item.comment_id : undefined);
+      }
+    },
+    [markNotificationRead, markPostRead, onOpenAuthor, onOpenPost, session],
+  );
+
+  const renderNotificationItem: ListRenderItem<NotificationItem> = useCallback(
+    ({ item }) => (
+      <NotificationListItem
+        item={item}
+        title={buildNotificationTitle(item, t)}
+        styles={styles}
+        onPress={handleOpenNotification}
+      />
+    ),
+    [handleOpenNotification, styles, t],
+  );
+
   if (!session) {
     return (
-      <ScrollView contentContainerStyle={styles.pageContent}>
-        <View style={styles.pageHeaderRow}>
-          <Pressable style={styles.backButtonCompact} onPress={onBack}>
-            <Text style={styles.backButtonText}>{t("‹ 返回")}</Text>
-          </Pressable>
-          <Text style={styles.pageTitle}>{t("消息通知")}</Text>
-        </View>
-        <Text style={styles.profileBio}>
-          {t("登录后可以查看你的消息通知。")}
-        </Text>
-        <Pressable style={styles.primaryButton} onPress={onOpenAuth}>
-          <Text style={styles.primaryButtonText}>{t("去登录")}</Text>
-        </Pressable>
-      </ScrollView>
+      <NotificationGuestView
+        onBack={onBack}
+        onOpenAuth={onOpenAuth}
+        styles={styles}
+        t={t}
+      />
     );
   }
 
@@ -69,55 +92,15 @@ export function NotificationScreen({
       data={filteredNotifications}
       keyExtractor={(item) => String(item.id)}
       ListHeaderComponent={
-        <View style={styles.pageHeaderRow}>
-          <Pressable style={styles.backButtonCompact} onPress={onBack}>
-            <Text style={styles.backButtonText}>{t("‹ 返回")}</Text>
-          </Pressable>
-          <Text style={styles.pageTitle}>{getCategoryTitle(category, t)}</Text>
-        </View>
+        <NotificationHeader
+          title={getCategoryTitle(category, t)}
+          onBack={onBack}
+          styles={styles}
+          t={t}
+        />
       }
-      ListEmptyComponent={
-        <Text style={[styles.profileBio, { paddingTop: 16 }]}>
-          {t("暂时没有这类通知。")}
-        </Text>
-      }
-      renderItem={({ item }) => (
-        <Pressable
-          style={[
-            styles.notificationCard,
-            item.is_read && styles.notificationCardRead,
-          ]}
-          onPress={() => {
-            void markNotificationRead(session, item.id);
-            if (item.type === "user_followed") {
-              onOpenAuthor(item.actor.id);
-              return;
-            }
-            if (item.post_id > 0) {
-              void markPostRead(session, item.post_id);
-              onOpenPost(
-                item.post_id,
-                item.comment_id > 0 ? item.comment_id : undefined,
-              );
-            }
-          }}
-        >
-          <View style={styles.notificationTitleRow}>
-            <Text style={styles.notificationTitle}>
-              {buildNotificationTitle(item, t)}
-            </Text>
-            {!item.is_read ? <View style={styles.cardNotificationDot} /> : null}
-          </View>
-          <Text
-            style={[
-              styles.notificationMeta,
-              item.is_read && styles.notificationMetaRead,
-            ]}
-          >
-            {formatDateTimeMinute(item.created_at)}
-          </Text>
-        </Pressable>
-      )}
+      ListEmptyComponent={<NotificationListEmpty styles={styles} t={t} />}
+      renderItem={renderNotificationItem}
       showsVerticalScrollIndicator={false}
     />
   );
