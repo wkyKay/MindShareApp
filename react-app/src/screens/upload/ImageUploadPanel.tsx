@@ -1,5 +1,6 @@
-import { Image, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
+import { LazyImage } from "../../components/LazyImage";
 import type { AppStyles } from "../../components/styles";
 
 type UploadedImage = {
@@ -32,9 +33,9 @@ export function ImageUploadPanel({
       {images.length > 0 ? (
         <View style={styles.inlineImageList}>
           {images.map((image) => (
-            <Image
+            <LazyImage
               key={image.id}
-              source={{ uri: image.url }}
+              uri={image.url}
               style={styles.inlineImagePreview}
             />
           ))}

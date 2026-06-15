@@ -9,6 +9,8 @@ import {
   type UserSearchResult,
 } from "../../../services/homeApi";
 
+const SEARCH_DEBOUNCE_MS = 300;
+
 type UseHomeSearchOptions = {
   selectedTag: string | null;
   session: AuthSession | null;
@@ -32,36 +34,43 @@ export function useHomeSearch({ selectedTag, session }: UseHomeSearchOptions) {
 
   useEffect(() => {
     let isMounted = true;
+    const controller = new AbortController();
     const query = tagQuery.trim();
     if (!query || selectedTag) {
       clearSearch();
       return;
     }
 
-    async function loadSearchResults() {
-      try {
-        const [tags, users, posts] = await Promise.all([
-          getTagSuggestions(query),
-          searchUsers(query, session?.accessToken),
-          searchPostsByTitle(query, session?.accessToken),
-        ]);
-        if (isMounted) {
-          setTagSuggestions(tags);
-          setUserSuggestions(users);
-          setTitleMatches(posts.items);
-        }
-      } catch {
-        if (isMounted) {
-          setTagSuggestions([]);
-          setUserSuggestions([]);
-          setTitleMatches([]);
+    const timer = setTimeout(() => {
+      async function loadSearchResults() {
+        try {
+          const [tags, users, posts] = await Promise.all([
+            getTagSuggestions(query, controller.signal),
+            searchUsers(query, session?.accessToken, 5, controller.signal),
+            searchPostsByTitle(query, session?.accessToken, 5, controller.signal),
+          ]);
+          if (isMounted) {
+            setTagSuggestions(tags);
+            setUserSuggestions(users);
+            setTitleMatches(posts.items);
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name === "AbortError") return;
+          if (isMounted) {
+            setTagSuggestions([]);
+            setUserSuggestions([]);
+            setTitleMatches([]);
+          }
         }
       }
-    }
 
-    void loadSearchResults();
+      void loadSearchResults();
+    }, SEARCH_DEBOUNCE_MS);
+
     return () => {
       isMounted = false;
+      controller.abort();
+      clearTimeout(timer);
     };
   }, [clearSearch, selectedTag, session?.accessToken, tagQuery]);
 

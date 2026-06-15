@@ -101,6 +101,11 @@ export function NotificationScreen({
       }
       ListEmptyComponent={<NotificationListEmpty styles={styles} t={t} />}
       renderItem={renderNotificationItem}
+      initialNumToRender={10}
+      maxToRenderPerBatch={10}
+      updateCellsBatchingPeriod={40}
+      windowSize={7}
+      removeClippedSubviews
       showsVerticalScrollIndicator={false}
     />
   );

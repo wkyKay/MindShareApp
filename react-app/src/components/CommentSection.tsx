@@ -102,18 +102,20 @@ export function CommentSection({
 
   useEffect(() => {
     let isMounted = true;
+    const controller = new AbortController();
     const accessToken = currentSession?.accessToken;
     async function loadComments() {
       setIsLoading(true);
       setMessage("");
       setHasScrolledToFocus(false);
       try {
-        const data = await getComments(postId, accessToken);
+        const data = await getComments(postId, accessToken, controller.signal);
         if (isMounted) {
           setComments(data.items);
           onCommentCountChange(data.total);
         }
       } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
         if (isMounted) {
           setMessage(error instanceof Error ? error.message : "评论加载失败。");
         }
@@ -126,6 +128,7 @@ export function CommentSection({
     void loadComments();
     return () => {
       isMounted = false;
+      controller.abort();
     };
   }, [currentSession?.accessToken, onCommentCountChange, postId]);
 
@@ -280,7 +283,28 @@ export function CommentSection({
     }
     const activeSession = await requireSession();
     if (!activeSession) return;
+    const optimisticComment: CommentItem = {
+      id: -Date.now(),
+      body: text,
+      author: {
+        id: activeSession.user.id,
+        display_name: activeSession.user.display_name,
+        avatar_url: activeSession.user.avatar_url,
+      },
+      parent_id: target?.id ?? null,
+      created_at: new Date().toISOString(),
+      like_count: 0,
+      is_liked: false,
+    };
     setMessage("");
+    setComments((current) => [...current, optimisticComment]);
+    onCommentCountChange(comments.length + 1);
+    if (target) {
+      const rootId = findRootId(target, commentsById);
+      setExpandedRoots((current) => new Set(current).add(rootId));
+      setReplyingTo(null);
+    }
+    setBody("");
     try {
       const created = await createComment(
         postId,
@@ -288,15 +312,18 @@ export function CommentSection({
         activeSession.accessToken,
         target?.id,
       );
-      setComments((current) => [...current, created]);
-      onCommentCountChange(comments.length + 1);
-      if (target) {
-        const rootId = findRootId(target, commentsById);
-        setExpandedRoots((current) => new Set(current).add(rootId));
-        setReplyingTo(null);
-      }
-      setBody("");
+      setComments((current) =>
+        current.map((item) =>
+          item.id === optimisticComment.id ? created : item,
+        ),
+      );
     } catch (error) {
+      setComments((current) =>
+        current.filter((item) => item.id !== optimisticComment.id),
+      );
+      onCommentCountChange(Math.max(0, comments.length));
+      setBody(text);
+      setReplyingTo(target ?? null);
       setMessage(error instanceof Error ? error.message : "评论发布失败。");
     }
   }
@@ -304,10 +331,22 @@ export function CommentSection({
   async function toggleLike(comment: CommentItem) {
     const activeSession = await requireSession();
     if (!activeSession) return;
+    const nextLiked = !comment.is_liked;
+    const nextLikeCount = Math.max(
+      0,
+      comment.like_count + (nextLiked ? 1 : -1),
+    );
+    setComments((current) =>
+      current.map((item) =>
+        item.id === comment.id
+          ? { ...item, is_liked: nextLiked, like_count: nextLikeCount }
+          : item,
+      ),
+    );
     try {
       const data = await setCommentLiked(
         comment.id,
-        !comment.is_liked,
+        nextLiked,
         activeSession.accessToken,
       );
       setComments((current) =>
@@ -318,6 +357,9 @@ export function CommentSection({
         ),
       );
     } catch (error) {
+      setComments((current) =>
+        current.map((item) => (item.id === comment.id ? comment : item)),
+      );
       setMessage(error instanceof Error ? error.message : "评论点赞失败。");
     }
   }
@@ -325,22 +367,25 @@ export function CommentSection({
   async function removeComment(comment: CommentItem) {
     const activeSession = await requireSession();
     if (!activeSession) return;
+    const previousComments = comments;
+    const deletedIds = comment.parent_id
+      ? new Set<number>([comment.id])
+      : collectDeletedIds(comment.id, comments);
+    setComments((current) =>
+      current
+        .map((item) =>
+          comment.parent_id && item.parent_id === comment.id
+            ? { ...item, parent_id: comment.parent_id }
+            : item,
+        )
+        .filter((item) => !deletedIds.has(item.id)),
+    );
+    onCommentCountChange(Math.max(0, comments.length - deletedIds.size));
     try {
       await deleteComment(comment.id, activeSession.accessToken);
-      const deletedIds = comment.parent_id
-        ? new Set<number>([comment.id])
-        : collectDeletedIds(comment.id, comments);
-      setComments((current) =>
-        current
-          .map((item) =>
-            comment.parent_id && item.parent_id === comment.id
-              ? { ...item, parent_id: comment.parent_id }
-              : item,
-          )
-          .filter((item) => !deletedIds.has(item.id)),
-      );
-      onCommentCountChange(Math.max(0, comments.length - deletedIds.size));
     } catch (error) {
+      setComments(previousComments);
+      onCommentCountChange(previousComments.length);
       setMessage(error instanceof Error ? error.message : "评论删除失败。");
     }
   }
@@ -570,6 +615,11 @@ export function CommentSection({
             </View>
           </>
         }
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        updateCellsBatchingPeriod={40}
+        windowSize={9}
+        removeClippedSubviews
         showsVerticalScrollIndicator={false}
         onLayout={handleListLayout}
         onScrollToIndexFailed={({ index }) => {

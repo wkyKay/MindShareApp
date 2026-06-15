@@ -331,6 +331,11 @@ export function LoggedInProfileScreen({
             </Text>
           ) : null
         }
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        updateCellsBatchingPeriod={40}
+        windowSize={7}
+        removeClippedSubviews
         showsVerticalScrollIndicator={false}
       />
 

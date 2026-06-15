@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
+import { LazyImage } from "../../components/LazyImage";
 import type { AppStyles } from "../../components/styles";
 import type { AuthSession } from "../../services/authSession";
 import type { ProfileCollection } from "../../services/profileApi";
@@ -47,8 +48,8 @@ export function ProfileListHeader({
     <>
       {user.background_url ? (
         <View style={styles.profileHeaderWithBackground}>
-          <Image
-            source={{ uri: user.background_url }}
+          <LazyImage
+            uri={user.background_url}
             style={styles.profileHeaderBackgroundImage}
           />
           <View style={styles.profileHeaderOverlay}>{profileHeaderContent}</View>

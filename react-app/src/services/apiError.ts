@@ -27,6 +27,7 @@ export class ApiError extends Error {
     this.status = status;
     this.code = code;
     this.detail = detail;
+    Object.setPrototypeOf(this, ApiError.prototype);
   }
 }
 
@@ -77,7 +78,8 @@ export function createApiErrorFromBody(
   return new ApiError({
     status,
     code,
-    message: extractErrorMessage(body) || fallbackMessage || defaultMessage(status),
+    message:
+      extractErrorMessage(status, body) || fallbackMessage || defaultMessage(status),
     detail: extractErrorDetail(body),
   });
 }
@@ -85,7 +87,10 @@ export function createApiErrorFromBody(
 async function createApiErrorFromResponse(response: Response) {
   let body: unknown;
   try {
-    body = await response.json();
+    const contentType = response.headers.get("content-type") || "";
+    body = contentType.includes("application/json")
+      ? await response.json()
+      : await response.text();
   } catch {
     body = undefined;
   }
@@ -104,7 +109,8 @@ function extractErrorCode(status: number, body: unknown): ApiErrorCode | string 
   return "REQUEST_ERROR";
 }
 
-function extractErrorMessage(body: unknown) {
+function extractErrorMessage(status: number, body: unknown) {
+  if (shouldUseDefaultMessage(status)) return undefined;
   if (!isRecord(body)) return undefined;
   const detail = body.detail;
   if (typeof detail === "string") return detail;
@@ -116,6 +122,7 @@ function extractErrorMessage(body: unknown) {
     return firstMessage?.msg;
   }
   if (typeof body.message === "string") return body.message;
+  if (typeof body.error === "string") return body.error;
   return undefined;
 }
 
@@ -131,6 +138,10 @@ function defaultMessage(status: number) {
   if (status === 422) return i18n.t("提交内容校验失败，请检查后重试。");
   if (status >= 500) return i18n.t("服务端异常，请稍后重试。");
   return i18n.t("请求失败，请稍后重试。");
+}
+
+function shouldUseDefaultMessage(status: number) {
+  return status === 401 || status === 403 || status === 404 || status >= 500;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

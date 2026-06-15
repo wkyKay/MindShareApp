@@ -20,6 +20,7 @@ import {
 } from "@react-navigation/native-stack";
 
 import { BottomTabs, type Page } from "./src/components/BottomTabs";
+import { PageErrorBoundary } from "./src/components/PageErrorBoundary";
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { AiChatScreen } from "./src/screens/AiChatScreen";
 import { BlogScreen } from "./src/screens/BlogScreen";
@@ -110,6 +111,18 @@ function AppShell() {
     navigation.navigate("author", { authorId });
   }
 
+  function withPageBoundary(children: React.ReactNode, resetKey: string) {
+    return (
+      <PageErrorBoundary
+        fallbackTitle="页面加载失败"
+        retryLabel="重试"
+        resetKey={resetKey}
+      >
+        {children}
+      </PageErrorBoundary>
+    );
+  }
+
   useEffect(() => {
     void hydrateAuth();
   }, [hydrateAuth]);
@@ -168,114 +181,135 @@ function AppShell() {
 
               <Stack.Screen name="notifications">
                 {({ navigation, route }: AppScreenProps<"notifications">) => (
-                  <NotificationScreen
-                    onOpenAuth={() => navigation.navigate("auth")}
-                    onBack={() => navigation.goBack()}
-                    category={route.params.category}
-                    onOpenPost={(postId, focusCommentId) =>
-                      navigation.navigate("blog", { postId, focusCommentId })
-                    }
-                    onOpenAuthor={(authorId) =>
-                      openAuthorProfileAware(navigation, authorId)
-                    }
-                  />
+                  withPageBoundary(
+                    <NotificationScreen
+                      onOpenAuth={() => navigation.navigate("auth")}
+                      onBack={() => navigation.goBack()}
+                      category={route.params.category}
+                      onOpenPost={(postId, focusCommentId) =>
+                        navigation.navigate("blog", { postId, focusCommentId })
+                      }
+                      onOpenAuthor={(authorId) =>
+                        openAuthorProfileAware(navigation, authorId)
+                      }
+                    />,
+                    `notifications-${route.params.category}`,
+                  )
                 )}
               </Stack.Screen>
 
               <Stack.Screen name="profileSettings">
                 {({ navigation }: AppScreenProps<"profileSettings">) => (
-                  <ProfileSettingsScreen
-                    session={authSession}
-                    onBack={() => navigation.goBack()}
-                    onRequireAuth={() => navigation.navigate("auth")}
-                  />
+                  withPageBoundary(
+                    <ProfileSettingsScreen
+                      session={authSession}
+                      onBack={() => navigation.goBack()}
+                      onRequireAuth={() => navigation.navigate("auth")}
+                    />,
+                    "profileSettings",
+                  )
                 )}
               </Stack.Screen>
 
               <Stack.Screen name="profileAnalytics">
                 {({ navigation }: AppScreenProps<"profileAnalytics">) => (
-                  <ProfileAnalyticsScreen
-                    onBack={() => navigation.goBack()}
-                    onOpenAuth={() => navigation.navigate("auth")}
-                    onOpenPost={(postId) =>
-                      navigation.navigate("blog", { postId })
-                    }
-                  />
+                  withPageBoundary(
+                    <ProfileAnalyticsScreen
+                      onBack={() => navigation.goBack()}
+                      onOpenAuth={() => navigation.navigate("auth")}
+                      onOpenPost={(postId) =>
+                        navigation.navigate("blog", { postId })
+                      }
+                    />,
+                    "profileAnalytics",
+                  )
                 )}
               </Stack.Screen>
 
               <Stack.Screen name="auth">
                 {({ navigation }: AppScreenProps<"auth">) => (
-                  <AuthScreen
-                    onBack={() => navigation.goBack()}
-                    onDone={() => {
-                      navigation.navigate("mainTabs", { screen: "profile" });
-                    }}
-                  />
+                  withPageBoundary(
+                    <AuthScreen
+                      onBack={() => navigation.goBack()}
+                      onDone={() => {
+                        navigation.navigate("mainTabs", { screen: "profile" });
+                      }}
+                    />,
+                    "auth",
+                  )
                 )}
               </Stack.Screen>
 
               <Stack.Screen name="blog">
                 {({ navigation, route }: AppScreenProps<"blog">) => (
-                  <BlogScreen
-                    postId={route.params.postId}
-                    focusCommentId={route.params.focusCommentId}
-                    startEditing={route.params.startEditing}
-                    session={authSession}
-                    onBack={() => navigation.goBack()}
-                    onDeleted={() => {
-                      navigation.navigate("mainTabs", { screen: "profile" });
-                    }}
-                    onRequireAuth={() => navigation.navigate("auth")}
-                    onOpenAuthor={(authorId) =>
-                      openAuthorProfileAware(navigation, authorId)
-                    }
-                    onOpenTag={(tag) =>
-                      navigation.navigate("mainTabs", {
-                        screen: "home",
-                        params: { tag },
-                      })
-                    }
-                  />
+                  withPageBoundary(
+                    <BlogScreen
+                      postId={route.params.postId}
+                      focusCommentId={route.params.focusCommentId}
+                      startEditing={route.params.startEditing}
+                      session={authSession}
+                      onBack={() => navigation.goBack()}
+                      onDeleted={() => {
+                        navigation.navigate("mainTabs", { screen: "profile" });
+                      }}
+                      onRequireAuth={() => navigation.navigate("auth")}
+                      onOpenAuthor={(authorId) =>
+                        openAuthorProfileAware(navigation, authorId)
+                      }
+                      onOpenTag={(tag) =>
+                        navigation.navigate("mainTabs", {
+                          screen: "home",
+                          params: { tag },
+                        })
+                      }
+                    />,
+                    `blog-${route.params.postId}`,
+                  )
                 )}
               </Stack.Screen>
 
               <Stack.Screen name="author">
                 {({ navigation, route }: AppScreenProps<"author">) => (
-                  <AuthorScreen
-                    onBack={() => navigation.goBack()}
-                    author_id={route.params.authorId}
-                    session={authSession}
-                    onRequireAuth={() => navigation.navigate("auth")}
-                    onOpenPost={(postId) =>
-                      navigation.navigate("blog", { postId })
-                    }
-                    onOpenTag={(tag) =>
-                      navigation.navigate("mainTabs", {
-                        screen: "home",
-                        params: { tag },
-                      })
-                    }
-                    onOpenMessage={(conversationId, partnerId, partnerName) =>
-                      navigation.navigate("chat", {
-                        conversationId,
-                        partnerId,
-                        partnerName,
-                      })
-                    }
-                  />
+                  withPageBoundary(
+                    <AuthorScreen
+                      onBack={() => navigation.goBack()}
+                      author_id={route.params.authorId}
+                      session={authSession}
+                      onRequireAuth={() => navigation.navigate("auth")}
+                      onOpenPost={(postId) =>
+                        navigation.navigate("blog", { postId })
+                      }
+                      onOpenTag={(tag) =>
+                        navigation.navigate("mainTabs", {
+                          screen: "home",
+                          params: { tag },
+                        })
+                      }
+                      onOpenMessage={(conversationId, partnerId, partnerName) =>
+                        navigation.navigate("chat", {
+                          conversationId,
+                          partnerId,
+                          partnerName,
+                        })
+                      }
+                    />,
+                    `author-${route.params.authorId}`,
+                  )
                 )}
               </Stack.Screen>
 
               <Stack.Screen name="chat">
                 {({ navigation, route }: AppScreenProps<"chat">) => (
-                  <ChatScreen
-                    conversationId={route.params.conversationId}
-                    partnerId={route.params.partnerId}
-                    partnerName={route.params.partnerName}
-                    onBack={() => navigation.goBack()}
-                    onRequireAuth={() => navigation.navigate("auth")}
-                  />
+                  withPageBoundary(
+                    <ChatScreen
+                      conversationId={route.params.conversationId}
+                      partnerId={route.params.partnerId}
+                      partnerName={route.params.partnerName}
+                      onBack={() => navigation.goBack()}
+                      onRequireAuth={() => navigation.navigate("auth")}
+                    />,
+                    `chat-${route.params.conversationId}`,
+                  )
                 )}
               </Stack.Screen>
             </Stack.Navigator>
@@ -303,6 +337,18 @@ function MainTabsScreen({
   navigation,
   openAuthorProfileAware,
 }: MainTabsScreenProps) {
+  function withPageBoundary(children: React.ReactNode, resetKey: string) {
+    return (
+      <PageErrorBoundary
+        fallbackTitle="页面加载失败"
+        retryLabel="重试"
+        resetKey={resetKey}
+      >
+        {children}
+      </PageErrorBoundary>
+    );
+  }
+
   return (
     <Tab.Navigator
       initialRouteName="home"
@@ -311,70 +357,84 @@ function MainTabsScreen({
     >
       <Tab.Screen name="home">
         {({ navigation: tabNavigation, route }: MainTabScreenProps<"home">) => (
-          <HomeScreen
-            session={authSession}
-            selectedRouteTag={route.params?.tag}
-            onOpenPost={(postId) => navigation.navigate("blog", { postId })}
-            onOpenAuthor={(authorId) =>
-              openAuthorProfileAware(navigation, authorId)
-            }
-            onOpenTag={(tag) =>
-              tabNavigation.navigate("home", { tag: tag || undefined })
-            }
-          />
+          withPageBoundary(
+            <HomeScreen
+              session={authSession}
+              selectedRouteTag={route.params?.tag}
+              onOpenPost={(postId) => navigation.navigate("blog", { postId })}
+              onOpenAuthor={(authorId) =>
+                openAuthorProfileAware(navigation, authorId)
+              }
+              onOpenTag={(tag) =>
+                tabNavigation.navigate("home", { tag: tag || undefined })
+              }
+            />,
+            `home-${route.params?.tag || "all"}`,
+          )
         )}
       </Tab.Screen>
 
-      <Tab.Screen name="aiChat" component={AiChatScreen} />
+      <Tab.Screen name="aiChat">
+        {() => withPageBoundary(<AiChatScreen />, "aiChat")}
+      </Tab.Screen>
 
       <Tab.Screen name="upload">
         {({ navigation: tabNavigation }: MainTabScreenProps<"upload">) => (
-          <UploadScreen
-            session={authSession}
-            onCancel={() => tabNavigation.navigate("home")}
-            onSaved={() => tabNavigation.navigate("profile")}
-          />
+          withPageBoundary(
+            <UploadScreen
+              session={authSession}
+              onCancel={() => tabNavigation.navigate("home")}
+              onSaved={() => tabNavigation.navigate("profile")}
+            />,
+            "upload",
+          )
         )}
       </Tab.Screen>
 
       <Tab.Screen name="messages">
         {() => (
-          <MessagesScreen
-            onOpenAuth={() => navigation.navigate("auth")}
-            onOpenChat={(conversationId, partnerId, partnerName) =>
-              navigation.navigate("chat", {
-                conversationId,
-                partnerId,
-                partnerName,
-              })
-            }
-            onOpenNotificationCategory={(category) =>
-              navigation.navigate("notifications", { category })
-            }
-          />
+          withPageBoundary(
+            <MessagesScreen
+              onOpenAuth={() => navigation.navigate("auth")}
+              onOpenChat={(conversationId, partnerId, partnerName) =>
+                navigation.navigate("chat", {
+                  conversationId,
+                  partnerId,
+                  partnerName,
+                })
+              }
+              onOpenNotificationCategory={(category) =>
+                navigation.navigate("notifications", { category })
+              }
+            />,
+            "messages",
+          )
         )}
       </Tab.Screen>
 
       <Tab.Screen name="profile">
         {({ navigation: tabNavigation }: MainTabScreenProps<"profile">) => (
-          <ProfileScreen
-            onOpenAuth={() => navigation.navigate("auth")}
-            onOpenPost={(postId) => navigation.navigate("blog", { postId })}
-            onEditPost={(postId) =>
-              navigation.navigate("blog", {
-                postId,
-                startEditing: true,
-              })
-            }
-            onOpenAuthor={(authorId) =>
-              openAuthorProfileAware(navigation, authorId)
-            }
-            onOpenTag={(tag) =>
-              tabNavigation.navigate("home", { tag: tag || undefined })
-            }
-            onOpenAnalytics={() => navigation.navigate("profileAnalytics")}
-            onOpenSettings={() => navigation.navigate("profileSettings")}
-          />
+          withPageBoundary(
+            <ProfileScreen
+              onOpenAuth={() => navigation.navigate("auth")}
+              onOpenPost={(postId) => navigation.navigate("blog", { postId })}
+              onEditPost={(postId) =>
+                navigation.navigate("blog", {
+                  postId,
+                  startEditing: true,
+                })
+              }
+              onOpenAuthor={(authorId) =>
+                openAuthorProfileAware(navigation, authorId)
+              }
+              onOpenTag={(tag) =>
+                tabNavigation.navigate("home", { tag: tag || undefined })
+              }
+              onOpenAnalytics={() => navigation.navigate("profileAnalytics")}
+              onOpenSettings={() => navigation.navigate("profileSettings")}
+            />,
+            "profile",
+          )
         )}
       </Tab.Screen>
     </Tab.Navigator>

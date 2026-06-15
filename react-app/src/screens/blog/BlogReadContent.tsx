@@ -1,5 +1,6 @@
-import { Image, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
+import { LazyImage } from "../../components/LazyImage";
 import { MarkdownText } from "../../components/MarkdownText";
 import type { AppStyles } from "../../components/styles";
 import type { PostDetail } from "../../services/postApi";
@@ -66,8 +67,8 @@ export function BlogReadContent({
         <View style={styles.inlineImageList}>
           {post.image_urls.map((imageUrl) => (
             <Pressable key={imageUrl} onPress={() => onPreviewImage(imageUrl)}>
-              <Image
-                source={{ uri: imageUrl }}
+              <LazyImage
+                uri={imageUrl}
                 resizeMode="contain"
                 style={[
                   styles.blogImage,

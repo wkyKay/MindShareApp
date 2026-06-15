@@ -1,6 +1,7 @@
-import { Image, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { LazyImage } from "../../components/LazyImage";
 import type { AppStyles } from "../../components/styles";
 
 type MessageAvatarProps = {
@@ -14,7 +15,7 @@ export function MessageAvatar({ name, avatarUrl, styles }: MessageAvatarProps) {
   const initial = name.trim().slice(0, 1) || t("聊");
 
   if (avatarUrl) {
-    return <Image source={{ uri: avatarUrl }} style={styles.messageAvatar} />;
+    return <LazyImage uri={avatarUrl} style={styles.messageAvatar} />;
   }
 
   return (

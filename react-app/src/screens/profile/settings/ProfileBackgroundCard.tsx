@@ -1,5 +1,6 @@
-import { Image, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
+import { LazyImage } from "../../../components/LazyImage";
 import type { AppStyles } from "../../../components/styles";
 
 type ProfileBackgroundCardProps = {
@@ -19,7 +20,7 @@ export function ProfileBackgroundCard({
     <View style={styles.profileSettingsCard}>
       <Text style={styles.uploadTitle}>{t("主页背景图")}</Text>
       {backgroundUrl ? (
-        <Image source={{ uri: backgroundUrl }} style={styles.profileBackgroundPreview} />
+        <LazyImage uri={backgroundUrl} style={styles.profileBackgroundPreview} />
       ) : (
         <View style={styles.profileBackgroundPlaceholder}>
           <Text style={styles.profileBio}>{t("暂无背景图")}</Text>

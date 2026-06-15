@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { Image, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import i18n from "../i18n";
 import { StreamdownRN } from "streamdown-rn";
 import type { StreamdownRNProps } from "streamdown-rn";
 
+import { LazyImage } from "./LazyImage";
 import { API_BASE_URL } from "../config/api";
 import { useAppTheme } from "../theme/ThemeProvider";
 import type { AppColors } from "../theme/colors";
@@ -168,8 +169,8 @@ function MarkdownImage({ uri, alt }: { uri: string; alt?: string }) {
   const [aspectRatio, setAspectRatio] = useState(16 / 9);
 
   return (
-    <Image
-      source={{ uri }}
+    <LazyImage
+      uri={uri}
       resizeMode="contain"
       style={{
         width: "100%",

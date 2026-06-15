@@ -30,11 +30,16 @@ function authHeaders(accessToken?: string, contentType = false) {
   };
 }
 
-export async function getComments(postId: number, accessToken?: string) {
+export async function getComments(
+  postId: number,
+  accessToken?: string,
+  signal?: AbortSignal,
+) {
   const response = await apiFetch(
     `${API_V1_BASE_URL}/posts/${postId}/comments?page=1&page_size=100`,
     {
       headers: authHeaders(accessToken),
+      signal,
     },
   );
   if (!response.ok) {

@@ -50,6 +50,11 @@ export function HomePostList({
         onRefresh={() => {
           if (isActive) onRefresh();
         }}
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        updateCellsBatchingPeriod={40}
+        windowSize={7}
+        removeClippedSubviews
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       />

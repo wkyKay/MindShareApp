@@ -64,6 +64,7 @@ export async function searchPostsByTitle(
   query: string,
   accessToken?: string,
   pageSize: number = 5,
+  signal?: AbortSignal,
 ) {
   const response = await apiFetch(
     `${API_V1_BASE_URL}/posts?tab=discover&page=1&page_size=${pageSize}&seed=1&q=${encodeURIComponent(query)}`,
@@ -71,6 +72,7 @@ export async function searchPostsByTitle(
       headers: accessToken
         ? { Authorization: `Bearer ${accessToken}` }
         : undefined,
+      signal,
     },
   );
   if (!response.ok) {
@@ -79,9 +81,10 @@ export async function searchPostsByTitle(
   return (await response.json()) as PageResponse;
 }
 
-export async function getTagSuggestions(query: string) {
+export async function getTagSuggestions(query: string, signal?: AbortSignal) {
   const response = await apiFetch(
     `${API_V1_BASE_URL}/search/tags?q=${encodeURIComponent(query)}`,
+    { signal },
   );
   if (!response.ok) {
     await throwApiError(response);
@@ -93,6 +96,7 @@ export async function searchUsers(
   query: string,
   accessToken?: string,
   limit: number = 5,
+  signal?: AbortSignal,
 ) {
   const response = await apiFetch(
     `${API_V1_BASE_URL}/users/search?q=${encodeURIComponent(query)}&limit=${limit}`,
@@ -100,6 +104,7 @@ export async function searchUsers(
       headers: accessToken
         ? { Authorization: `Bearer ${accessToken}` }
         : undefined,
+      signal,
     },
   );
   if (!response.ok) {

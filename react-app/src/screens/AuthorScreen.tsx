@@ -244,6 +244,11 @@ export function AuthorScreen({
         void loadMorePosts(activeTab);
       }}
       onEndReachedThreshold={0.35}
+      initialNumToRender={6}
+      maxToRenderPerBatch={6}
+      updateCellsBatchingPeriod={40}
+      windowSize={7}
+      removeClippedSubviews
       showsVerticalScrollIndicator={false}
     />
   );

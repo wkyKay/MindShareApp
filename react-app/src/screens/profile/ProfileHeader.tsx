@@ -1,6 +1,7 @@
-import { Image, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { LazyImage } from "../../components/LazyImage";
 import type { AppStyles } from "../../components/styles";
 import type { AuthSession } from "../../services/authSession";
 
@@ -32,7 +33,7 @@ export function ProfileHeader({
         accessibilityLabel={t("上传头像")}
       >
         {user.avatar_url ? (
-          <Image source={{ uri: user.avatar_url }} style={styles.avatarImage} />
+          <LazyImage uri={user.avatar_url} style={styles.avatarImage} />
         ) : (
           <Text style={styles.avatarText}>{avatarText}</Text>
         )}
