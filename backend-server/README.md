@@ -1,54 +1,60 @@
-# Tongren Forum Backend
+# AI 知识库博客内容 App Backend
 
-cd /Users/kayw/Documents/test_project/react_proj/backend-server
-source venv/bin/activate
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-同人论坛后端服务，基于 `FastAPI + SQLite + SQLAlchemy + JWT + 本地 uploads/` 的第一版原型。
+这是 AI 知识库博客内容 App 的后端服务，基于 `FastAPI + SQLAlchemy + SQLite + JWT + 本地 uploads/` 构建。它为前端提供账号认证、知识博客、评论互动、收藏合集、用户关系、私信通知、内容翻译缓存和 AI 聊天流式接口。
 
 ## 目录结构
 
 ```text
 backend-server/
   app/
-    __init__.py
-    main.py              # FastAPI 应用入口，注册路由、挂载静态文件、初始化数据库表
-    database.py          # SQLite 连接、SQLAlchemy engine/session、get_db 依赖
-    models.py            # SQLAlchemy 数据模型：用户、验证码、文章、资源、合集、互动等
+    main.py              # FastAPI 入口，注册路由、挂载静态文件、初始化数据库
+    database.py          # SQLite/SQLAlchemy engine、session、init_db schema 补齐
+    models.py            # SQLAlchemy 数据模型
     schemas.py           # Pydantic 请求/响应模型
-    auth.py              # 密码哈希、JWT 签发与当前用户鉴权
+    auth.py              # 密码哈希、JWT 签发、当前用户鉴权
+    notification_service.py
+    realtime.py
     routers/
-      __init__.py
-      auth.py            # 验证码、注册、登录、当前用户接口
-      users.py           # 用户资料、我的文章、我的合集接口
-      uploads.py         # 图片上传、文档解析接口
-      posts.py           # 文章增删改查、点赞、收藏接口
-      comments.py        # 评论列表、创建、删除接口
-      collections.py     # 合集增删改查、合集条目管理接口
-      search.py          # 搜索接口
+      auth.py            # 验证码、注册、登录、当前用户
+      users.py           # 用户资料、个人内容、关注关系
+      uploads.py         # 图片、头像、封面、文档上传
+      posts.py           # 博客增删改查、点赞、收藏、不感兴趣
+      comments.py        # 评论、回复、评论点赞
+      messages.py        # 一对一私信会话和消息
+      collections.py     # 合集和合集条目
+      search.py          # 搜索
+      notifications.py   # 通知列表和已读状态
+      translations.py    # UGC 内容翻译缓存
+      ai_chat.py         # SSE mock AI 聊天
   docs/
-    backend-design.md    # 后端数据库与 API 设计文档
-  uploads/               # 本地上传文件目录，通过 /uploads 静态访问
+    backend-design.md    # 数据库与 API 设计文档
+  uploads/               # 本地上传目录，通过 /uploads 静态访问
   requirements.txt       # Python 依赖
-  venv/                  # 本地虚拟环境，不属于业务代码
 ```
 
 ## 运行方式
 
-在 `backend-server` 目录下运行：
+在 `backend-server` 目录运行：
 
 ```bash
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 默认服务地址：
 
 - API: `http://127.0.0.1:8000`
-- Swagger 文档: `http://127.0.0.1:8000/docs`
+- Swagger: `http://127.0.0.1:8000/docs`
 - 健康检查: `http://127.0.0.1:8000/health`
 - 上传静态文件: `http://127.0.0.1:8000/uploads/...`
+
+## 配置
+
+- `DATABASE_URL`：可覆盖默认 SQLite 连接；未设置时使用 `sqlite:///./forum.db`。
+- `SECRET_KEY`：JWT 签名密钥；未设置时仅使用本地开发默认值。
+- `uploads/`：后端启动时自动创建，并挂载为 `/uploads`。
 
 ## 应用入口
 
@@ -58,66 +64,77 @@ uvicorn app.main:app --reload
 uvicorn app.main:app --reload
 ```
 
-这条命令含义：
+启动流程：
 
-- `app.main`：导入 `app/main.py` 模块。
-- `app`：使用该模块里的 `FastAPI(...)` 实例。
-- `--reload`：开发模式，代码变更后自动重启服务。
-
-## 启动逻辑
-
-启动时 `app/main.py` 会执行以下流程：
-
-1. 导入 `models` 和数据库 `engine`。
-2. 执行 `models.Base.metadata.create_all(bind=engine)`，根据 `models.py` 自动创建 SQLite 表。
-3. 创建 FastAPI 实例：`FastAPI(title="Tongren Forum API", version="0.1.0")`。
-4. 挂载本地上传目录：`/uploads -> uploads/`。
-5. 注册各业务 router 到 `/api/v1` 前缀下。
+1. 调用 `init_db()` 初始化 SQLite 表结构。
+2. 创建 `FastAPI(title="AI Knowledge Base Blog API", version="0.1.0")` 实例。
+3. 注册 CORS，允许本地 Expo Web、模拟器和局域网调试地址访问。
+4. 挂载 `/uploads` 静态目录。
+5. 将业务 router 注册到 `/api/v1` 前缀下。
 6. 提供 `/health` 健康检查接口。
 
-SQLite 数据库文件使用 `app/database.py` 中的配置：
+## 路由概览
 
 ```text
-sqlite:///./forum.db
+/api/v1/auth           # 验证码、注册、登录、当前用户
+/api/v1/users          # 用户资料、个人内容、关注关系
+/api/v1/uploads        # 文件上传和文档解析入口
+/api/v1/posts          # 博客增删改查、点赞、收藏、不感兴趣
+/api/v1                # 评论相关路由
+/api/v1/messages       # 私信会话和消息
+/api/v1/collections    # 合集管理
+/api/v1/search         # 搜索
+/api/v1/notifications  # 通知
+/api/v1/translations   # 内容翻译缓存
+/api/v1/ai             # AI 聊天
+/uploads               # 本地静态文件
+/health                # 健康检查
 ```
 
-因此从 `backend-server` 目录启动时，数据库文件会生成在：
+## 主要能力
+
+- 认证：验证码、注册、登录、JWT 鉴权、当前用户解析。
+- 内容：知识博客发布、编辑、软删除、标签、封面、浏览与互动计数。
+- 互动：点赞、收藏、不感兴趣、评论、回复、评论点赞。
+- 关系：关注作者、作者主页、个人发布与收藏列表。
+- 合集：创建合集、维护合集条目、收藏合集。
+- 消息：一对一会话、消息发送、已读状态和隐藏会话。
+- 通知：评论、回复、点赞、关注等通知聚合和未读状态。
+- 翻译：对博客、评论、私信、合集字段做权限校验并缓存 mock 翻译结果。
+- AI：`POST /api/v1/ai/chat/stream` 返回 `text/event-stream` mock 流式回复。
+- 上传：保存上传资源元信息，支持图片、头像、封面和文档类资源扩展。
+
+## 数据库
+
+默认数据库文件：
 
 ```text
 backend-server/forum.db
 ```
 
-## 当前路由
+主要表：
 
-`app/main.py` 当前注册的路由前缀：
+- `users`、`captchas`
+- `posts`、`tags`、`post_tags`、`assets`
+- `likes`、`favorites`、`post_dislikes`
+- `comments`、`comment_likes`
+- `collections`、`collection_items`、`collection_favorites`
+- `follows`
+- `notifications`
+- `conversations`、`conversation_participants`、`messages`
+- `translation_caches`
 
-```text
-/api/v1/auth         # auth.router
-/api/v1/users        # users.router
-/api/v1/uploads      # uploads.router
-/api/v1/posts        # posts.router
-/api/v1              # comments.router
-/api/v1/collections  # collections.router
-/api/v1/search       # search.router
-/uploads             # 本地静态文件
-/health              # 健康检查
+当前没有 Alembic 迁移流程。原型阶段由 `init_db()` 和 `create_all()` 管理表结构；表结构稳定后建议引入迁移工具。
+
+## 开发检查
+
+```bash
+python -m compileall app
 ```
-
-第一阶段前端优先对接的接口见 `docs/backend-design.md`。
-
-## 当前实现状态
-
-当前代码是可启动的后端原型，登录注册已接入 SQLite：
-
-- `app/auth.py` 负责密码哈希、JWT 签发和 `/auth/me` 的当前用户解析。
-- `app/routers/auth.py` 的注册、登录会持久化用户、校验验证码、校验密码并签发 JWT。
-- 上传接口目前只校验扩展名并返回示例响应，还没有保存文件或解析文档正文。
-- 文章、合集、评论、搜索等接口大多返回空列表或示例数据，尚未接入数据库查询。
-- `create_all` 适合原型阶段，结构稳定后建议迁移到 Alembic。
 
 ## 设计文档
 
-详细数据库表、API 请求响应、安全校验和第一阶段接口优先级见：
+更详细的数据库表、API 请求响应和安全校验见：
 
 ```text
 docs/backend-design.md

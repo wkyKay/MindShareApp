@@ -7,7 +7,7 @@ from .routers import ai_chat, auth, collections, comments, messages, notificatio
 
 init_db()
 
-app = FastAPI(title="Tongren Forum API", version="0.1.0")
+app = FastAPI(title="AI Knowledge Base Blog API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,

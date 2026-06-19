@@ -1,23 +1,39 @@
-# React Project Tongren Forum
+# AI 知识库博客内容 App
 
-这是一个同人博客/论坛原型应用，包含 Expo React Native 前端和 FastAPI 后端。当前版本支持账号注册登录、发布博客、查看个人主页、博客详情、点赞、收藏、作者编辑/删除，以及删除博文在收藏列表中的脱敏展示。
+这是一个面向知识沉淀、博客发布和 AI 辅助阅读的全栈应用原型。项目由 Expo React Native 前端和 FastAPI 后端组成，支持账号认证、知识内容发布、标签浏览、评论互动、收藏合集、作者主页、私信通知、内容翻译缓存，以及 SSE mock AI 聊天。
 
 ## 项目结构
 
 ```text
 react_proj/
-  react-app/          # Expo React Native 前端
-  backend-server/     # FastAPI + SQLite 后端
+  react-app/          # Expo React Native 前端，支持 iOS / Android / Web
+  backend-server/     # FastAPI + SQLAlchemy 后端
 ```
 
 ## 技术栈
 
-- 前端：`Expo`、`React Native`、`React Navigation`、`AsyncStorage`、`TypeScript`
-- 后端：`FastAPI`、`SQLAlchemy`、`SQLite`、`JWT`、`Pydantic`
-- 本地存储：`backend-server/forum.db`
-- 上传目录：`backend-server/uploads/`
+- 前端：`Expo`、`React Native`、`React 19`、`TypeScript`、`React Navigation`、`Zustand`、`AsyncStorage`、`i18next`
+- 后端：`FastAPI`、`SQLAlchemy 2`、`SQLite`、`Pydantic`、`JWT`、`passlib[bcrypt]`
+- 文档处理：`python-docx`、`pypdf`、`mammoth`、`markdownify`
+- 实时/流式能力：私信与通知状态管理、AI 聊天 `text/event-stream` 流式响应
+- 本地数据：`backend-server/forum.db`
+- 本地上传：`backend-server/uploads/`，通过 `/uploads` 静态访问
 
-## 启动后端
+## 核心功能
+
+- 账号系统：验证码注册/登录、JWT 会话、当前用户信息、个人资料设置。
+- 知识博客：发布、编辑、删除、草稿/公开状态、标题/摘要/正文/标签/封面。
+- 内容浏览：首页内容流、标签筛选、博客详情、作者主页、个人发布列表。
+- 互动关系：点赞、收藏、评论、回复、关注作者、浏览统计。
+- 收藏与合集：个人收藏、合集管理、合集条目、删除内容脱敏展示。
+- 消息通知：一对一私信、评论/点赞/关注通知、未读状态。
+- 内容国际化：前端 i18n、本地 CJK 文案扫描、后端 UGC 翻译缓存接口。
+- AI 助手：前端 AI 聊天页，后端提供需要登录的 SSE mock 流式聊天接口，便于后续替换真实大模型服务。
+- 文件上传：图片、头像、封面和文档资源元信息；文档解析依赖已接入，适合扩展为知识库导入能力。
+
+## 快速启动
+
+### 1. 启动后端
 
 在 `backend-server` 目录运行：
 
@@ -33,8 +49,9 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 - API: `http://127.0.0.1:8000`
 - Swagger: `http://127.0.0.1:8000/docs`
 - 健康检查: `http://127.0.0.1:8000/health`
+- 上传文件: `http://127.0.0.1:8000/uploads/...`
 
-## 启动前端
+### 2. 启动前端
 
 在 `react-app` 目录运行：
 
@@ -43,7 +60,7 @@ npm install
 npm run start
 ```
 
-常用命令：
+常用平台命令：
 
 ```bash
 npm run ios
@@ -51,147 +68,92 @@ npm run android
 npm run web
 ```
 
-前端 API 地址配置在：
+前端 API 地址优先读取 `EXPO_PUBLIC_API_BASE_URL`。未设置时会使用 `react-app/src/config/api.ts` 中的本地兜底地址；真机调试时需要使用电脑的局域网 IP，并保证手机和电脑在同一网络。
+
+## 前端入口与页面
+
+前端入口：
 
 ```text
-react-app/src/config/api.ts
-```
-
-真机调试时，需要确保手机和电脑在同一网络，并把 API 地址配置为电脑局域网 IP。
-
-## 前端页面
-
-当前前端入口是：
-
-```text
+react-app/index.ts
 react-app/App.tsx
 ```
 
-路由使用 React Navigation：
+主导航使用底部 Tab + Stack：
 
 ```text
-home     # 首页
-upload   # 发布博客
-profile  # 我的主页
-auth     # 登录/注册
-blog     # 博客详情
+home       # 知识内容首页
+aiChat     # AI 助手
+upload     # 发布内容
+messages   # 私信和通知入口
+profile    # 个人主页
 ```
 
-主要页面文件：
+主要页面：
 
 ```text
 react-app/src/screens/HomeScreen.tsx
+react-app/src/screens/AiChatScreen.tsx
 react-app/src/screens/UploadScreen.tsx
+react-app/src/screens/MessagesScreen.tsx
+react-app/src/screens/ChatScreen.tsx
+react-app/src/screens/NotificationScreen.tsx
 react-app/src/screens/ProfileScreen.tsx
-react-app/src/screens/AuthScreen.tsx
 react-app/src/screens/BlogScreen.tsx
+react-app/src/screens/AuthorScreen.tsx
+react-app/src/screens/ProfileSettingsScreen.tsx
+react-app/src/screens/ProfileAnalyticsScreen.tsx
 ```
-
-## 核心功能
-
-### 账号认证
-
-- 注册和登录需要验证码。
-- 登录成功后后端返回 `access_token`。
-- 前端通过 `AsyncStorage` 保存会话，key 为 `auth.session.v1`。
-- 后续需要登录的接口使用请求头：`Authorization: Bearer <access_token>`。
-
-### 博客发布
-
-- 发布页面调用 `POST /api/v1/posts`。
-- 支持标题、正文、标签、公开/草稿状态。
-- 博客正文当前以纯文本保存，后续可扩展 Markdown 渲染。
-
-### 博客详情
-
-- `PostCard` 可点击进入 `BlogScreen`。
-- 详情接口：`GET /api/v1/posts/{post_id}`。
-- 非作者可以点赞、收藏。
-- 作者可以编辑、删除。
-- 评论入口暂未实现。
-
-### 删除策略
-
-博客删除采用软删除：
-
-```text
-posts.status = 'deleted'
-```
-
-删除不会移除 `favorites` 收藏关系。这样收藏过该博文的用户仍能在个人收藏列表看到一个灰色占位卡片，但不会看到原博文标题、作者、摘要和统计信息。
-
-### 个人主页
-
-个人主页包含：
-
-- 我的发布
-- 我的收藏
-- 我的合集
-
-收藏列表接口会返回 `published` 和 `deleted` 博文。删除态数据会被后端脱敏，前端显示灰色 `已删除` 卡片。
 
 ## 后端 API 概览
 
-基础前缀：
+后端入口是 `backend-server/app/main.py`，所有业务接口默认挂载在 `/api/v1` 下：
 
 ```text
-/api/v1
+/api/v1/auth           # 验证码、注册、登录、当前用户
+/api/v1/users          # 用户资料、个人内容、关注关系
+/api/v1/uploads        # 图片、头像、封面、文档上传
+/api/v1/posts          # 知识博客增删改查、点赞、收藏、不感兴趣
+/api/v1/posts/...      # 评论与回复接口
+/api/v1/messages       # 会话和私信
+/api/v1/collections    # 合集和合集条目
+/api/v1/search         # 内容搜索
+/api/v1/notifications  # 通知列表、已读状态
+/api/v1/translations   # 内容翻译缓存
+/api/v1/ai             # AI 聊天流式接口
 ```
 
-主要接口：
+AI 聊天接口：
 
 ```text
-GET    /auth/captcha
-POST   /auth/register
-POST   /auth/login
-GET    /auth/me
-
-GET    /posts
-POST   /posts
-GET    /posts/{post_id}
-PATCH  /posts/{post_id}
-DELETE /posts/{post_id}
-POST   /posts/{post_id}/like
-POST   /posts/{post_id}/favorite
-
-GET    /users/me/posts
-GET    /users/me/favorites
-GET    /users/me/collections
-
-GET    /collections/{collection_id}
+POST /api/v1/ai/chat/stream
 ```
 
-更完整的数据库和 API 设计见：
+该接口当前返回 mock SSE 数据，用于验证前端流式消息渲染、自动滚动和中断请求逻辑。
 
-```text
-backend-server/docs/backend-design.md
-```
+## 数据库与业务约定
 
-## 数据库设计
+当前使用 SQLite。后端启动时会通过 `init_db()` 和 SQLAlchemy `create_all()` 自动创建表，并在 `backend-server/app/database.py` 中执行少量 SQLite schema 补齐逻辑。
 
-当前使用 SQLite，启动后端时通过 SQLAlchemy `create_all` 自动创建表。主要表包括：
+主要表：
 
-- `users`：用户账号和主页信息
-- `captchas`：登录/注册验证码
-- `posts`：博客主体
-- `tags` / `post_tags`：标签和博客标签关系
-- `likes`：点赞关系，`user_id + post_id` 唯一
-- `favorites`：收藏关系，`user_id + post_id` 唯一
-- `collections` / `collection_items`：合集和合集内容
-- `comments`：评论，当前前端暂未实现评论功能
-- `assets`：上传资源元信息
+- `users`、`captchas`：账号、验证码和登录信息。
+- `posts`、`tags`、`post_tags`、`assets`：博客内容、标签和上传资源。
+- `likes`、`favorites`、`post_dislikes`、`comments`、`comment_likes`：内容互动。
+- `collections`、`collection_items`、`collection_favorites`：知识合集。
+- `follows`：用户关注关系。
+- `notifications`：评论、点赞、关注等通知。
+- `conversations`、`conversation_participants`、`messages`：一对一私信。
+- `translation_caches`：用户生成内容翻译缓存。
 
-原型阶段没有使用 Alembic。后续如果表结构稳定，建议引入数据库迁移。
+重要约定：
 
-## 重要业务约定
-
-- 写操作必须登录。
+- 写操作需要登录，并通过 `Authorization: Bearer <access_token>` 鉴权。
+- 前端会话保存在 `AsyncStorage`，key 为 `auth.session.v1`。
 - 博客编辑和删除只能由作者执行。
-- 删除博客使用软删除，不物理删除原记录。
-- 被删除博客不能继续点赞或收藏。
-- 删除态收藏项必须脱敏，不返回原标题、摘要、作者名和统计数据。
-- 前端根据 `is_owner` 判断显示作者操作还是普通用户操作。
-- 前端根据 `is_deleted` 渲染灰色删除态卡片。
+- 博客删除采用软删除：`posts.status = "deleted"`。
+- 收藏关系不会因博客删除而移除；删除态收藏卡片必须脱敏展示。
+- 私有内容、私信和非公开内容的翻译需要权限校验。
 
 ## 开发检查
 
@@ -199,7 +161,14 @@ backend-server/docs/backend-design.md
 
 ```bash
 cd react-app
-npx tsc --noEmit
+npm run typecheck
+```
+
+前端完整检查，包括 TypeScript 和未翻译 CJK 文案扫描：
+
+```bash
+cd react-app
+npm run check
 ```
 
 后端语法检查：
@@ -209,10 +178,6 @@ cd backend-server
 python -m compileall app
 ```
 
-## 当前限制
+## 当前定位
 
-- 首页仍使用本地示例数据，后续应接入 `GET /api/v1/posts`。
-- 上传接口和文档解析仍是原型能力。
-- 评论功能后端有设计，前端暂未接入。
-- 关注流、搜索、合集管理仍需继续完善。
-- SQLite 适合本地原型，不建议直接用于生产环境。
+该项目目前是 AI 知识库博客内容 App 的本地原型，重点验证内容发布、知识组织、社交互动、消息通知和 AI 辅助入口的完整链路。生产化前建议补充真实大模型/翻译服务、对象存储、数据库迁移、权限测试、部署配置和更完整的端到端测试。
