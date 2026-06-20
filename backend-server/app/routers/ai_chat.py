@@ -1,12 +1,13 @@
-import asyncio
 import json
 from typing import AsyncIterator, Literal
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from openai import AsyncOpenAI, OpenAIError
 from pydantic import BaseModel, Field
 
 from ..auth import get_current_user
+from ..config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
 from ..models import User
 
 
@@ -26,31 +27,39 @@ def _sse_event(payload: dict[str, str]) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
+def _create_deepseek_client() -> AsyncOpenAI:
+    if not DEEPSEEK_API_KEY:
+        raise HTTPException(status_code=500, detail="DeepSeek API key is not configured")
+    return AsyncOpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
+
+
 @router.post("/chat/stream")
 async def stream_ai_chat(
     payload: AiChatRequest,
     request: Request,
     current_user: User = Depends(get_current_user),
 ) -> StreamingResponse:
-    async def generate() -> AsyncIterator[str]:
-        latest_question = next(
-            (message.content.strip() for message in reversed(payload.messages) if message.role == "user" and message.content.strip()),
-            "这个问题",
-        )
-        mock_reply = (
-            f"你好，{current_user.display_name}。我已经收到你的问题：{latest_question}。"
-            "这是一个用于测试 SSE 流式输出的 mock 长回复，会被后端拆成很多小片段逐步返回，"
-            "这样前端可以验证消息气泡是否会持续增长、列表是否能自动滚动到底部、停止按钮是否能中断请求，"
-            "以及 FlatList 在消息数量变多时是否仍然保持流畅。后续接入真实大模型时，只需要把这里的 mock 片段替换为模型 SDK 的 stream 迭代结果即可。"
-        )
+    client = _create_deepseek_client()
 
+    async def generate() -> AsyncIterator[str]:
         yield _sse_event({"type": "start"})
-        for index in range(0, len(mock_reply), 5):
-            if await request.is_disconnected():
-                return
-            yield _sse_event({"type": "delta", "content": mock_reply[index : index + 5]})
-            await asyncio.sleep(0.06)
-        yield _sse_event({"type": "done"})
+        try:
+            stream = await client.chat.completions.create(
+                model=DEEPSEEK_MODEL,
+                messages=[message.model_dump() for message in payload.messages],
+                stream=True,
+            )
+            async for chunk in stream:
+                if await request.is_disconnected():
+                    return
+                delta = chunk.choices[0].delta.content or ""
+                if delta:
+                    yield _sse_event({"type": "delta", "content": delta})
+            yield _sse_event({"type": "done"})
+        except OpenAIError as error:
+            yield _sse_event({"type": "error", "message": f"DeepSeek 调用失败：{error}"})
+        except Exception:
+            yield _sse_event({"type": "error", "message": "AI 回复失败，请稍后重试。"})
 
     return StreamingResponse(
         generate(),

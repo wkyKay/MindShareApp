@@ -1,6 +1,6 @@
 # AI 知识库博客内容 App
 
-这是一个面向知识沉淀、博客发布和 AI 辅助阅读的全栈应用原型。项目由 Expo React Native 前端和 FastAPI 后端组成，支持账号认证、知识内容发布、标签浏览、评论互动、收藏合集、作者主页、私信通知、内容翻译缓存，以及 SSE mock AI 聊天。
+这是一个面向知识沉淀、博客发布和 AI 辅助阅读的全栈应用原型。项目由 Expo React Native 前端和 FastAPI 后端组成，支持账号认证、知识内容发布、标签浏览、评论互动、收藏合集、作者主页、私信通知、内容翻译缓存，以及 DeepSeek SSE 流式 AI 聊天。
 
 ## 项目结构
 
@@ -28,7 +28,7 @@ react_proj/
 - 收藏与合集：个人收藏、合集管理、合集条目、删除内容脱敏展示。
 - 消息通知：一对一私信、评论/点赞/关注通知、未读状态。
 - 内容国际化：前端 i18n、本地 CJK 文案扫描、后端 UGC 翻译缓存接口。
-- AI 助手：前端 AI 聊天页，后端提供需要登录的 SSE mock 流式聊天接口，便于后续替换真实大模型服务。
+- AI 助手：前端 AI 聊天页，后端通过 DeepSeek OpenAI-compatible API 提供需要登录的 SSE 流式聊天接口。
 - 文件上传：图片、头像、封面和文档资源元信息；文档解析依赖已接入，适合扩展为知识库导入能力。
 
 ## 快速启动
@@ -41,7 +41,16 @@ react_proj/
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+首次启动前，将 DeepSeek API Key 写入 `backend-server/.env`：
+
+```env
+DEEPSEEK_API_KEY=你的 DeepSeek API Key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
 ```
 
 默认地址：
@@ -129,7 +138,15 @@ AI 聊天接口：
 POST /api/v1/ai/chat/stream
 ```
 
-该接口当前返回 mock SSE 数据，用于验证前端流式消息渲染、自动滚动和中断请求逻辑。
+该接口调用 DeepSeek 并返回 SSE 数据，用于前端流式消息渲染、自动滚动和中断请求逻辑。
+
+DeepSeek 配置只放在后端环境变量或 `backend-server/.env` 中，不要写入前端代码：
+
+```env
+DEEPSEEK_API_KEY=你的 DeepSeek API Key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
+```
 
 ## 数据库与业务约定
 

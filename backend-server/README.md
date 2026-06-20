@@ -25,7 +25,7 @@ backend-server/
       search.py          # 搜索
       notifications.py   # 通知列表和已读状态
       translations.py    # UGC 内容翻译缓存
-      ai_chat.py         # SSE mock AI 聊天
+      ai_chat.py         # DeepSeek SSE AI 聊天
   docs/
     backend-design.md    # 数据库与 API 设计文档
   uploads/               # 本地上传目录，通过 /uploads 静态访问
@@ -40,8 +40,11 @@ backend-server/
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+将真实 DeepSeek API Key 写入 `backend-server/.env` 后再启动后端。
 
 默认服务地址：
 
@@ -54,7 +57,18 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 - `DATABASE_URL`：可覆盖默认 SQLite 连接；未设置时使用 `sqlite:///./forum.db`。
 - `SECRET_KEY`：JWT 签名密钥；未设置时仅使用本地开发默认值。
+- `DEEPSEEK_API_KEY`：DeepSeek API Key，必须配置在后端环境变量中。
+- `DEEPSEEK_BASE_URL`：DeepSeek OpenAI-compatible API 地址，默认 `https://api.deepseek.com`。
+- `DEEPSEEK_MODEL`：DeepSeek 模型名，默认 `deepseek-chat`。
 - `uploads/`：后端启动时自动创建，并挂载为 `/uploads`。
+
+本地配置模板见 `.env.example`：
+
+```env
+DEEPSEEK_API_KEY=你的 DeepSeek API Key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
+```
 
 ## 应用入口
 
@@ -101,7 +115,7 @@ uvicorn app.main:app --reload
 - 消息：一对一会话、消息发送、已读状态和隐藏会话。
 - 通知：评论、回复、点赞、关注等通知聚合和未读状态。
 - 翻译：对博客、评论、私信、合集字段做权限校验并缓存 mock 翻译结果。
-- AI：`POST /api/v1/ai/chat/stream` 返回 `text/event-stream` mock 流式回复。
+- AI：`POST /api/v1/ai/chat/stream` 调用 DeepSeek 并返回 `text/event-stream` 流式回复。
 - 上传：保存上传资源元信息，支持图片、头像、封面和文档类资源扩展。
 
 ## 数据库
