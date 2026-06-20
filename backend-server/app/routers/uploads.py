@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import Asset, User
 from ..auth import get_current_user
-from ..schemas import AssetResponse, DocumentParseResponse
+from ..schemas import AssetResponse, DocumentParseResponse, DocumentParseStatusResponse
 
 router = APIRouter()
 
@@ -73,6 +73,7 @@ def upload_document(
         file_size=len(file_bytes),
         storage_path="database",
         file_data=file_bytes,
+        parse_status="pending",
     )
     db.add(asset)
     db.commit()
@@ -80,6 +81,11 @@ def upload_document(
     public_url = f"/api/v1/uploads/assets/{asset.id}/content"
     asset.public_url = public_url
     db.commit()
+
+    from ...tasks.document_tasks import parse_document_async
+
+    parse_document_async.delay(asset.id)
+
     return AssetResponse(
         id=asset.id,
         kind=kind,
@@ -87,6 +93,23 @@ def upload_document(
         mime_type=file.content_type or "application/octet-stream",
         file_size=len(file_bytes),
         url=public_url,
+        parse_status=asset.parse_status,
+    )
+
+
+@router.get("/documents/{asset_id}/parse-status", response_model=DocumentParseStatusResponse)
+def get_document_parse_status(asset_id: int, db: Session = Depends(get_db)) -> DocumentParseStatusResponse:
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if asset is None:
+        raise HTTPException(status_code=404, detail="文件不存在")
+    preview = None
+    if asset.extracted_text:
+        preview = asset.extracted_text[:200]
+    return DocumentParseStatusResponse(
+        asset_id=asset.id,
+        parse_status=asset.parse_status,
+        parse_error=asset.parse_error,
+        extracted_text_preview=preview,
     )
 
 

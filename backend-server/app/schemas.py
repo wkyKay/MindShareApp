@@ -68,6 +68,14 @@ class AssetResponse(BaseModel):
     mime_type: str
     file_size: int
     url: Optional[str] = None
+    parse_status: Optional[str] = None
+
+
+class DocumentParseStatusResponse(BaseModel):
+    asset_id: int
+    parse_status: Optional[str] = None
+    parse_error: Optional[str] = None
+    extracted_text_preview: Optional[str] = None
 
 
 class DocumentParseResponse(BaseModel):

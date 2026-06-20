@@ -6,6 +6,9 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..auth import ALGORITHM, SECRET_KEY, get_current_user
+from ..cache import get_unread_count as _cache_get_unread_count
+from ..cache import invalidate_unread_count as _cache_invalidate_unread
+from ..cache import set_unread_count as _cache_set_unread
 from ..database import get_db
 from ..models import Notification, User
 from ..notification_service import attach_notification_post_titles
@@ -17,10 +20,14 @@ router = APIRouter()
 
 @router.get("/unread-count", response_model=NotificationUnreadCount)
 def get_unread_count(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> NotificationUnreadCount:
+    cached = _cache_get_unread_count(current_user.id)
+    if cached is not None:
+        return NotificationUnreadCount(unread_count=cached)
     unread_count = db.query(func.count(Notification.id)).filter(
         Notification.recipient_id == current_user.id,
         Notification.is_read.is_(False),
     ).scalar() or 0
+    _cache_set_unread(current_user.id, unread_count)
     return NotificationUnreadCount(unread_count=unread_count)
 
 
@@ -71,6 +78,7 @@ def mark_notifications_read(
         query = query.filter(Notification.post_id == payload.post_id)
     query.update({Notification.is_read: True}, synchronize_session=False)
     db.commit()
+    _cache_invalidate_unread(current_user.id)
     return None
 
 

@@ -34,6 +34,8 @@ web-build/
 .kotlin/
 backend-server/uploads/
 backend-server/forum.db
+backend-server/bin/
+backend-server/.redis.pid
 *.orig.*
 *.jks
 *.p8
