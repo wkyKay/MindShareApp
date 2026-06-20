@@ -111,6 +111,11 @@ def create_post(
     db.commit()
     db.refresh(post)
 
+    if post.status == "published":
+        from ...tasks.rag_tasks import sync_post_chunks
+
+        sync_post_chunks.delay(post.id)
+
     return PostCreated(
         id=post.id,
         title=post.title,
@@ -249,6 +254,16 @@ def update_post(
             db.add(PostTag(post_id=post.id, tag_id=tag.id))
     db.commit()
     db.refresh(post)
+
+    if post.status == "published":
+        from ...tasks.rag_tasks import sync_post_chunks
+
+        sync_post_chunks.delay(post.id)
+    elif post.status in ("draft", "archived"):
+        from ...tasks.rag_tasks import delete_post_chunks
+
+        delete_post_chunks.delay(post.id)
+
     return PostCreated(
         id=post.id,
         title=post.title,
@@ -271,6 +286,11 @@ def delete_post(
         raise HTTPException(status_code=403, detail="只能删除自己的博客")
     post.status = "deleted"
     db.commit()
+
+    from ...tasks.rag_tasks import delete_post_chunks
+
+    delete_post_chunks.delay(post.id)
+
     return None
 
 

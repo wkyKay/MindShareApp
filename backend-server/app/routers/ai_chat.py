@@ -1,15 +1,17 @@
 import json
-from typing import AsyncIterator, Literal
+from typing import AsyncIterator, List, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from openai import AsyncOpenAI, OpenAIError
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
 from ..config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+from ..database import get_db
 from ..models import User
-
+from ..rag.retriever import retrieve as rag_retrieve, RetrievedChunk
 
 router = APIRouter()
 
@@ -33,20 +35,53 @@ def _create_deepseek_client() -> AsyncOpenAI:
     return AsyncOpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
 
 
+def _build_rag_context(chunks: List[RetrievedChunk]) -> str:
+    if not chunks:
+        return ""
+    parts = ["以下是与用户问题相关的站内博客内容，请参考这些内容回答：\n"]
+    for item in chunks:
+        parts.append(f"【来源：{item.post_title}】\n{item.chunk.content}\n")
+    parts.append("如果以下内容不足以回答用户问题，请诚实说明，并基于你的知识补充。\n")
+    return "\n".join(parts)
+
+
 @router.post("/chat/stream")
 async def stream_ai_chat(
     payload: AiChatRequest,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> StreamingResponse:
     client = _create_deepseek_client()
+
+    # 提取最后一条用户消息作为检索查询
+    last_user_msg = ""
+    for msg in reversed(payload.messages):
+        if msg.role == "user":
+            last_user_msg = msg.content
+            break
+
+    # RAG 检索
+    chunks: List[RetrievedChunk] = []
+    if last_user_msg.strip():
+        chunks = rag_retrieve(last_user_msg, current_user, db)
+
+    # 构建消息列表
+    messages: list[dict] = []
+
+    if chunks:
+        context = _build_rag_context(chunks)
+        messages.append({"role": "system", "content": context})
+
+    for msg in payload.messages:
+        messages.append(msg.model_dump())
 
     async def generate() -> AsyncIterator[str]:
         yield _sse_event({"type": "start"})
         try:
             stream = await client.chat.completions.create(
                 model=DEEPSEEK_MODEL,
-                messages=[message.model_dump() for message in payload.messages],
+                messages=messages,
                 stream=True,
             )
             async for chunk in stream:

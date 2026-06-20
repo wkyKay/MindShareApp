@@ -64,3 +64,17 @@ def _ensure_sqlite_schema_updates() -> None:
                         "ON translation_caches(content_type, content_id, field, source_text_hash, target_language)"
                     )
                 )
+        if "text_chunks" not in notification_tables:
+            connection.execute(
+                text(
+                    "CREATE TABLE text_chunks ("
+                    "  id INTEGER PRIMARY KEY,"
+                    "  post_id INTEGER NOT NULL,"
+                    "  chunk_index INTEGER NOT NULL,"
+                    "  content TEXT NOT NULL,"
+                    "  embedding TEXT,"
+                    "  created_at DATETIME DEFAULT CURRENT_TIMESTAMP"
+                    ")"
+                )
+            )
+            connection.execute(text("CREATE INDEX ix_text_chunks_post_id ON text_chunks(post_id)"))
