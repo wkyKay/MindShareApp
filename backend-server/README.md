@@ -117,6 +117,7 @@ uvicorn app.main:app --reload
 - 翻译：对博客、评论、私信、合集字段做权限校验并缓存 mock 翻译结果。
 - AI：`POST /api/v1/ai/chat/stream` 调用 DeepSeek 并返回 `text/event-stream` 流式回复。
 - 上传：保存上传资源元信息，支持图片、头像、封面和文档类资源扩展。
+  - **图片优化管线**：图片上传经过客户端 `expo-image-manipulator` 预缩放（1920px）和服务端 `Pillow` 处理（EXIF 纠正 → 转 WebP quality 80 → 生成 300px 缩略图），最终落地 `uploads/images/` 文件系统（不再 BLOB 入库）。新增 `/api/v1/uploads/assets/{id}/thumbnail` 缩略图端点，静态资源返回 `Cache-Control` + `ETag` 缓存头，上传大小限制 10MB。
 
 ## 数据库
 

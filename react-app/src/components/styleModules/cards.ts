@@ -14,6 +14,13 @@ export function createCardsStyles(colors: AppColors) {
       opacity: 0.82,
       transform: [{ scale: 0.99 }],
     },
+    cardCover: {
+      backgroundColor: colors.surfaceSoft,
+      borderRadius: 14,
+      height: 120,
+      marginBottom: 12,
+      width: "100%",
+    },
     postCardActionMenuRow: {
       alignSelf: "flex-end",
       backgroundColor: colors.surface,

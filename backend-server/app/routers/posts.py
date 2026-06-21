@@ -19,6 +19,7 @@ from ..schemas import (
     PostCreate,
     PostCreated,
     PostDetail,
+    PostImageEntry,
     PostUpdate,
 )
 
@@ -33,20 +34,38 @@ def _post_detail(post: Post, author: User, db: Session, current_user: Optional[U
         .all()
     )
     cover_url = None
+    cover_thumbnail_url = None
     if post.cover_asset_id:
-        cover_url = db.query(Asset.public_url).filter(Asset.id == post.cover_asset_id).scalar()
-    image_urls = [
-        row[0]
-        for row in db.query(Asset.public_url)
+        cover_asset = db.query(Asset.public_url, Asset.storage_path).filter(Asset.id == post.cover_asset_id).first()
+        if cover_asset:
+            cover_url = cover_asset[0]
+            if cover_asset[1] and cover_asset[1] != "database":
+                cover_thumbnail_url = f"/api/v1/uploads/assets/{post.cover_asset_id}/thumbnail"
+    image_rows = (
+        db.query(Asset.id, Asset.public_url, Asset.storage_path)
         .filter(Asset.post_id == post.id, Asset.kind == "image", Asset.public_url.isnot(None))
         .all()
+    )
+    image_urls = [
+        PostImageEntry(
+            url=row[1],
+            thumbnail_url=(
+                f"/api/v1/uploads/assets/{row[0]}/thumbnail"
+                if row[2] and row[2] != "database"
+                else None
+            ),
+        )
+        for row in image_rows
     ]
+    if not cover_thumbnail_url and image_urls and image_urls[0].thumbnail_url:
+        cover_thumbnail_url = image_urls[0].thumbnail_url
 
     return PostDetail(
         id=post.id,
         title=post.title,
         summary=post.summary,
         cover_url=cover_url,
+        cover_thumbnail_url=cover_thumbnail_url,
         tags=[tag[0] for tag in tags],
         status=post.status,
         author=AuthorSummary(id=author.id, display_name=author.display_name, avatar_url=None),

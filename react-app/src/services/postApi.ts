@@ -22,13 +22,18 @@ export type CreatedPost = {
   created_at: string;
 };
 
+export type PostedImage = {
+  url: string;
+  thumbnail_url?: string | null;
+};
+
 export type PostDetail = {
   id: number;
   title: string;
   summary?: string | null;
   body: string;
   cover_url?: string | null;
-  image_urls: string[];
+  image_urls: PostedImage[];
   tags: string[];
   status: string;
   author: {
@@ -66,6 +71,7 @@ export type UploadedImage = {
   mime_type: string;
   file_size: number;
   url?: string | null;
+  thumbnail_url?: string | null;
 };
 
 export type UploadedDocument = UploadedImage;
@@ -111,7 +117,10 @@ export async function getPost(postId: number, accessToken?: string) {
     ...post,
     body: normalizeMarkdownAssetUrls(post.body),
     cover_url: normalizeAssetUrl(post.cover_url),
-    image_urls: post.image_urls.map((url) => normalizeAssetUrl(url) || url),
+    image_urls: post.image_urls.map((img) => ({
+      url: normalizeAssetUrl(img.url) || img.url,
+      thumbnail_url: normalizeAssetUrl(img.thumbnail_url),
+    })),
   };
 }
 
@@ -202,6 +211,7 @@ export async function uploadPostImage(
   fileName: string,
   accessToken: string,
   kind: "image" | "cover" | "avatar" = "image",
+  onProgress?: (pct: number) => void,
 ) {
   const formData = new FormData();
   formData.append("kind", kind);
@@ -212,21 +222,48 @@ export async function uploadPostImage(
   );
   formData.append("file", imageFile);
 
-  const response = await apiFetch(`${API_V1_BASE_URL}/uploads/images`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: formData,
+  const baseUrl = `${API_V1_BASE_URL}/uploads/images`;
+
+  return new Promise<UploadedImage & { url?: string | null; thumbnail_url?: string | null }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", baseUrl);
+
+    if (onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+    }
+
+    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const uploaded = JSON.parse(xhr.responseText) as UploadedImage;
+          resolve({
+            ...uploaded,
+            url: normalizeAssetUrl(uploaded.url),
+            thumbnail_url: uploaded.thumbnail_url
+              ? normalizeAssetUrl(uploaded.thumbnail_url)
+              : undefined,
+          });
+        } catch {
+          reject(new Error("服务端返回了无法解析的响应。"));
+        }
+      } else {
+        try {
+          const errorBody = JSON.parse(xhr.responseText);
+          reject(new Error(errorBody.detail || `上传失败，状态码 ${xhr.status}`));
+        } catch {
+          reject(new Error(`上传失败，状态码 ${xhr.status}`));
+        }
+      }
+    };
+    xhr.onerror = () => reject(new Error("网络错误，上传失败。"));
+    xhr.ontimeout = () => reject(new Error("上传超时。"));
+    xhr.send(formData);
   });
-  if (!response.ok) {
-    await throwApiError(response);
-  }
-  const uploaded = (await response.json()) as UploadedImage;
-  return {
-    ...uploaded,
-    url: normalizeAssetUrl(uploaded.url),
-  };
 }
 
 export async function uploadPostDocument(

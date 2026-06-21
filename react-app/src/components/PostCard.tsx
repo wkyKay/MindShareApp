@@ -1,13 +1,17 @@
 import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { LazyImage } from "./LazyImage";
 import { MarkdownText } from "./MarkdownText";
 import { useAppStyles } from "../theme/ThemeProvider";
+import { API_BASE_URL } from "../config/api";
 
 export type PostCardPost = {
   id: number;
   title: string;
   summary?: string | null;
+  cover_url?: string | null;
+  cover_thumbnail_url?: string | null;
   author?: string | { display_name: string };
   status?: string;
   like_count?: number;
@@ -26,6 +30,12 @@ type PostCardProps = {
   onLongPress?: () => void;
   onOpenTag?: (tag: string) => void;
 };
+
+function normalizeUrl(url?: string | null) {
+  if (!url) return undefined;
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${API_BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+}
 
 export function PostCard({
   post,
@@ -52,6 +62,18 @@ export function PostCard({
     <>
       {isDeleted && <Text style={styles.deletedBadge}>{t("已删除")}</Text>}
       {isDraft && <Text style={styles.draftBadge}>{t("草稿")}</Text>}
+      {!isDeleted && post.cover_thumbnail_url ? (
+        <LazyImage
+          uri={normalizeUrl(post.cover_thumbnail_url)!}
+          style={styles.cardCover}
+        />
+      ) : null}
+      {!isDeleted && !post.cover_thumbnail_url && post.cover_url ? (
+        <LazyImage
+          uri={normalizeUrl(post.cover_url)!}
+          style={styles.cardCover}
+        />
+      ) : null}
       <View style={styles.cardTitleRow}>
         <Text style={[styles.cardTitle, isDeleted && styles.deletedText]}>
           {isDeleted ? t("该博客已删除") : post.title}

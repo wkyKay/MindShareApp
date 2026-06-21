@@ -1,5 +1,6 @@
 import { useState } from "react";
 import * as DocumentPicker from "expo-document-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 
 import type { AuthSession } from "../../../services/authSession";
@@ -9,7 +10,7 @@ import {
   uploadPostImage,
 } from "../../../services/postApi";
 
-type UploadedImage = { id: number; url: string };
+type UploadedImage = { id: number; url: string; thumbnailUrl?: string };
 type UploadedDocument = { id: number; name: string; url: string };
 
 type UseUploadAssetsOptions = {
@@ -29,6 +30,7 @@ export function useUploadAssets({
 }: UseUploadAssetsOptions) {
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   async function pickImage() {
     setMessage("");
@@ -52,10 +54,18 @@ export function useUploadAssets({
     }
     try {
       const asset = result.assets[0];
-      const uploaded = await uploadPostImage(
+      const resized = await ImageManipulator.manipulateAsync(
         asset.uri,
+        [{ resize: { width: 1920 } }],
+        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG },
+      );
+      setUploadProgress(0);
+      const uploaded = await uploadPostImage(
+        resized.uri,
         asset.fileName || `post-${Date.now()}.jpg`,
         activeSession.accessToken,
+        "image",
+        (pct) => setUploadProgress(pct),
       );
       const uploadedUrl = uploaded.url;
       if (!uploadedUrl) {
@@ -63,7 +73,13 @@ export function useUploadAssets({
       }
       setImages((current) => [
         ...current,
-        { id: uploaded.id, url: uploadedUrl },
+        {
+          id: uploaded.id,
+          url: uploadedUrl,
+          thumbnailUrl: uploaded.thumbnail_url
+            ? uploaded.thumbnail_url
+            : undefined,
+        },
       ]);
       const imageMarkdown = t("![{{alt}}]({{url}})", {
         alt: t("图片"),
@@ -186,5 +202,6 @@ export function useUploadAssets({
     parseTextDocument,
     pickDocument,
     pickImage,
+    uploadProgress,
   };
 }

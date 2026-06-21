@@ -13,6 +13,7 @@ export type ProfilePost = {
   title: string;
   summary?: string | null;
   cover_url?: string | null;
+  cover_thumbnail_url?: string | null;
   tags: string[];
   status?: string;
   author: {

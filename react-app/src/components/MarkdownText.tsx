@@ -182,7 +182,7 @@ function MarkdownImage({ uri, alt }: { uri: string; alt?: string }) {
       }}
       accessibilityLabel={alt || i18n.t("图片")}
       onLoad={(event) => {
-        const { width, height } = event.nativeEvent.source;
+        const { width, height } = event.source;
         if (width && height) {
           setAspectRatio(width / height);
         }

@@ -1,4 +1,5 @@
-import { Image, Modal, Pressable, Text } from "react-native";
+import { Modal, Pressable, Text } from "react-native";
+import { Image } from "expo-image";
 
 import type { AppStyles } from "../../components/styles";
 
@@ -26,8 +27,10 @@ export function BlogImagePreviewModal({
         {imageUrl ? (
           <Image
             source={{ uri: imageUrl }}
-            resizeMode="contain"
+            contentFit="contain"
             style={styles.imagePreview}
+            transition={200}
+            cachePolicy="memory-disk"
           />
         ) : null}
         <Text style={styles.imagePreviewHint}>{t("点击关闭")}</Text>

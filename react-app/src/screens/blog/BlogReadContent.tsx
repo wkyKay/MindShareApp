@@ -65,21 +65,22 @@ export function BlogReadContent({
       ) : null}
       {post.image_urls.length > 0 ? (
         <View style={styles.inlineImageList}>
-          {post.image_urls.map((imageUrl) => (
-            <Pressable key={imageUrl} onPress={() => onPreviewImage(imageUrl)}>
+          {post.image_urls.map((img) => (
+            <Pressable key={img.url} onPress={() => onPreviewImage(img.url)}>
               <LazyImage
-                uri={imageUrl}
+                uri={img.url}
+                thumbnailUri={img.thumbnail_url ?? undefined}
                 resizeMode="contain"
                 style={[
                   styles.blogImage,
-                  imageRatios[imageUrl]
-                    ? { aspectRatio: imageRatios[imageUrl] }
+                  imageRatios[img.url]
+                    ? { aspectRatio: imageRatios[img.url] }
                     : null,
                 ]}
                 onLoad={(event) => {
-                  const { width, height } = event.nativeEvent.source;
+                  const { width, height } = event.source;
                   if (width && height) {
-                    onImageRatio(imageUrl, width / height);
+                    onImageRatio(img.url, width / height);
                   }
                 }}
               />

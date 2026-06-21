@@ -1,3 +1,4 @@
+import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 
 import type { AuthSession } from "../../../services/authSession";
@@ -34,8 +35,13 @@ export function useProfileAvatar({
     setIsContentLoading(true);
     try {
       const asset = result.assets[0];
-      const uploaded = await uploadPostImage(
+      const resized = await ImageManipulator.manipulateAsync(
         asset.uri,
+        [{ resize: { width: 512, height: 512 } }],
+        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG },
+      );
+      const uploaded = await uploadPostImage(
+        resized.uri,
         asset.fileName || `avatar-${Date.now()}.jpg`,
         session.accessToken,
         "avatar",

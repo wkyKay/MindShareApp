@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 
 import { updateMe } from "../../../../services/authApi";
@@ -60,8 +61,13 @@ export function useProfileSettingsForm({
     setIsSubmitting(true);
     try {
       const asset = result.assets[0];
-      const uploaded = await uploadPostImage(
+      const resized = await ImageManipulator.manipulateAsync(
         asset.uri,
+        [{ resize: { width: 1920 } }],
+        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG },
+      );
+      const uploaded = await uploadPostImage(
+        resized.uri,
         asset.fileName || `profile-background-${Date.now()}.jpg`,
         activeSession.accessToken,
         "cover",

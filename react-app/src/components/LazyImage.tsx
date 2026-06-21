@@ -1,54 +1,32 @@
-import { useState } from "react";
-import {
-  Image,
-  View,
-  type ImageProps,
-  type StyleProp,
-  type ViewStyle,
-} from "react-native";
-
-import { useAppTheme } from "../theme/ThemeProvider";
+import { Image } from "expo-image";
+import type { ImageProps } from "expo-image";
+import type { ImageStyle, StyleProp } from "react-native";
 
 type LazyImageProps = Omit<ImageProps, "source"> & {
   uri: string;
-  containerStyle?: StyleProp<ViewStyle>;
+  thumbnailUri?: string;
+  containerStyle?: StyleProp<ImageStyle>;
 };
+
+const blurhash = "L6PZfSi_.AyE_3t7t7R**0o#DgR4";
 
 export function LazyImage({
   uri,
+  thumbnailUri,
   containerStyle,
   style,
-  onLoad,
-  onError,
   ...props
 }: LazyImageProps) {
-  const { colors } = useAppTheme();
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [hasError, setHasError] = useState(false);
-
   return (
-    <View
-      style={[
-        { backgroundColor: colors.surfaceSoft, overflow: "hidden" },
-        style as StyleProp<ViewStyle>,
-        containerStyle,
-      ]}
-    >
-      {!hasError ? (
-        <Image
-          {...props}
-          source={{ uri }}
-          style={[style, !isLoaded && { opacity: 0 }]}
-          onLoad={(event) => {
-            setIsLoaded(true);
-            onLoad?.(event);
-          }}
-          onError={(event) => {
-            setHasError(true);
-            onError?.(event);
-          }}
-        />
-      ) : null}
-    </View>
+    <Image
+      {...props}
+      source={{ uri }}
+      placeholder={
+        thumbnailUri ? { uri: thumbnailUri } : blurhash
+      }
+      transition={300}
+      style={[style, containerStyle]}
+      cachePolicy="memory-disk"
+    />
   );
 }

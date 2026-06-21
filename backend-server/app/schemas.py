@@ -68,6 +68,7 @@ class AssetResponse(BaseModel):
     mime_type: str
     file_size: int
     url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     parse_status: Optional[str] = None
 
 
@@ -128,6 +129,7 @@ class PostListItem(BaseModel):
     title: str
     summary: Optional[str] = None
     cover_url: Optional[str] = None
+    cover_thumbnail_url: Optional[str] = None
     tags: list[str]
     status: str
     author: AuthorSummary
@@ -141,9 +143,14 @@ class PostListItem(BaseModel):
     created_at: datetime
 
 
+class PostImageEntry(BaseModel):
+    url: str
+    thumbnail_url: Optional[str] = None
+
+
 class PostDetail(PostListItem):
     body: str
-    image_urls: list[str] = Field(default_factory=list)
+    image_urls: list[PostImageEntry] = Field(default_factory=list)
     updated_at: datetime
 
 

@@ -96,6 +96,7 @@ export function UploadScreen({
       <ImageUploadPanel
         images={uploadAssets.images}
         onPickImage={() => void uploadAssets.pickImage()}
+        uploadProgress={uploadAssets.uploadProgress}
         styles={styles}
         t={t}
       />
