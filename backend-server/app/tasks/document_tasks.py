@@ -12,11 +12,15 @@ from ..models import Asset
 
 logger = logging.getLogger(__name__)
 
+MAX_EXTRACTED_CHARS = 200_000
+
 
 @celery_app.task(
     autoretry_for=(Exception,),
     max_retries=2,
     default_retry_delay=10,
+    soft_time_limit=120,
+    time_limit=180,
 )
 def parse_document_async(asset_id: int) -> None:
     db: Session = SessionLocal()
@@ -67,7 +71,17 @@ def parse_document_async(asset_id: int) -> None:
             _fail(db, asset, "文件未解析出正文内容")
             return
 
-        asset.extracted_text = text.strip()
+        text = text.strip()
+        if len(text) > MAX_EXTRACTED_CHARS:
+            logger.warning(
+                "parse_document_async: asset %s extracted_text truncated from %d to %d chars",
+                asset_id,
+                len(text),
+                MAX_EXTRACTED_CHARS,
+            )
+            text = text[:MAX_EXTRACTED_CHARS]
+
+        asset.extracted_text = text
         asset.parse_status = "success"
         db.commit()
         logger.info("parse_document_async: asset %s parsed successfully", asset_id)

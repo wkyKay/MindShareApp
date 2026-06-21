@@ -1,5 +1,6 @@
-import { TextInput } from "react-native";
+import { Text, TextInput, View } from "react-native";
 
+import { MAX_POST_BODY_LENGTH } from "../../services/postApi";
 import type { AppStyles } from "../../components/styles";
 
 type UploadEditorFieldsProps = {
@@ -19,6 +20,9 @@ export function UploadEditorFields({
   styles,
   t,
 }: UploadEditorFieldsProps) {
+  const bodyLength = body.length;
+  const isOverLimit = bodyLength > MAX_POST_BODY_LENGTH;
+
   return (
     <>
       <TextInput
@@ -40,6 +44,18 @@ export function UploadEditorFields({
         value={body}
         onChangeText={onChangeBody}
       />
+
+      <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
+        <Text
+          style={{
+            fontSize: 12,
+            color: isOverLimit ? "#d94f70" : "#9a8f8a",
+          }}
+        >
+          {bodyLength.toLocaleString()} / {MAX_POST_BODY_LENGTH.toLocaleString()}
+          {isOverLimit ? ` (${t("已超出上限")})` : ""}
+        </Text>
+      </View>
     </>
   );
 }

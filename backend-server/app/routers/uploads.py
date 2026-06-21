@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import Asset, User
 from ..auth import get_current_user
-from ..config import IMAGE_MAX_DIMENSION, IMAGE_UPLOAD_DIR, MAX_IMAGE_SIZE, THUMBNAIL_DIMENSION
+from ..config import IMAGE_MAX_DIMENSION, IMAGE_UPLOAD_DIR, MAX_DOCUMENT_SIZE, MAX_IMAGE_SIZE, THUMBNAIL_DIMENSION
 from ..schemas import AssetResponse, DocumentParseResponse, DocumentParseStatusResponse
 
 router = APIRouter()
@@ -127,6 +127,8 @@ def upload_document(
         raise HTTPException(status_code=400, detail="Unsupported document upload")
 
     file_bytes = file.file.read()
+    if len(file_bytes) > MAX_DOCUMENT_SIZE:
+        raise HTTPException(status_code=400, detail=f"文件大小不能超过 {MAX_DOCUMENT_SIZE // (1024*1024)}MB")
     asset = Asset(
         uploader_id=current_user.id,
         kind=kind,

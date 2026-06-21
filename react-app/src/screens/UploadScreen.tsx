@@ -15,6 +15,7 @@ import { useUploadSubmit } from "./upload/hooks/useUploadSubmit";
 import { useUploadTags } from "./upload/hooks/useUploadTags";
 import { UploadEditorFields } from "./upload/UploadEditorFields";
 import { UploadHeader } from "./upload/UploadHeader";
+import { MAX_POST_BODY_LENGTH } from "../services/postApi";
 
 type UploadScreenProps = {
   session: AuthSession | null;
@@ -121,6 +122,7 @@ export function UploadScreen({
 
       <PublishActions
         isSubmitting={uploadSubmit.isSubmitting}
+        bodyExceeded={body.length > MAX_POST_BODY_LENGTH}
         onSubmit={(status) => void uploadSubmit.submitPost(status)}
         styles={styles}
         t={t}

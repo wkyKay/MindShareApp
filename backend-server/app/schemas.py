@@ -94,7 +94,7 @@ class AuthorSummary(BaseModel):
 
 class PostCreate(BaseModel):
     title: str = Field(max_length=120)
-    body: str
+    body: str = Field(max_length=200_000)
     summary: Optional[str] = Field(default=None, max_length=300)
     cover_asset_id: Optional[int] = None
     image_asset_ids: list[int] = Field(default_factory=list)
@@ -106,7 +106,7 @@ class PostCreate(BaseModel):
 
 class PostUpdate(BaseModel):
     title: Optional[str] = Field(default=None, max_length=120)
-    body: Optional[str] = None
+    body: Optional[str] = Field(default=None, max_length=200_000)
     summary: Optional[str] = Field(default=None, max_length=300)
     cover_asset_id: Optional[int] = None
     image_asset_ids: Optional[list[int]] = None

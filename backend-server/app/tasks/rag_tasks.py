@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
     autoretry_for=(Exception,),
     max_retries=2,
     default_retry_delay=10,
+    soft_time_limit=120,
+    time_limit=180,
 )
 def sync_post_chunks(post_id: int) -> None:
     """为指定博客重新生成所有 chunk 和 embedding。

@@ -3,6 +3,8 @@ import { Platform } from "react-native";
 import { API_BASE_URL, API_V1_BASE_URL } from "../config/api";
 import { apiFetch, throwApiError } from "./apiError";
 
+export const MAX_POST_BODY_LENGTH = 200_000;
+
 export type CreatePostPayload = {
   title: string;
   body: string;

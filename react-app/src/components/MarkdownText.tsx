@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import i18n from "../i18n";
 import { StreamdownRN } from "streamdown-rn";
@@ -263,6 +263,79 @@ function MarkdownList({
     </View>
   );
 }
+
+export function splitMarkdownSections(markdown: string): string[] {
+  const lines = markdown.split("\n");
+  const sections: string[] = [];
+  let current: string[] = [];
+  let inCodeBlock = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith("```")) {
+      if (!inCodeBlock) {
+        // Start of code block: flush current section first
+        if (current.length > 0) {
+          sections.push(current.join("\n"));
+          current = [];
+        }
+      }
+      inCodeBlock = !inCodeBlock;
+      current.push(line);
+      if (!inCodeBlock) {
+        // Code block ended: flush as a section
+        sections.push(current.join("\n"));
+        current = [];
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      current.push(line);
+      continue;
+    }
+
+    const isListItem = /^(\s*)([-*+]|\d+\.)\s/.test(line);
+    const isEmpty = line.trim() === "";
+
+    if (isListItem && !isEmpty) {
+      // Continue or start a list block
+      current.push(line);
+      continue;
+    }
+
+    if (isEmpty) {
+      // Blank line: end of section unless current is a loose list
+      if (current.length > 0) {
+        sections.push(current.join("\n"));
+        current = [];
+      }
+      continue;
+    }
+
+    // Regular text line
+    current.push(line);
+  }
+
+  if (current.length > 0) {
+    sections.push(current.join("\n"));
+  }
+
+  return sections;
+}
+
+export const MarkdownSection = React.memo(function MarkdownSection({
+  content,
+}: {
+  content: string;
+}) {
+  if (!content.trim()) {
+    return null;
+  }
+  return <MarkdownText>{content}</MarkdownText>;
+});
 
 export function MarkdownText({ children, style }: MarkdownTextProps) {
   const { colors } = useAppTheme();
