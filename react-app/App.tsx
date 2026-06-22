@@ -1,6 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import { Keyboard, Platform, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   DarkTheme,
@@ -21,6 +22,7 @@ import {
 
 import { BottomTabs, type Page } from "./src/components/BottomTabs";
 import { PageErrorBoundary } from "./src/components/PageErrorBoundary";
+import { useApiErrorHandler } from "./src/hooks/useApiErrorHandler";
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { AiChatScreen } from "./src/screens/AiChatScreen";
 import { BlogScreen } from "./src/screens/BlogScreen";
@@ -79,6 +81,7 @@ export default function App() {
 
 function AppShell() {
   const { colors, resolvedMode, styles } = useAppTheme();
+  const { t } = useTranslation();
   const navigationTheme = useMemo(
     () => ({
       ...(resolvedMode === "dark" ? DarkTheme : DefaultTheme),
@@ -99,6 +102,7 @@ function AppShell() {
   const hydrateAuth = useAuthStore((state) => state.hydrate);
   const hydrateMessages = useMessageStore((state) => state.hydrate);
   const hydrateNotifications = useNotificationStore((state) => state.hydrate);
+  const handleApiError = useApiErrorHandler();
 
   function openAuthorProfileAware(
     navigation: NavigationProp<RootStackParamList>,
@@ -128,9 +132,13 @@ function AppShell() {
   }, [hydrateAuth]);
 
   useEffect(() => {
-    void hydrateMessages(authSession);
-    void hydrateNotifications(authSession);
-  }, [authSession, hydrateMessages, hydrateNotifications]);
+    void hydrateMessages(authSession).catch((error) =>
+      handleApiError(error, t("私信状态加载失败")),
+    );
+    void hydrateNotifications(authSession).catch((error) =>
+      handleApiError(error, t("通知状态加载失败")),
+    );
+  }, [authSession, handleApiError, hydrateMessages, hydrateNotifications, t]);
 
   useEffect(() => {
     const showEvent =

@@ -9,7 +9,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { useScrollItemAboveKeyboard } from "../hooks/useScrollItemAboveKeyboard";
+import { useScrollItemAboveKeyboard } from "./comment/hooks/useScrollItemAboveKeyboard";
 import type { AuthSession } from "../services/authSession";
 import type { CommentItem as CommentItemType } from "../services/commentsApi";
 import { useAuthStore } from "../stores/authStore";

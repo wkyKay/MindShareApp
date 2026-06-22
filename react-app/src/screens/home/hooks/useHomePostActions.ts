@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useState } from "react";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import type { Post } from "../../../services/homeApi";
 import { dislikePost } from "../../../services/postApi";
@@ -18,6 +19,7 @@ export function useHomePostActions({
   setDiscoverPosts,
   setFollowingPosts,
 }: UseHomePostActionsOptions) {
+  const handleApiError = useApiErrorHandler();
   const [actionPostId, setActionPostId] = useState<number | null>(null);
 
   const markPostDisliked = useCallback(
@@ -34,12 +36,19 @@ export function useHomePostActions({
       try {
         await dislikePost(postId, session.accessToken);
       } catch (error) {
-        setContentMessage(
-          error instanceof Error ? error.message : "操作失败，请稍后重试。",
-        );
+        handleApiError(error, {
+          fallback: "操作失败，请稍后重试。",
+          setMessage: setContentMessage,
+        });
       }
     },
-    [session?.accessToken, setContentMessage, setDiscoverPosts, setFollowingPosts],
+    [
+      handleApiError,
+      session?.accessToken,
+      setContentMessage,
+      setDiscoverPosts,
+      setFollowingPosts,
+    ],
   );
 
   return {

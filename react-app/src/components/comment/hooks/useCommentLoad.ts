@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import { getComments, type CommentItem } from "../../../services/commentsApi";
 import { findRootId } from "../utils";
@@ -28,6 +29,7 @@ export function useCommentLoad({
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [hasScrolledToFocus, setHasScrolledToFocus] = useState(false);
+  const handleApiError = useApiErrorHandler();
 
   const commentsById = useMemo(
     () => new Map(comments.map((comment) => [comment.id, comment])),
@@ -92,9 +94,13 @@ export function useCommentLoad({
           onCommentCountChange(data.total);
         }
       } catch (error) {
-        if (error instanceof Error && error.name === "AbortError") return;
+        const errorMessage = handleApiError(error, {
+          fallback: "评论加载失败。",
+          ignoreAbort: true,
+        });
+        if (!errorMessage) return;
         if (isMounted) {
-          setMessage(error instanceof Error ? error.message : "评论加载失败。");
+          setMessage(errorMessage);
         }
       } finally {
         if (isMounted) {
@@ -111,6 +117,7 @@ export function useCommentLoad({
     };
   }, [
     currentSession?.accessToken,
+    handleApiError,
     onCommentCountChange,
     postId,
   ]);

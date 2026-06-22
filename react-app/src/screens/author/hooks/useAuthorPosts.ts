@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import { getAuthorPosts } from "../../../services/authorApi";
 import type { ProfilePost } from "../../../services/authorApi";
 
@@ -20,6 +21,7 @@ export function useAuthorPosts({
   isLoadingMore,
   setIsLoadingMore,
 }: UseAuthorPostsOptions) {
+  const handleApiError = useApiErrorHandler();
   const [posts, setPosts] = useState<ProfilePost[]>([]);
   const [postPage, setPostPage] = useState(0);
   const [postTotal, setPostTotal] = useState(0);
@@ -57,12 +59,13 @@ export function useAuthorPosts({
       setPostTotal(data.total);
       setPostHasMore(nextPage * PAGE_SIZE < data.total);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "更多帖子加载失败");
+      handleApiError(error, { fallback: "更多帖子加载失败", setMessage });
     } finally {
       setIsLoadingMore(false);
     }
   }, [
     authorId,
+    handleApiError,
     isLoading,
     isLoadingMore,
     postHasMore,

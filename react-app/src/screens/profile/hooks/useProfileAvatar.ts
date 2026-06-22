@@ -1,6 +1,7 @@
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import { updateMe } from "../../../services/authApi";
 import { uploadPostImage } from "../../../services/postApi";
@@ -18,6 +19,8 @@ export function useProfileAvatar({
   setIsContentLoading,
   setContentMessage,
 }: UseProfileAvatarOptions) {
+  const handleApiError = useApiErrorHandler();
+
   async function pickAvatar() {
     setContentMessage("");
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -52,7 +55,10 @@ export function useProfileAvatar({
       );
       setAuthSession({ ...session, user: updatedUser });
     } catch (error) {
-      setContentMessage(error instanceof Error ? error.message : "头像上传失败。");
+      handleApiError(error, {
+        fallback: "头像上传失败。",
+        setMessage: setContentMessage,
+      });
     } finally {
       setIsContentLoading(false);
     }

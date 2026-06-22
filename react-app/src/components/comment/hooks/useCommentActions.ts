@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import {
   createComment,
@@ -37,6 +38,7 @@ export function useCommentActions({
   setBody,
   setMessage,
 }: UseCommentActionsProps) {
+  const handleApiError = useApiErrorHandler();
   const requireSession = useCallback(async () => {
     const activeSession = await requireAuthSession();
     if (!activeSession) {
@@ -99,10 +101,11 @@ export function useCommentActions({
         onCommentCountChange(Math.max(0, comments.length));
         setBody(text);
         setReplyingTo(replyingTo ?? null);
-        setMessage(error instanceof Error ? error.message : "评论发布失败。");
+        handleApiError(error, { fallback: "评论发布失败。", setMessage });
       }
     },
     [
+      handleApiError,
       postId,
       requireSession,
       comments,
@@ -149,10 +152,10 @@ export function useCommentActions({
         setComments((current) =>
           current.map((item) => (item.id === comment.id ? comment : item)),
         );
-        setMessage(error instanceof Error ? error.message : "评论点赞失败。");
+        handleApiError(error, { fallback: "评论点赞失败。", setMessage });
       }
     },
-    [requireSession, setComments, setMessage],
+    [handleApiError, requireSession, setComments, setMessage],
   );
 
   const removeComment = useCallback(
@@ -178,10 +181,11 @@ export function useCommentActions({
       } catch (error) {
         setComments(previousComments);
         onCommentCountChange(previousComments.length);
-        setMessage(error instanceof Error ? error.message : "评论删除失败。");
+        handleApiError(error, { fallback: "评论删除失败。", setMessage });
       }
     },
     [
+      handleApiError,
       requireSession,
       comments,
       setComments,

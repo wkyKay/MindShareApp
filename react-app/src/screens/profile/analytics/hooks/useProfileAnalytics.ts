@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 
+import { useApiErrorHandler } from "../../../../hooks/useApiErrorHandler";
 import {
   getMyCollections,
   getMyFavorites,
@@ -21,6 +22,7 @@ export function useProfileAnalytics({
   session,
   requireAuthSession,
 }: UseProfileAnalyticsOptions) {
+  const handleApiError = useApiErrorHandler();
   const [posts, setPosts] = useState<ProfilePost[]>([]);
   const [favorites, setFavorites] = useState<ProfileFavorite[]>([]);
   const [collectionsCount, setCollectionsCount] = useState(0);
@@ -56,11 +58,10 @@ export function useProfileAnalytics({
           }
         } catch (error) {
           if (isMounted) {
-            setMessage(
-              error instanceof Error
-                ? error.message
-                : "资料分析加载失败，请稍后重试。",
-            );
+            handleApiError(error, {
+              fallback: "资料分析加载失败，请稍后重试。",
+              setMessage,
+            });
           }
         } finally {
           if (isMounted) {
@@ -74,7 +75,7 @@ export function useProfileAnalytics({
       return () => {
         isMounted = false;
       };
-    }, [requireAuthSession, session]),
+    }, [handleApiError, requireAuthSession, session]),
   );
 
   const analytics = useMemo(() => {

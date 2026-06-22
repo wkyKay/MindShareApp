@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import type { TFunction } from "i18next";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import type { PostDetail } from "../../../services/postApi";
 import { translateContent } from "../../../services/translationsApi";
@@ -18,6 +19,7 @@ export function useBlogTranslation({
   setMessage,
   t,
 }: UseBlogTranslationOptions) {
+  const handleApiError = useApiErrorHandler();
   const [translatedBody, setTranslatedBody] = useState<string | null>(null);
   const [isBodyTranslationVisible, setIsBodyTranslationVisible] =
     useState(false);
@@ -59,15 +61,17 @@ export function useBlogTranslation({
         setTranslatedBody(result.translated_text);
         setIsBodyTranslationVisible(true);
       } catch (error) {
-        setMessage(
-          error instanceof Error ? error.message : t("翻译失败，请稍后重试。"),
-        );
+        handleApiError(error, {
+          fallback: t("翻译失败，请稍后重试。"),
+          setMessage,
+        });
       } finally {
         setIsTranslatingBody(false);
       }
     },
     [
       isBodyTranslationVisible,
+      handleApiError,
       language,
       requireSession,
       setMessage,

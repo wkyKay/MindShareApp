@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useState } from "react";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import {
   addPostToCollection,
@@ -45,6 +46,7 @@ export function useProfileCollections({
   setContentMessage,
   setActiveTab,
 }: UseProfileCollectionsOptions) {
+  const handleApiError = useApiErrorHandler();
   const [collectionTitle, setCollectionTitle] = useState("");
   const [collectionDescription, setCollectionDescription] = useState("");
   const [editingCollection, setEditingCollection] =
@@ -77,9 +79,10 @@ export function useProfileCollections({
       setSelectedCollection(detail);
       setCollectionPosts(detailPosts);
     } catch (error) {
-      setContentMessage(
-        error instanceof Error ? error.message : "合集加载失败，请稍后重试。",
-      );
+      handleApiError(error, {
+        fallback: "合集加载失败，请稍后重试。",
+        setMessage: setContentMessage,
+      });
     } finally {
       setIsContentLoading(false);
     }
@@ -136,9 +139,10 @@ export function useProfileCollections({
       }
       resetCollectionForm();
     } catch (error) {
-      setContentMessage(
-        error instanceof Error ? error.message : "合集保存失败。",
-      );
+      handleApiError(error, {
+        fallback: "合集保存失败。",
+        setMessage: setContentMessage,
+      });
     } finally {
       setIsContentLoading(false);
     }
@@ -183,9 +187,10 @@ export function useProfileCollections({
         resetCollectionForm();
       }
     } catch (error) {
-      setContentMessage(
-        error instanceof Error ? error.message : "合集删除失败。",
-      );
+      handleApiError(error, {
+        fallback: "合集删除失败。",
+        setMessage: setContentMessage,
+      });
     } finally {
       setIsContentLoading(false);
     }
@@ -210,9 +215,10 @@ export function useProfileCollections({
       );
       setMovingPost(null);
     } catch (error) {
-      setContentMessage(
-        error instanceof Error ? error.message : "移入合集失败。",
-      );
+      handleApiError(error, {
+        fallback: "移入合集失败。",
+        setMessage: setContentMessage,
+      });
     } finally {
       setIsContentLoading(false);
     }
@@ -239,9 +245,10 @@ export function useProfileCollections({
         ),
       );
     } catch (error) {
-      setContentMessage(
-        error instanceof Error ? error.message : "移出合集失败。",
-      );
+      handleApiError(error, {
+        fallback: "移出合集失败。",
+        setMessage: setContentMessage,
+      });
     } finally {
       setIsContentLoading(false);
     }
@@ -285,9 +292,10 @@ export function useProfileCollections({
         });
       }
     } catch (error) {
-      setContentMessage(
-        error instanceof Error ? error.message : "合集收藏失败。",
-      );
+      handleApiError(error, {
+        fallback: "合集收藏失败。",
+        setMessage: setContentMessage,
+      });
     }
   }
 

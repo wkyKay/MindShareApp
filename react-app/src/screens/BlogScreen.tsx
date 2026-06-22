@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { BlogDetailSkeleton } from "../components/Skeleton";
+import { useApiErrorHandler } from "../hooks/useApiErrorHandler";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { getPost, type PostDetail } from "../services/postApi";
 import type { AuthSession } from "../services/authSession";
@@ -45,6 +46,7 @@ export function BlogScreen({
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
   const showSkeleton = useDelayedLoading(isLoading, 250);
+  const handleApiError = useApiErrorHandler();
   const { i18n, t } = useTranslation();
   const { handleImageRatio, imageRatios, previewImageUrl, setPreviewImageUrl } =
     useBlogImages();
@@ -99,11 +101,10 @@ export function BlogScreen({
         }
       } catch (error) {
         if (isMounted) {
-          setMessage(
-            error instanceof Error
-              ? error.message
-              : "博客加载失败，请稍后重试。",
-          );
+          handleApiError(error, {
+            fallback: "博客加载失败，请稍后重试。",
+            setMessage,
+          });
         }
       } finally {
         if (isMounted) {
@@ -120,6 +121,7 @@ export function BlogScreen({
   }, [
     postId,
     currentSession?.accessToken,
+    handleApiError,
     resetBodyTranslation,
     resetEditor,
     startEditing,

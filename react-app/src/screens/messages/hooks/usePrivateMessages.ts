@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import {
   createOrGetConversation,
   deleteConversation,
@@ -26,6 +27,7 @@ export function usePrivateMessages({
   onOpenAuth,
   onOpenChat,
 }: UsePrivateMessagesOptions) {
+  const handleApiError = useApiErrorHandler();
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [following, setFollowing] = useState<SearchUserItem[]>([]);
   const [message, setMessage] = useState("");
@@ -40,9 +42,9 @@ export function usePrivateMessages({
       setConversations(conversationData);
       setFollowing(followingData);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "私信加载失败");
+      handleApiError(error, { fallback: "私信加载失败", setMessage });
     }
-  }, [session]);
+  }, [handleApiError, session]);
 
   useFocusEffect(
     useCallback(() => {
@@ -68,7 +70,7 @@ export function usePrivateMessages({
     try {
       await deleteConversation(session.accessToken, conversationId);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "删除会话失败");
+      handleApiError(error, { fallback: "删除会话失败", setMessage });
       void loadPrivateMessages();
     }
   }

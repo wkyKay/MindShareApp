@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useState } from "react";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import type { ProfilePost } from "../../../services/profileApi";
 import { deletePost } from "../../../services/postApi";
@@ -22,6 +23,7 @@ export function useProfilePostActions({
   setIsContentLoading,
   setContentMessage,
 }: UseProfilePostActionsOptions) {
+  const handleApiError = useApiErrorHandler();
   const [movingPost, setMovingPost] = useState<ProfilePost | null>(null);
   const [actionPostId, setActionPostId] = useState<number | null>(null);
   const [postPendingDelete, setPostPendingDelete] =
@@ -54,9 +56,10 @@ export function useProfilePostActions({
         current.filter((item) => item.id !== post.id),
       );
     } catch (error) {
-      setContentMessage(
-        error instanceof Error ? error.message : "博客删除失败。",
-      );
+      handleApiError(error, {
+        fallback: "博客删除失败。",
+        setMessage: setContentMessage,
+      });
     } finally {
       setIsContentLoading(false);
     }

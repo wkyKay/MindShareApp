@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import {
   getCaptcha,
   login,
@@ -47,6 +48,7 @@ export function useAuthForm({ mode, onDone }: UseAuthFormOptions) {
   const [isLoading, setIsLoading] = useState(false);
   const isLogin = mode === "login";
   const { t } = useTranslation();
+  const handleApiError = useApiErrorHandler();
 
   const setField = useCallback((field: AuthFormField, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -70,11 +72,10 @@ export function useAuthForm({ mode, onDone }: UseAuthFormOptions) {
         }
       } catch (error) {
         if (isMounted) {
-          setMessage(
-            error instanceof Error
-              ? error.message
-              : "验证码加载失败，请确认后端服务已启动。",
-          );
+          handleApiError(error, {
+            fallback: "验证码加载失败，请确认后端服务已启动。",
+            setMessage,
+          });
         }
       }
     }
@@ -84,7 +85,7 @@ export function useAuthForm({ mode, onDone }: UseAuthFormOptions) {
     return () => {
       isMounted = false;
     };
-  }, [mode, captchaTick, setField]);
+  }, [handleApiError, mode, captchaTick, setField]);
 
   const submitAuth = useCallback(async () => {
     setMessage("");
@@ -141,14 +142,24 @@ export function useAuthForm({ mode, onDone }: UseAuthFormOptions) {
       );
       onDone(session);
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "认证失败，请稍后重试。",
-      );
+      handleApiError(error, {
+        fallback: "认证失败，请稍后重试。",
+        setMessage,
+      });
       refreshCaptcha();
     } finally {
       setIsLoading(false);
     }
-  }, [captcha, form, isLogin, onDone, refreshCaptcha, setAuthFromToken, t]);
+  }, [
+    captcha,
+    form,
+    handleApiError,
+    isLogin,
+    onDone,
+    refreshCaptcha,
+    setAuthFromToken,
+    t,
+  ]);
 
   return {
     captcha,

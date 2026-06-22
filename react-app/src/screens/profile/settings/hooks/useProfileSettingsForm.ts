@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 
+import { useApiErrorHandler } from "../../../../hooks/useApiErrorHandler";
 import { updateMe } from "../../../../services/authApi";
 import type { AuthSession } from "../../../../services/authSession";
 import { uploadPostImage } from "../../../../services/postApi";
@@ -19,6 +20,7 @@ export function useProfileSettingsForm({
   setAuthSession,
   onRequireAuth,
 }: UseProfileSettingsFormOptions) {
+  const handleApiError = useApiErrorHandler();
   const user = currentSession?.user;
   const [username, setUsername] = useState(user?.username || "");
   const [email, setEmail] = useState(user?.email || "");
@@ -79,7 +81,10 @@ export function useProfileSettingsForm({
       setBackgroundUrl(uploaded.url);
       setMessage("背景图已选择，保存后生效。");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "背景图上传失败。");
+      handleApiError(error, {
+        fallback: "背景图上传失败。",
+        setMessage,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -114,7 +119,10 @@ export function useProfileSettingsForm({
       setPassword("");
       setMessage("个人信息已更新。");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "个人信息保存失败。");
+      handleApiError(error, {
+        fallback: "个人信息保存失败。",
+        setMessage,
+      });
     } finally {
       setIsSubmitting(false);
     }

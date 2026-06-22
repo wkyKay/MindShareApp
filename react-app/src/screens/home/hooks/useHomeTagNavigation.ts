@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
+
 type UseHomeTagNavigationOptions = {
   selectedTag: string | null;
   clearSearch: () => void;
@@ -21,6 +23,7 @@ export function useHomeTagNavigation({
   setIsInitialLoading,
   setSection,
 }: UseHomeTagNavigationOptions) {
+  const handleApiError = useApiErrorHandler();
   const lastAppliedTagRef = useRef<string | null>(selectedTag);
 
   const applyTag = useCallback(
@@ -33,15 +36,17 @@ export function useHomeTagNavigation({
       try {
         await refreshDiscover(normalized);
       } catch (error) {
-        setContentMessage(
-          error instanceof Error ? error.message : "内容加载失败",
-        );
+        handleApiError(error, {
+          fallback: "内容加载失败",
+          setMessage: setContentMessage,
+        });
       } finally {
         setIsInitialLoading(false);
       }
     },
     [
       clearSearch,
+      handleApiError,
       refreshDiscover,
       resetDiscover,
       setContentMessage,

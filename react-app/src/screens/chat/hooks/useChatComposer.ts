@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import { sendMessage, type Message } from "../../../services/messagesApi";
 
@@ -18,6 +19,7 @@ export function useChatComposer({
   session,
   setMessage,
 }: UseChatComposerOptions) {
+  const handleApiError = useApiErrorHandler();
   const [body, setBody] = useState("");
 
   const submit = useCallback(async () => {
@@ -36,9 +38,17 @@ export function useChatComposer({
       appendMessage(created);
       setBody("");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "发送失败");
+      handleApiError(error, { fallback: "发送失败", setMessage });
     }
-  }, [appendMessage, body, conversationId, onRequireAuth, session, setMessage]);
+  }, [
+    appendMessage,
+    body,
+    conversationId,
+    handleApiError,
+    onRequireAuth,
+    session,
+    setMessage,
+  ]);
 
   return {
     body,

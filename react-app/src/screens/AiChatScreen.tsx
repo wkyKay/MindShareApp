@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { FlatList, Pressable, Text, TextInput, View } from "react-native";
 
 import { useTranslation } from "react-i18next";
+import { useApiErrorHandler } from "../hooks/useApiErrorHandler";
 import { streamAiChat, type AiChatRequestMessage } from "../services/aiChatApi";
 import { useAuthStore } from "../stores/authStore";
 import { useAppTheme } from "../theme/ThemeProvider";
@@ -21,6 +22,7 @@ function createMessageId() {
 export function AiChatScreen() {
   const { colors, styles } = useAppTheme();
   const { t } = useTranslation();
+  const handleApiError = useApiErrorHandler();
   const session = useAuthStore((state) => state.session);
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -113,7 +115,7 @@ export function AiChatScreen() {
       });
     } catch (error) {
       if (controller.signal.aborted) return;
-      const message = error instanceof Error ? error.message : t("AI 回复失败，请稍后重试。");
+      const message = handleApiError(error, t("AI 回复失败，请稍后重试。"));
       setNotice(message);
       setMessages((current) =>
         current.map((item) =>

@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useState } from "react";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import { updatePost, type PostDetail } from "../../../services/postApi";
 import type { AuthSession } from "../../../services/authSession";
 
@@ -15,6 +16,7 @@ export function useBlogEditor({
   setMessage,
   setPost,
 }: UseBlogEditorOptions) {
+  const handleApiError = useApiErrorHandler();
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -62,10 +64,10 @@ export function useBlogEditor({
         setIsEditing(false);
         setMessage("已保存修改。");
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "保存失败。");
+        handleApiError(error, { fallback: "保存失败。", setMessage });
       }
     },
-    [body, currentSession, setMessage, setPost, title],
+    [body, currentSession, handleApiError, setMessage, setPost, title],
   );
 
   return {

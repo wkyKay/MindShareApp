@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import { getAuthorInfo, setAuthorFollowing } from "../../../services/authorApi";
 import type { AuthorInfo } from "../../../services/authorApi";
@@ -24,6 +25,7 @@ export function useAuthorProfile({
   onRequireAuth,
   setMessage,
 }: UseAuthorProfileOptions) {
+  const handleApiError = useApiErrorHandler();
   const [author, setAuthor] = useState<AuthorInfo | null>(null);
 
   const loadAuthor = useCallback(async () => {
@@ -47,9 +49,9 @@ export function useAuthorProfile({
       );
       setAuthor({ ...author, is_following: data.following });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "关注操作失败");
+      handleApiError(error, { fallback: "关注操作失败", setMessage });
     }
-  }, [author, onRequireAuth, session, setMessage]);
+  }, [author, handleApiError, onRequireAuth, session, setMessage]);
 
   const openMessage = useCallback(async () => {
     if (!session) {
@@ -64,9 +66,9 @@ export function useAuthorProfile({
       );
       onOpenMessage(conversation.id, author.id, author.display_name);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "私信打开失败");
+      handleApiError(error, { fallback: "私信打开失败", setMessage });
     }
-  }, [author, onOpenMessage, onRequireAuth, session, setMessage]);
+  }, [author, handleApiError, onOpenMessage, onRequireAuth, session, setMessage]);
 
   return {
     author,

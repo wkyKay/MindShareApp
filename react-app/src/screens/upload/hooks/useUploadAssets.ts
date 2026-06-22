@@ -3,6 +3,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import {
   parsePostDocument,
@@ -28,6 +29,7 @@ export function useUploadAssets({
   setMessage,
   t,
 }: UseUploadAssetsOptions) {
+  const handleApiError = useApiErrorHandler();
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -90,7 +92,7 @@ export function useUploadAssets({
           `${current}${current.trim() ? "\n\n" : ""}${imageMarkdown}\n`,
       );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "图片上传失败。");
+      handleApiError(error, { fallback: "图片上传失败。", setMessage });
     }
   }
 
@@ -145,7 +147,7 @@ export function useUploadAssets({
           })}\n`,
       );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "文件上传失败。");
+      handleApiError(error, { fallback: "文件上传失败。", setMessage });
     }
   }
 
@@ -192,7 +194,7 @@ export function useUploadAssets({
           `${current}${current.trim() ? "\n\n" : ""}${importedMarkdown}`,
       );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "文件解析失败。");
+      handleApiError(error, { fallback: "文件解析失败。", setMessage });
     }
   }
 

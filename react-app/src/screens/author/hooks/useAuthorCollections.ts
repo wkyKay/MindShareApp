@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import { getAuthorCollections } from "../../../services/authorApi";
 import type { ProfileCollection, ProfilePost } from "../../../services/authorApi";
@@ -24,6 +25,7 @@ export function useAuthorCollections({
   setIsLoading,
   setMessage,
 }: UseAuthorCollectionsOptions) {
+  const handleApiError = useApiErrorHandler();
   const [collections, setCollections] = useState<ProfileCollection[]>([]);
   const [selectedCollection, setSelectedCollection] =
     useState<ProfileCollection | null>(null);
@@ -56,11 +58,11 @@ export function useAuthorCollections({
       setSelectedCollection(detail);
       setCollectionPosts(detailPosts);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "合集加载失败");
+      handleApiError(error, { fallback: "合集加载失败", setMessage });
     } finally {
       setIsLoading(false);
     }
-  }, [session?.accessToken, setIsLoading, setMessage]);
+  }, [handleApiError, session?.accessToken, setIsLoading, setMessage]);
 
   const toggleCollectionFavorite = useCallback(async (collection: ProfileCollection) => {
     if (!session) {
@@ -89,9 +91,9 @@ export function useAuthorCollections({
         });
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "合集收藏失败");
+      handleApiError(error, { fallback: "合集收藏失败", setMessage });
     }
-  }, [onRequireAuth, selectedCollection, session, setMessage]);
+  }, [handleApiError, onRequireAuth, selectedCollection, session, setMessage]);
 
   return {
     collections,

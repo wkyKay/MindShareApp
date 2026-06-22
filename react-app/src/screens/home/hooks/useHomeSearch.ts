@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import {
   getTagSuggestions,
@@ -19,6 +20,7 @@ type UseHomeSearchOptions = {
 };
 
 export function useHomeSearch({ selectedTag, session }: UseHomeSearchOptions) {
+  const handleApiError = useApiErrorHandler();
   const [tagQuery, setTagQuery] = useState("");
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [userSuggestions, setUserSuggestions] = useState<UserSearchResult[]>(
@@ -69,15 +71,17 @@ export function useHomeSearch({ selectedTag, session }: UseHomeSearchOptions) {
             );
           }
         } catch (error) {
-          if (error instanceof Error && error.name === "AbortError") return;
+          const errorMessage = handleApiError(error, {
+            fallback: "搜索失败，请稍后重试",
+            ignoreAbort: true,
+          });
+          if (!errorMessage) return;
           if (isMounted) {
             setTagSuggestions([]);
             setUserSuggestions([]);
             setTitleMatches([]);
             setSearchStatus("error");
-            setSearchError(
-              error instanceof Error ? error.message : "搜索失败，请稍后重试",
-            );
+            setSearchError(errorMessage);
           }
         }
       }
@@ -90,7 +94,7 @@ export function useHomeSearch({ selectedTag, session }: UseHomeSearchOptions) {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [clearSearch, selectedTag, session?.accessToken, tagQuery]);
+  }, [clearSearch, handleApiError, selectedTag, session?.accessToken, tagQuery]);
 
   return {
     clearSearch,

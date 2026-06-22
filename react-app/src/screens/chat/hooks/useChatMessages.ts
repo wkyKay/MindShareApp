@@ -10,6 +10,7 @@ import {
   type Message,
 } from "../../../services/messagesApi";
 import type { AuthSession } from "../../../services/authSession";
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 
 const MESSAGE_PAGE_SIZE = 50;
 
@@ -26,6 +27,7 @@ export function useChatMessages({
   session,
   setMessage,
 }: UseChatMessagesOptions) {
+  const handleApiError = useApiErrorHandler();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isListReady, setIsListReady] = useState(false);
   const listRef = useRef<FlatList<Message>>(null);
@@ -59,9 +61,9 @@ export function useChatMessages({
         setIsListReady(true);
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "消息加载失败");
+      handleApiError(error, { fallback: "消息加载失败", setMessage });
     }
-  }, [conversationId, session, setMessage]);
+  }, [conversationId, handleApiError, session, setMessage]);
 
   useEffect(() => {
     if (!latestMessage) {
@@ -105,11 +107,11 @@ export function useChatMessages({
       pageRef.current = nextPage;
       hasMoreMessagesRef.current = data.length === MESSAGE_PAGE_SIZE;
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "消息加载失败");
+      handleApiError(error, { fallback: "消息加载失败", setMessage });
     } finally {
       loadingOlderMessagesRef.current = false;
     }
-  }, [conversationId, isListReady, session, setMessage]);
+  }, [conversationId, handleApiError, isListReady, session, setMessage]);
 
   const handleContentSizeChange = useCallback(
     (_width: number, height: number) => {

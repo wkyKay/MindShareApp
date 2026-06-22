@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import {
   getMyCollections,
@@ -14,6 +15,7 @@ import {
 } from "../../../services/profileApi";
 
 export function useProfileContent(session: AuthSession) {
+  const handleApiError = useApiErrorHandler();
   const [posts, setPosts] = useState<ProfilePost[]>([]);
   const [favorites, setFavorites] = useState<ProfileFavorite[]>([]);
   const [collections, setCollections] = useState<ProfileCollection[]>([]);
@@ -50,11 +52,10 @@ export function useProfileContent(session: AuthSession) {
           }
         } catch (error) {
           if (isMounted) {
-            setContentMessage(
-              error instanceof Error
-                ? error.message
-                : "内容加载失败，请稍后重试。",
-            );
+            handleApiError(error, {
+              fallback: "内容加载失败，请稍后重试。",
+              setMessage: setContentMessage,
+            });
           }
         } finally {
           if (isMounted) {
@@ -68,7 +69,7 @@ export function useProfileContent(session: AuthSession) {
       return () => {
         isMounted = false;
       };
-    }, [session.accessToken]),
+    }, [handleApiError, session.accessToken]),
   );
 
   const hasLoadedProfileContent =

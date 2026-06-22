@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import * as Haptics from "expo-haptics";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import {
   deletePost,
   setPostFavorited,
@@ -27,6 +28,7 @@ export function useBlogPostActions({
   setMessage,
   setPost,
 }: UseBlogPostActionsOptions) {
+  const handleApiError = useApiErrorHandler();
   const requireSession = useCallback(async () => {
     const activeSession = await requireAuthSession();
     if (!activeSession) {
@@ -58,10 +60,10 @@ export function useBlogPostActions({
           like_count: data.like_count,
         });
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "点赞失败。");
+        handleApiError(error, { fallback: "点赞失败。", setMessage });
       }
     },
-    [requireSession, setMessage, setPost],
+    [handleApiError, requireSession, setMessage, setPost],
   );
 
   const toggleFavorite = useCallback(
@@ -86,10 +88,10 @@ export function useBlogPostActions({
           favorite_count: data.favorite_count,
         });
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "收藏失败。");
+        handleApiError(error, { fallback: "收藏失败。", setMessage });
       }
     },
-    [requireSession, setMessage, setPost],
+    [handleApiError, requireSession, setMessage, setPost],
   );
 
   const removePost = useCallback(
@@ -101,10 +103,10 @@ export function useBlogPostActions({
         await deletePost(post.id, currentSession.accessToken);
         onDeleted();
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "删除失败。");
+        handleApiError(error, { fallback: "删除失败。", setMessage });
       }
     },
-    [currentSession, onDeleted, setMessage],
+    [currentSession, handleApiError, onDeleted, setMessage],
   );
 
   return {

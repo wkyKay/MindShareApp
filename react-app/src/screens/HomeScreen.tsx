@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { TabView } from "react-native-tab-view";
 
 import { HomePostListSkeleton } from "../components/Skeleton";
+import { useApiErrorHandler } from "../hooks/useApiErrorHandler";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import type { AuthSession } from "../services/authSession";
 import type { Post } from "../services/homeApi";
@@ -57,6 +58,7 @@ export function HomeScreen({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [contentMessage, setContentMessage] = useState("");
+  const handleApiError = useApiErrorHandler();
   const layout = useWindowDimensions();
   const selectedTag = selectedRouteTag ?? null;
   const {
@@ -122,9 +124,10 @@ export function HomeScreen({
         await loadDiscoverPage(1, true, selectedRouteTag ?? null);
       } catch (error) {
         if (isMounted) {
-          setContentMessage(
-            error instanceof Error ? error.message : "内容加载失败",
-          );
+          handleApiError(error, {
+            fallback: "内容加载失败",
+            setMessage: setContentMessage,
+          });
         }
       } finally {
         if (isMounted) {
@@ -136,7 +139,7 @@ export function HomeScreen({
     return () => {
       isMounted = false;
     };
-  }, [loadDiscoverPage, selectedRouteTag, session?.accessToken]);
+  }, [handleApiError, loadDiscoverPage, selectedRouteTag, session?.accessToken]);
 
   useEffect(() => {
     if (
@@ -161,14 +164,16 @@ export function HomeScreen({
         await loadFollowingPage(page + 1, session.accessToken);
       }
     } catch (error) {
-      setContentMessage(
-        error instanceof Error ? error.message : "内容加载失败",
-      );
+      handleApiError(error, {
+        fallback: "内容加载失败",
+        setMessage: setContentMessage,
+      });
     } finally {
       setIsLoadingMore(false);
     }
   }, [
     hasMore,
+    handleApiError,
     isDiscover,
     isLoadingMore,
     isRefreshing,
@@ -188,13 +193,15 @@ export function HomeScreen({
         await loadFollowingPage(1, session.accessToken, true);
       }
     } catch (error) {
-      setContentMessage(
-        error instanceof Error ? error.message : "内容加载失败",
-      );
+      handleApiError(error, {
+        fallback: "内容加载失败",
+        setMessage: setContentMessage,
+      });
     } finally {
       setIsRefreshing(false);
     }
   }, [
+    handleApiError,
     isDiscover,
     loadFollowingPage,
     refreshDiscover,
@@ -211,14 +218,21 @@ export function HomeScreen({
         setIsInitialLoading(true);
         void loadFollowingPage(1, session.accessToken, true)
           .catch((error) =>
-            setContentMessage(
-              error instanceof Error ? error.message : "内容加载失败",
-            ),
+            handleApiError(error, {
+              fallback: "内容加载失败",
+              setMessage: setContentMessage,
+            }),
           )
           .finally(() => setIsInitialLoading(false));
       }
     }
-  }, [loadFollowingPage, resetFollowing, session?.accessToken, setActiveSection]);
+  }, [
+    handleApiError,
+    loadFollowingPage,
+    resetFollowing,
+    session?.accessToken,
+    setActiveSection,
+  ]);
 
   function renderFooter() {
     if (showInitialSkeleton) {

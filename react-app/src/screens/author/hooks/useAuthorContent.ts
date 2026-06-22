@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import { useAuthorCollections } from "./useAuthorCollections";
 import { useAuthorPosts } from "./useAuthorPosts";
@@ -25,6 +26,7 @@ export function useAuthorContent({
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [message, setMessage] = useState("");
+  const handleApiError = useApiErrorHandler();
   const {
     author,
     setAuthor,
@@ -91,9 +93,10 @@ export function useAuthorContent({
         setAuthor(authorData);
       } catch (error) {
         if (isMounted) {
-          setMessage(
-            error instanceof Error ? error.message : "作者内容加载失败",
-          );
+          handleApiError(error, {
+            fallback: "作者内容加载失败",
+            setMessage,
+          });
         }
       } finally {
         if (isMounted) setIsLoading(false);
@@ -107,6 +110,7 @@ export function useAuthorContent({
     };
   }, [
     applyInitialPosts,
+    handleApiError,
     loadAuthor,
     loadCollections,
     loadInitialPosts,

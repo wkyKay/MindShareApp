@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import { createPost, type CreatePostPayload } from "../../../services/postApi";
 
@@ -28,6 +29,7 @@ export function useUploadSubmit({
   setMessage,
   onSaved,
 }: UseUploadSubmitOptions) {
+  const handleApiError = useApiErrorHandler();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function submitPost(status: CreatePostPayload["status"]) {
@@ -60,9 +62,10 @@ export function useUploadSubmit({
       );
       onSaved();
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "上传失败，请稍后重试。",
-      );
+      handleApiError(error, {
+        fallback: "上传失败，请稍后重试。",
+        setMessage,
+      });
     } finally {
       setIsSubmitting(false);
     }

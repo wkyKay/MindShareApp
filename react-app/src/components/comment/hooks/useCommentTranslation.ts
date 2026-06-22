@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useApiErrorHandler } from "../../../hooks/useApiErrorHandler";
 import type { AuthSession } from "../../../services/authSession";
 import type { CommentItem } from "../../../services/commentsApi";
 import { translateContent } from "../../../services/translationsApi";
@@ -14,6 +15,7 @@ export function useCommentTranslation({
   setMessage,
 }: UseCommentTranslationProps) {
   const { i18n, t } = useTranslation();
+  const handleApiError = useApiErrorHandler();
   const [translatedComments, setTranslatedComments] = useState<
     Record<number, string>
   >({});
@@ -61,9 +63,10 @@ export function useCommentTranslation({
         new Set(current).add(comment.id),
       );
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : t("翻译失败，请稍后重试。"),
-      );
+      handleApiError(error, {
+        fallback: t("翻译失败，请稍后重试。"),
+        setMessage,
+      });
     } finally {
       setTranslatingCommentId(null);
     }
