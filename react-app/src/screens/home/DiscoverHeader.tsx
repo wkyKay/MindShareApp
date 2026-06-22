@@ -1,10 +1,14 @@
 import { Pressable, Text, TextInput, View } from "react-native";
 
 import type { AppStyles } from "../../components/styles";
+import { useDelayedLoading } from "../../hooks/useDelayedLoading";
 import type { Post, UserSearchResult } from "../../services/homeApi";
+import type { HomeSearchStatus } from "./hooks/useHomeSearch";
 
 type DiscoverHeaderProps = {
   selectedTag: string | null;
+  searchError: string;
+  searchStatus: HomeSearchStatus;
   tagQuery: string;
   tagSuggestions: string[];
   userSuggestions: UserSearchResult[];
@@ -21,6 +25,8 @@ type DiscoverHeaderProps = {
 
 export function DiscoverHeader({
   selectedTag,
+  searchError,
+  searchStatus,
   tagQuery,
   tagSuggestions,
   userSuggestions,
@@ -34,11 +40,14 @@ export function DiscoverHeader({
   styles,
   t,
 }: DiscoverHeaderProps) {
+  const showSearchLoading = useDelayedLoading(searchStatus === "loading", 250);
   const hasQuery = tagQuery.trim().length > 0;
   const hasResults =
     userSuggestions.length > 0 ||
     titleMatches.length > 0 ||
     tagSuggestions.length > 0;
+  const showEmpty = hasQuery && searchStatus === "empty" && !hasResults;
+  const showError = hasQuery && searchStatus === "error";
 
   return (
     <>
@@ -61,7 +70,13 @@ export function DiscoverHeader({
             onBlur={() => onSearchFocusChange(false)}
           />
 
-          {hasResults && (
+          {showSearchLoading ? (
+            <View style={styles.suggestionPanel}>
+              <Text style={styles.suggestionEmptyText}>{t("正在搜索...")}</Text>
+            </View>
+          ) : null}
+
+          {!showSearchLoading && hasResults && (
             <View style={styles.suggestionPanel}>
               {userSuggestions.length > 0 ? (
                 <Text style={styles.suggestionSectionTitle}>{t("用户")}</Text>
@@ -115,7 +130,15 @@ export function DiscoverHeader({
               ))}
             </View>
           )}
-          {hasQuery && !hasResults ? (
+          {!showSearchLoading && showError ? (
+            <View style={styles.suggestionPanel}>
+              <Text style={styles.suggestionEmptyText}>
+                {searchError || t("搜索失败，请稍后重试")}
+              </Text>
+            </View>
+          ) : null}
+
+          {!showSearchLoading && showEmpty ? (
             <View style={styles.suggestionPanel}>
               <Text style={styles.suggestionEmptyText}>
                 {t("没有找到相关用户、标题或标签")}

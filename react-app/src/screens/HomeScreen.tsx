@@ -62,6 +62,8 @@ export function HomeScreen({
   const {
     clearSearch,
     isSearchFocused,
+    searchError,
+    searchStatus,
     setIsSearchFocused,
     setTagQuery,
     tagQuery,
@@ -282,6 +284,8 @@ export function HomeScreen({
     return (
       <DiscoverHeader
         selectedTag={selectedTag}
+        searchError={searchError}
+        searchStatus={searchStatus}
         tagQuery={tagQuery}
         tagSuggestions={tagSuggestions}
         userSuggestions={userSuggestions}
