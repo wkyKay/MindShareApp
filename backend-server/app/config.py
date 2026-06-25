@@ -22,6 +22,22 @@ DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "openai").lower()
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "")
 EMBEDDING_API_KEY = os.getenv("EMBEDDING_API_KEY")
 EMBEDDING_BASE_URL = os.getenv("EMBEDDING_BASE_URL")
+BAIDU_API_KEY = os.getenv("BAIDU_API_KEY")
+BAIDU_SECRET_KEY = os.getenv("BAIDU_SECRET_KEY")
+BAIDU_ACCESS_TOKEN_URL = os.getenv(
+    "BAIDU_ACCESS_TOKEN_URL",
+    "https://aip.baidubce.com/oauth/2.0/token",
+)
+BAIDU_WENXIN_BASE_URL = os.getenv(
+    "BAIDU_WENXIN_BASE_URL",
+    "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop",
+)
+BAIDU_EMBEDDING_BATCH_SIZE = int(os.getenv("BAIDU_EMBEDDING_BATCH_SIZE", "16"))
+RERANKER_PROVIDER = os.getenv("RERANKER_PROVIDER", "").lower()
+RERANKER_MODEL = os.getenv("RERANKER_MODEL", "")
+RERANKER_CANDIDATE_K = int(os.getenv("RERANKER_CANDIDATE_K", "30"))
+RERANKER_BATCH_SIZE = int(os.getenv("RERANKER_BATCH_SIZE", "16"))

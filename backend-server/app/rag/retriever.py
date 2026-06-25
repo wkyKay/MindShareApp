@@ -4,7 +4,9 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
+from ..config import RERANKER_CANDIDATE_K
 from .embedder import deserialize_embedding, embed_texts, is_available as embeddings_available
+from .reranker import rerank as rerank_chunks
 from ..models import Follow, Post, TextChunk, User
 
 logger = logging.getLogger(__name__)
@@ -15,12 +17,19 @@ BM25_B = 0.75
 
 
 class RetrievedChunk:
-    __slots__ = ("chunk", "score", "post_title")
+    __slots__ = ("chunk", "score", "post_title", "rerank_score")
 
-    def __init__(self, chunk: TextChunk, score: float, post_title: str):
+    def __init__(
+        self,
+        chunk: TextChunk,
+        score: float,
+        post_title: str,
+        rerank_score: Optional[float] = None,
+    ):
         self.chunk = chunk
         self.score = score
         self.post_title = post_title
+        self.rerank_score = rerank_score
 
 
 def retrieve(
@@ -29,7 +38,7 @@ def retrieve(
     db: Session,
     top_k: int = TOP_K,
 ) -> List[RetrievedChunk]:
-    """混合检索：向量相似度 + BM25 关键词，按权限过滤后返回 top_k。"""
+    """混合召回 + 可选 cross-encoder 精排，按权限过滤后返回 top_k。"""
     # 权限过滤：只搜当前用户可见的博客
     allowed_chunks = _visible_chunks(current_user, db)
     if not allowed_chunks:
@@ -49,10 +58,11 @@ def retrieve(
 
     post_titles = _load_post_titles(db, {c.post_id for c in allowed_chunks})
 
-    ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)[:top_k]
+    candidate_k = max(top_k, RERANKER_CANDIDATE_K)
+    ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)[:candidate_k]
 
     chunk_map = {c.id: c for c in allowed_chunks}
-    return [
+    candidates = [
         RetrievedChunk(
             chunk=chunk_map[chunk_id],
             score=score,
@@ -61,6 +71,7 @@ def retrieve(
         for chunk_id, score in ranked
         if chunk_id in chunk_map
     ]
+    return rerank_chunks(query, candidates, top_k)
 
 
 # ── helpers ────────────────────────────────────────────────────────────

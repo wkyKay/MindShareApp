@@ -60,6 +60,12 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 - `DEEPSEEK_API_KEY`：DeepSeek API Key，必须配置在后端环境变量中。
 - `DEEPSEEK_BASE_URL`：DeepSeek OpenAI-compatible API 地址，默认 `https://api.deepseek.com`。
 - `DEEPSEEK_MODEL`：DeepSeek 模型名，默认 `deepseek-chat`。
+- `EMBEDDING_PROVIDER`：RAG 向量服务，`baidu` 使用文心 Embedding-V1，`openai` 使用 OpenAI-compatible embedding。
+- `EMBEDDING_MODEL`：Embedding 模型名；使用百度文心时可设为 `embedding-v1`。留空时 RAG 退化为 BM25 关键词检索。
+- `BAIDU_API_KEY` / `BAIDU_SECRET_KEY`：百度智能云千帆 / 文心 API 凭证，仅 `EMBEDDING_PROVIDER=baidu` 时需要。
+- `RERANKER_PROVIDER`：RAG 第二阶段精排服务；留空关闭，`local` 使用本地 cross-encoder。
+- `RERANKER_MODEL`：本地 cross-encoder 模型名，例如 `BAAI/bge-reranker-base`。
+- `RERANKER_CANDIDATE_K`：第一阶段混合召回候选数量，默认 `30`，精排后再取 top chunks 注入 DeepSeek。
 - `uploads/`：后端启动时自动创建，并挂载为 `/uploads`。
 
 本地配置模板见 `.env.example`：
@@ -68,7 +74,20 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 DEEPSEEK_API_KEY=你的 DeepSeek API Key
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
+
+EMBEDDING_PROVIDER=baidu
+EMBEDDING_MODEL=embedding-v1
+BAIDU_API_KEY=你的百度 API Key
+BAIDU_SECRET_KEY=你的百度 Secret Key
+
+RERANKER_PROVIDER=local
+RERANKER_MODEL=BAAI/bge-reranker-base
+RERANKER_CANDIDATE_K=30
 ```
+
+切换 embedding 模型后，需要重新生成已有博客的 `text_chunks.embedding`，否则旧向量和新查询向量不在同一向量空间，检索效果会失真。
+
+RAG 检索流程为：embedding + BM25 第一阶段召回候选 chunk，配置 cross-encoder 后对 `(用户问题, chunk)` 成对打分精排，最后把精排后的 top chunks 作为上下文交给 DeepSeek chat 生成回复。未配置 reranker 或模型加载失败时，会自动退回第一阶段排序。
 
 ## 应用入口
 
