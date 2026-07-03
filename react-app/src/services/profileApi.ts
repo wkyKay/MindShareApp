@@ -1,5 +1,6 @@
 import { API_V1_BASE_URL } from "../config/api";
-import { apiFetch, throwApiError } from "./apiError";
+import { authFetch } from "./apiClient";
+import { throwApiError } from "./apiError";
 
 export type PageResponse<T> = {
   items: T[];
@@ -73,16 +74,9 @@ export type CollectionDetail = ProfileCollection & {
 
 async function profileRequest<T>(
   path: string,
-  accessToken: string,
   options: RequestInit = {},
 ) {
-  const response = await apiFetch(`${API_V1_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  const response = await authFetch(`${API_V1_BASE_URL}${path}`, options);
   if (!response.ok) {
     await throwApiError(response);
   }
@@ -92,52 +86,29 @@ async function profileRequest<T>(
   return (await response.json()) as T;
 }
 
-export function getMyPosts(accessToken: string) {
-  return profileRequest<PageResponse<ProfilePost>>(
-    "/users/me/posts",
-    accessToken,
-  );
+export function getMyPosts() {
+  return profileRequest<PageResponse<ProfilePost>>("/users/me/posts");
 }
 
-export function getMyFavorites(accessToken: string) {
-  return profileRequest<PageResponse<ProfileFavorite>>(
-    "/users/me/favorites",
-    accessToken,
-  );
+export function getMyFavorites() {
+  return profileRequest<PageResponse<ProfileFavorite>>("/users/me/favorites");
 }
 
-export function getMyCollections(accessToken: string) {
-  return profileRequest<PageResponse<ProfileCollection>>(
-    "/users/me/collections",
-    accessToken,
-  );
+export function getMyCollections() {
+  return profileRequest<PageResponse<ProfileCollection>>("/users/me/collections");
 }
 
-export function getMyFollowing(accessToken: string) {
-  return profileRequest<PageResponse<FollowingUser>>(
-    "/users/me/following",
-    accessToken,
-  );
+export function getMyFollowing() {
+  return profileRequest<PageResponse<FollowingUser>>("/users/me/following");
 }
 
-export function getCollectionDetail(collectionId: number, accessToken: string) {
-  return profileRequest<CollectionDetail>(
-    `/collections/${collectionId}`,
-    accessToken,
-  );
+export function getCollectionDetail(collectionId: number) {
+  return profileRequest<CollectionDetail>(`/collections/${collectionId}`);
 }
 
-export async function getPublicCollectionDetail(
-  collectionId: number,
-  accessToken?: string,
-) {
-  const response = await apiFetch(
+export async function getPublicCollectionDetail(collectionId: number) {
+  const response = await authFetch(
     `${API_V1_BASE_URL}/collections/${collectionId}`,
-    {
-      headers: accessToken
-        ? { Authorization: `Bearer ${accessToken}` }
-        : undefined,
-    },
   );
   if (!response.ok) {
     await throwApiError(response);
@@ -145,19 +116,12 @@ export async function getPublicCollectionDetail(
   return (await response.json()) as CollectionDetail;
 }
 
-export function getPostDetail(postId: number, accessToken: string) {
-  return profileRequest<ProfilePost>(`/posts/${postId}`, accessToken);
+export function getPostDetail(postId: number) {
+  return profileRequest<ProfilePost>(`/posts/${postId}`);
 }
 
-export async function getPublicPostDetail(
-  postId: number,
-  accessToken?: string,
-) {
-  const response = await apiFetch(`${API_V1_BASE_URL}/posts/${postId}`, {
-    headers: accessToken
-      ? { Authorization: `Bearer ${accessToken}` }
-      : undefined,
-  });
+export async function getPublicPostDetail(postId: number) {
+  const response = await authFetch(`${API_V1_BASE_URL}/posts/${postId}`);
   if (!response.ok) {
     await throwApiError(response);
   }
@@ -167,9 +131,8 @@ export async function getPublicPostDetail(
 export function createCollection(
   title: string,
   description: string,
-  accessToken: string,
 ) {
-  return profileRequest<ProfileCollection>("/collections", accessToken, {
+  return profileRequest<ProfileCollection>("/collections", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -184,11 +147,9 @@ export function updateCollection(
   collectionId: number,
   title: string,
   description: string,
-  accessToken: string,
 ) {
   return profileRequest<ProfileCollection>(
     `/collections/${collectionId}`,
-    accessToken,
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -197,8 +158,8 @@ export function updateCollection(
   );
 }
 
-export function deleteCollection(collectionId: number, accessToken: string) {
-  return profileRequest<void>(`/collections/${collectionId}`, accessToken, {
+export function deleteCollection(collectionId: number) {
+  return profileRequest<void>(`/collections/${collectionId}`, {
     method: "DELETE",
   });
 }
@@ -206,13 +167,12 @@ export function deleteCollection(collectionId: number, accessToken: string) {
 export function addPostToCollection(
   collectionId: number,
   postId: number,
-  accessToken: string,
 ) {
   return profileRequest<{
     collection_id: number;
     post_id: number;
     sort_order: number;
-  }>(`/collections/${collectionId}/items`, accessToken, {
+  }>(`/collections/${collectionId}/items`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ post_id: postId, sort_order: 0 }),
@@ -222,11 +182,9 @@ export function addPostToCollection(
 export function removePostFromCollection(
   collectionId: number,
   postId: number,
-  accessToken: string,
 ) {
   return profileRequest<void>(
     `/collections/${collectionId}/items/${postId}`,
-    accessToken,
     { method: "DELETE" },
   );
 }
@@ -234,11 +192,9 @@ export function removePostFromCollection(
 export function setCollectionFavorited(
   collectionId: number,
   favorited: boolean,
-  accessToken: string,
 ) {
   return profileRequest<{ favorited: boolean }>(
     `/collections/${collectionId}/favorite`,
-    accessToken,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

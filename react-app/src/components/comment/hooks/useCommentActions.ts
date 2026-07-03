@@ -86,7 +86,6 @@ export function useCommentActions({
         const created = await createComment(
           postId,
           text,
-          activeSession.accessToken,
           replyingTo?.id,
         );
         setComments((current) =>
@@ -139,7 +138,6 @@ export function useCommentActions({
         const data = await setCommentLiked(
           comment.id,
           nextLiked,
-          activeSession.accessToken,
         );
         setComments((current) =>
           current.map((item) =>
@@ -177,7 +175,7 @@ export function useCommentActions({
       );
       onCommentCountChange(Math.max(0, comments.length - deletedIds.size));
       try {
-        await deleteComment(comment.id, activeSession.accessToken);
+        await deleteComment(comment.id);
       } catch (error) {
         setComments(previousComments);
         onCommentCountChange(previousComments.length);

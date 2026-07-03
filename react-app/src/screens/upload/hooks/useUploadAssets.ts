@@ -65,9 +65,7 @@ export function useUploadAssets({
       const uploaded = await uploadPostImage(
         resized.uri,
         asset.fileName || `post-${Date.now()}.jpg`,
-        activeSession.accessToken,
         "image",
-        (pct) => setUploadProgress(pct),
       );
       const uploadedUrl = uploaded.url;
       if (!uploadedUrl) {
@@ -125,7 +123,6 @@ export function useUploadAssets({
       const uploaded = await uploadPostDocument(
         asset.uri,
         asset.name || `document-${Date.now()}`,
-        activeSession.accessToken,
         asset.mimeType,
       );
       const uploadedUrl = uploaded.url;
@@ -178,7 +175,6 @@ export function useUploadAssets({
       const parsed = await parsePostDocument(
         asset.uri,
         asset.name || `markdown-${Date.now()}.md`,
-        activeSession.accessToken,
         asset.mimeType,
       );
       if (!parsed.extracted_text?.trim()) {

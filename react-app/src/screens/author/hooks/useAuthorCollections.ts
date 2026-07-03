@@ -32,8 +32,8 @@ export function useAuthorCollections({
   const [collectionPosts, setCollectionPosts] = useState<ProfilePost[]>([]);
 
   const loadCollections = useCallback(async () => {
-    return getAuthorCollections(authorId, session?.accessToken);
-  }, [authorId, session?.accessToken]);
+    return getAuthorCollections(authorId);
+  }, [authorId]);
 
   const resetSelectedCollection = useCallback(() => {
     setSelectedCollection(null);
@@ -48,11 +48,10 @@ export function useAuthorCollections({
     try {
       const detail = await getPublicCollectionDetail(
         collection.id,
-        session?.accessToken,
       );
       const detailPosts = await Promise.all(
         detail.items.map((item) =>
-          getPublicPostDetail(item.post_id, session?.accessToken),
+          getPublicPostDetail(item.post_id),
         ),
       );
       setSelectedCollection(detail);
@@ -75,7 +74,6 @@ export function useAuthorCollections({
       await setCollectionFavorited(
         collection.id,
         nextFavorited,
-        session.accessToken,
       );
       setCollections((current) =>
         current.map((item) =>

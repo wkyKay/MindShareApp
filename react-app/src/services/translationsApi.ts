@@ -1,5 +1,6 @@
 import { API_V1_BASE_URL } from "../config/api";
-import { apiFetch, throwApiError } from "./apiError";
+import { authFetch } from "./apiClient";
+import { throwApiError } from "./apiError";
 
 export type TranslationContentType =
   | "post"
@@ -32,14 +33,10 @@ export async function translateContent(
     target_language: string;
     source_language?: string;
   },
-  accessToken: string,
 ) {
-  const response = await apiFetch(`${API_V1_BASE_URL}/translations/content`, {
+  const response = await authFetch(`${API_V1_BASE_URL}/translations/content`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ source_language: "auto", ...payload }),
   });
   if (!response.ok) {

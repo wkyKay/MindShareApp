@@ -36,8 +36,8 @@ export function usePrivateMessages({
     if (!session) return;
     try {
       const [conversationData, followingData] = await Promise.all([
-        listConversations(session.accessToken),
-        getFollowingUsers(session.accessToken),
+        listConversations(),
+        getFollowingUsers(),
       ]);
       setConversations(conversationData);
       setFollowing(followingData);
@@ -58,7 +58,7 @@ export function usePrivateMessages({
       onOpenAuth();
       return;
     }
-    const data = await createOrGetConversation(session.accessToken, partnerId);
+    const data = await createOrGetConversation(partnerId);
     onOpenChat(data.id, partnerId, partnerName);
   }
 
@@ -68,7 +68,7 @@ export function usePrivateMessages({
       current.filter((item) => item.id !== conversationId),
     );
     try {
-      await deleteConversation(session.accessToken, conversationId);
+      await deleteConversation(conversationId);
     } catch (error) {
       handleApiError(error, { fallback: "删除会话失败", setMessage });
       void loadPrivateMessages();

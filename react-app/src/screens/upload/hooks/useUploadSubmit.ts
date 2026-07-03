@@ -58,7 +58,6 @@ export function useUploadSubmit({
           visibility: status === "draft" ? "private" : "public",
           status,
         },
-        activeSession.accessToken,
       );
       onSaved();
     } catch (error) {

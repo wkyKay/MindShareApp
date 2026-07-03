@@ -289,6 +289,18 @@ class Message(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(20), default="sent", nullable=False, index=True, comment="消息状态：sent、deleted")
 
 
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+    __table_args__ = {"comment": "Refresh Token 存储，用于静默续期 Access Token"}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="记录 ID")
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="所属用户 ID，对应 users.id")
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True, comment="Token 的 SHA-256 哈希，不存明文")
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, comment="过期时间")
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, comment="撤销时间，非空表示已失效")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), comment="创建时间")
+
+
 class TranslationCache(TimestampMixin, Base):
     __tablename__ = "translation_caches"
     __table_args__ = (

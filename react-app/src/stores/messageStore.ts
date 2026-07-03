@@ -15,7 +15,7 @@ type MessageStore = {
   socket: WebSocket | null;
   hydrate: (session: AuthSession | null) => Promise<void>;
   refreshUnreadCount: (session: AuthSession | null) => Promise<void>;
-  connect: (session: AuthSession | null) => void;
+  connect: (session: AuthSession | null) => Promise<void>;
   disconnect: () => void;
   consumeMessage: (message: Message, currentUserId?: number) => void;
   markConversationRead: (
@@ -47,10 +47,10 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
       set({ unreadCount: 0 });
       return;
     }
-    const data = await getMessageUnreadCount(session.accessToken);
+    const data = await getMessageUnreadCount();
     set({ unreadCount: data.unread_count });
   },
-  connect(session) {
+  async connect(session) {
     if (!session) {
       get().disconnect();
       return;
@@ -60,7 +60,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
       return;
     }
     currentSocket?.close();
-    const socket = new WebSocket(getMessagesWebSocketUrl(session.accessToken));
+    const socket = new WebSocket(await getMessagesWebSocketUrl());
     socket.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data as string) as MessageSocketEvent;

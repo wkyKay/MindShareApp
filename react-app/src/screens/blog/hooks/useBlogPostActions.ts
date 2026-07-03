@@ -51,7 +51,6 @@ export function useBlogPostActions({
         const data = await setPostLiked(
           post.id,
           !post.is_liked,
-          activeSession.accessToken,
         );
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setPost({
@@ -79,7 +78,6 @@ export function useBlogPostActions({
         const data = await setPostFavorited(
           post.id,
           !post.is_favorited,
-          activeSession.accessToken,
         );
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setPost({
@@ -100,7 +98,7 @@ export function useBlogPostActions({
         return;
       }
       try {
-        await deletePost(post.id, currentSession.accessToken);
+        await deletePost(post.id);
         onDeleted();
       } catch (error) {
         handleApiError(error, { fallback: "删除失败。", setMessage });

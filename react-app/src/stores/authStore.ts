@@ -4,10 +4,10 @@ import {
   clearAuthSession,
   loadAuthSession,
   persistAuthSession,
-  refreshAuthSession,
   saveAuthSession,
   type AuthSession,
 } from "../services/authSession";
+import { refreshAuthTokens } from "../services/apiClient";
 import type { TokenResponse } from "../services/authApi";
 
 type AuthStore = {
@@ -39,7 +39,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   async refresh() {
     set({ isLoading: true });
     try {
-      const session = await refreshAuthSession();
+      const session = await refreshAuthTokens();
       set({ session, hasHydrated: true });
       return session;
     } catch {

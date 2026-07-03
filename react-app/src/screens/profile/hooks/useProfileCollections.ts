@@ -69,11 +69,10 @@ export function useProfileCollections({
     try {
       const detail = await getCollectionDetail(
         collection.id,
-        session.accessToken,
       );
       const detailPosts = await Promise.all(
         detail.items.map((item) =>
-          getPostDetail(item.post_id, session.accessToken),
+          getPostDetail(item.post_id),
         ),
       );
       setSelectedCollection(detail);
@@ -102,7 +101,6 @@ export function useProfileCollections({
           editingCollection.id,
           title,
           collectionDescription.trim(),
-          session.accessToken,
         );
         setCollections((current) =>
           current.map((collection) =>
@@ -126,7 +124,6 @@ export function useProfileCollections({
         const created = await createCollection(
           title,
           collectionDescription.trim(),
-          session.accessToken,
         );
         setCollections((current) => [
           {
@@ -170,7 +167,7 @@ export function useProfileCollections({
     setIsContentLoading(true);
     setContentMessage("");
     try {
-      await deleteCollection(collection.id, session.accessToken);
+      await deleteCollection(collection.id);
       setCollections((current) =>
         current.filter((item) => item.id !== collection.id),
       );
@@ -204,7 +201,6 @@ export function useProfileCollections({
       await addPostToCollection(
         collection.id,
         movingPost.id,
-        session.accessToken,
       );
       setCollections((current) =>
         current.map((item) =>
@@ -232,7 +228,6 @@ export function useProfileCollections({
       await removePostFromCollection(
         selectedCollection.id,
         post.id,
-        session.accessToken,
       );
       setCollectionPosts((current) =>
         current.filter((item) => item.id !== post.id),
@@ -261,7 +256,6 @@ export function useProfileCollections({
       await setCollectionFavorited(
         collection.id,
         nextFavorited,
-        session.accessToken,
       );
       setCollections((current) =>
         current.map((item) =>

@@ -29,7 +29,6 @@ export function useDiscoverFeed({
         PAGE_SIZE,
         discoverSeed.current,
         tagName,
-        session?.accessToken,
       );
       setDiscoverPosts((currentPosts) =>
         replace ? data.items : appendUniquePosts(currentPosts, data.items),

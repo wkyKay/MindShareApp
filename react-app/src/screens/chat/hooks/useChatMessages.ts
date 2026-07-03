@@ -50,7 +50,6 @@ export function useChatMessages({
       pageRef.current = 1;
       hasMoreMessagesRef.current = true;
       const data = await listMessages(
-        session.accessToken,
         conversationId,
         1,
         MESSAGE_PAGE_SIZE,
@@ -94,7 +93,6 @@ export function useChatMessages({
     olderContentHeightRef.current = contentHeightRef.current;
     try {
       const data = await listMessages(
-        session.accessToken,
         conversationId,
         nextPage,
         MESSAGE_PAGE_SIZE,

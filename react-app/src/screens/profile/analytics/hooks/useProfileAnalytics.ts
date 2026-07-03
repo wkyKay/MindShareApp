@@ -47,9 +47,9 @@ export function useProfileAnalytics({
 
         try {
           const [postsData, favoritesData, collectionsData] = await Promise.all([
-            getMyPosts(activeSession.accessToken),
-            getMyFavorites(activeSession.accessToken),
-            getMyCollections(activeSession.accessToken),
+            getMyPosts(),
+            getMyFavorites(),
+            getMyCollections(),
           ]);
           if (isMounted) {
             setPosts(postsData.items);

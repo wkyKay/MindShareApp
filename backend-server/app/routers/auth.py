@@ -9,10 +9,10 @@ from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..auth import create_access_token, get_current_user, hash_password, verify_password
+from ..auth import create_access_token, create_refresh_token, get_current_user, hash_password, validate_refresh_token, verify_password
 from ..database import get_db
-from ..models import Asset, Captcha, User
-from ..schemas import CaptchaResponse, LoginRequest, RegisterRequest, TokenResponse, UserPrivate
+from ..models import Asset, Captcha, RefreshToken, User
+from ..schemas import CaptchaResponse, LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, UserPrivate
 
 router = APIRouter()
 
@@ -125,7 +125,11 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> TokenRe
         raise HTTPException(status_code=400, detail="用户名或邮箱已存在") from None
     db.refresh(user)
 
-    return TokenResponse(user=_user_response(user, db), access_token=create_access_token(user.id))
+    return TokenResponse(
+        user=_user_response(user, db),
+        access_token=create_access_token(user.id),
+        refresh_token=create_refresh_token(user.id, db),
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -141,7 +145,32 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse
     if user is None or user.status != "active" or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="账号或密码错误")
 
-    return TokenResponse(user=_user_response(user, db), access_token=create_access_token(user.id))
+    return TokenResponse(
+        user=_user_response(user, db),
+        access_token=create_access_token(user.id),
+        refresh_token=create_refresh_token(user.id, db),
+    )
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh(payload: RefreshRequest, db: Session = Depends(get_db)) -> TokenResponse:
+    stored = validate_refresh_token(payload.refresh_token, db)
+    if stored is None:
+        raise HTTPException(status_code=401, detail="Refresh token 无效或已过期")
+
+    # Refresh Token Rotation：撤销旧 token，生成新 token
+    stored.revoked_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.commit()
+
+    user = db.query(User).filter(User.id == stored.user_id, User.status == "active").first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="用户不存在或已禁用")
+
+    return TokenResponse(
+        user=_user_response(user, db),
+        access_token=create_access_token(user.id),
+        refresh_token=create_refresh_token(user.id, db),
+    )
 
 
 @router.get("/me", response_model=UserPrivate)

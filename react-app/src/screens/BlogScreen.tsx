@@ -93,7 +93,7 @@ export function BlogScreen({
       setIsLoading(true);
       setMessage("");
       try {
-        const data = await getPost(postId, currentSession?.accessToken);
+        const data = await getPost(postId);
         if (isMounted) {
           setPost(data);
           resetEditor(data, startEditing && data.is_owner);

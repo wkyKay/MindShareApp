@@ -24,7 +24,7 @@ export function useChatReadReceipt({
     useCallback(() => {
       if (!session || !conversationId) return;
       void loadLatestMessages();
-      void markConversationRead(session.accessToken, conversationId);
+      void markConversationRead(conversationId);
       void markConversationReadLocal(session, conversationId);
     }, [conversationId, loadLatestMessages, markConversationReadLocal, session]),
   );

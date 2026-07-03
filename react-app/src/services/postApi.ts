@@ -1,7 +1,9 @@
 import { Platform } from "react-native";
 
 import { API_BASE_URL, API_V1_BASE_URL } from "../config/api";
-import { apiFetch, throwApiError } from "./apiError";
+import { authFetch } from "./apiClient";
+import { throwApiError } from "./apiError";
+import { loadAuthSession } from "./authSession";
 
 export const MAX_POST_BODY_LENGTH = 200_000;
 
@@ -87,12 +89,10 @@ export type ParsedDocument = {
 
 export async function createPost(
   payload: CreatePostPayload,
-  accessToken: string,
 ) {
-  const response = await apiFetch(`${API_V1_BASE_URL}/posts`, {
+  const response = await authFetch(`${API_V1_BASE_URL}/posts`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
@@ -103,14 +103,8 @@ export async function createPost(
   return (await response.json()) as CreatedPost;
 }
 
-function authHeaders(accessToken?: string) {
-  return accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
-}
-
-export async function getPost(postId: number, accessToken?: string) {
-  const response = await apiFetch(`${API_V1_BASE_URL}/posts/${postId}`, {
-    headers: authHeaders(accessToken),
-  });
+export async function getPost(postId: number) {
+  const response = await authFetch(`${API_V1_BASE_URL}/posts/${postId}`);
   if (!response.ok) {
     await throwApiError(response);
   }
@@ -129,12 +123,10 @@ export async function getPost(postId: number, accessToken?: string) {
 export async function updatePost(
   postId: number,
   payload: UpdatePostPayload,
-  accessToken: string,
 ) {
-  const response = await apiFetch(`${API_V1_BASE_URL}/posts/${postId}`, {
+  const response = await authFetch(`${API_V1_BASE_URL}/posts/${postId}`, {
     method: "PATCH",
     headers: {
-      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
@@ -145,12 +137,9 @@ export async function updatePost(
   return (await response.json()) as CreatedPost;
 }
 
-export async function deletePost(postId: number, accessToken: string) {
-  const response = await apiFetch(`${API_V1_BASE_URL}/posts/${postId}`, {
+export async function deletePost(postId: number) {
+  const response = await authFetch(`${API_V1_BASE_URL}/posts/${postId}`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
   });
   if (!response.ok) {
     await throwApiError(response);
@@ -160,12 +149,10 @@ export async function deletePost(postId: number, accessToken: string) {
 export async function setPostLiked(
   postId: number,
   liked: boolean,
-  accessToken: string,
 ) {
-  const response = await apiFetch(`${API_V1_BASE_URL}/posts/${postId}/like`, {
+  const response = await authFetch(`${API_V1_BASE_URL}/posts/${postId}/like`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ liked }),
@@ -179,12 +166,10 @@ export async function setPostLiked(
 export async function setPostFavorited(
   postId: number,
   favorited: boolean,
-  accessToken: string,
 ) {
-  const response = await apiFetch(`${API_V1_BASE_URL}/posts/${postId}/favorite`, {
+  const response = await authFetch(`${API_V1_BASE_URL}/posts/${postId}/favorite`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ favorited }),
@@ -195,12 +180,9 @@ export async function setPostFavorited(
   return (await response.json()) as FavoriteResponse;
 }
 
-export async function dislikePost(postId: number, accessToken: string) {
-  const response = await apiFetch(`${API_V1_BASE_URL}/posts/${postId}/dislike`, {
+export async function dislikePost(postId: number) {
+  const response = await authFetch(`${API_V1_BASE_URL}/posts/${postId}/dislike`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
   });
   if (!response.ok) {
     await throwApiError(response);
@@ -211,7 +193,6 @@ export async function dislikePost(postId: number, accessToken: string) {
 export async function uploadPostImage(
   uri: string,
   fileName: string,
-  accessToken: string,
   kind: "image" | "cover" | "avatar" = "image",
   onProgress?: (pct: number) => void,
 ) {
@@ -223,6 +204,9 @@ export async function uploadPostImage(
     guessMimeType(fileName, "image/jpeg"),
   );
   formData.append("file", imageFile);
+
+  const session = await loadAuthSession();
+  const accessToken = session?.accessToken ?? "";
 
   const baseUrl = `${API_V1_BASE_URL}/uploads/images`;
 
@@ -271,7 +255,6 @@ export async function uploadPostImage(
 export async function uploadPostDocument(
   uri: string,
   fileName: string,
-  accessToken: string,
   mimeType?: string | null,
 ) {
   const formData = new FormData();
@@ -283,11 +266,8 @@ export async function uploadPostDocument(
   );
   formData.append("file", documentFile);
 
-  const response = await apiFetch(`${API_V1_BASE_URL}/uploads/documents`, {
+  const response = await authFetch(`${API_V1_BASE_URL}/uploads/documents`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
     body: formData,
   });
   if (!response.ok) {
@@ -303,7 +283,6 @@ export async function uploadPostDocument(
 export async function parsePostDocument(
   uri: string,
   fileName: string,
-  accessToken: string,
   mimeType?: string | null,
 ) {
   const formData = new FormData();
@@ -314,11 +293,8 @@ export async function parsePostDocument(
   );
   formData.append("file", documentFile);
 
-  const response = await apiFetch(`${API_V1_BASE_URL}/uploads/parse-document`, {
+  const response = await authFetch(`${API_V1_BASE_URL}/uploads/parse-document`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
     body: formData,
   });
   if (!response.ok) {

@@ -56,7 +56,6 @@ export function useBlogTranslation({
             field: "body",
             target_language: language,
           },
-          activeSession.accessToken,
         );
         setTranslatedBody(result.translated_text);
         setIsBodyTranslationVisible(true);

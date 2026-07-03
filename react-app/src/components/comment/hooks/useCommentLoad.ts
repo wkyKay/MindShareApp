@@ -88,7 +88,7 @@ export function useCommentLoad({
       setMessage("");
       setHasScrolledToFocus(false);
       try {
-        const data = await getComments(postId, accessToken, controller.signal);
+        const data = await getComments(postId, controller.signal);
         if (isMounted) {
           setComments(data.items);
           onCommentCountChange(data.total);

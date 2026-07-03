@@ -71,7 +71,6 @@ export function useProfileSettingsForm({
       const uploaded = await uploadPostImage(
         resized.uri,
         asset.fileName || `profile-background-${Date.now()}.jpg`,
-        activeSession.accessToken,
         "cover",
       );
       if (!uploaded.url) {
@@ -113,7 +112,6 @@ export function useProfileSettingsForm({
           ...(password.trim() ? { password: password.trim() } : {}),
           ...(backgroundAssetId ? { background_asset_id: backgroundAssetId } : {}),
         },
-        activeSession.accessToken,
       );
       setAuthSession({ ...activeSession, user: updatedUser });
       setPassword("");

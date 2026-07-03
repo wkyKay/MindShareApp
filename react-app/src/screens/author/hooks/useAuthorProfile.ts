@@ -29,8 +29,8 @@ export function useAuthorProfile({
   const [author, setAuthor] = useState<AuthorInfo | null>(null);
 
   const loadAuthor = useCallback(async () => {
-    return getAuthorInfo(authorId, session?.accessToken);
-  }, [authorId, session?.accessToken]);
+    return getAuthorInfo(authorId);
+  }, [authorId]);
 
   const toggleFollow = useCallback(async () => {
     if (!session) {
@@ -44,7 +44,6 @@ export function useAuthorProfile({
     try {
       const data = await setAuthorFollowing(
         author.id,
-        session.accessToken,
         !author.is_following,
       );
       setAuthor({ ...author, is_following: data.following });
@@ -61,7 +60,6 @@ export function useAuthorProfile({
     if (!author) return;
     try {
       const conversation = await createOrGetConversation(
-        session.accessToken,
         author.id,
       );
       onOpenMessage(conversation.id, author.id, author.display_name);

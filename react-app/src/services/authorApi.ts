@@ -1,4 +1,5 @@
 import { API_V1_BASE_URL } from "../config/api";
+import { authFetch } from "./apiClient";
 import { apiFetch, throwApiError } from "./apiError";
 import type {
   PageResponse,
@@ -17,12 +18,8 @@ export type AuthorInfo = {
   is_following: boolean;
 };
 
-export async function getAuthorInfo(authorId: number, accessToken?: string) {
-  const response = await apiFetch(`${API_V1_BASE_URL}/users/${authorId}`, {
-    headers: accessToken
-      ? { Authorization: `Bearer ${accessToken}` }
-      : undefined,
-  });
+export async function getAuthorInfo(authorId: number) {
+  const response = await authFetch(`${API_V1_BASE_URL}/users/${authorId}`);
   if (!response.ok) {
     await throwApiError(response);
   }
@@ -31,15 +28,11 @@ export async function getAuthorInfo(authorId: number, accessToken?: string) {
 
 export async function setAuthorFollowing(
   authorId: number,
-  accessToken: string,
   following: boolean,
 ) {
-  const response = await apiFetch(`${API_V1_BASE_URL}/users/${authorId}/follow`, {
+  const response = await authFetch(`${API_V1_BASE_URL}/users/${authorId}/follow`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ following }),
   });
   if (!response.ok) {
@@ -62,17 +55,9 @@ export async function getAuthorPosts(
   return (await response.json()) as PageResponse<ProfilePost>;
 }
 
-export async function getAuthorCollections(
-  authorId: number,
-  accessToken?: string,
-) {
-  const response = await apiFetch(
+export async function getAuthorCollections(authorId: number) {
+  const response = await authFetch(
     `${API_V1_BASE_URL}/users/${authorId}/collections`,
-    {
-      headers: accessToken
-        ? { Authorization: `Bearer ${accessToken}` }
-        : undefined,
-    },
   );
   if (!response.ok) {
     await throwApiError(response);

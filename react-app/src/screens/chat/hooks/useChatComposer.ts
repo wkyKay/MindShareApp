@@ -31,7 +31,6 @@ export function useChatComposer({
     if (!text) return;
     try {
       const created = await sendMessage(
-        session.accessToken,
         conversationId,
         text,
       );

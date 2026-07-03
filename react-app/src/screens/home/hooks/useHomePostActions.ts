@@ -34,7 +34,7 @@ export function useHomePostActions({
         current.filter((post) => post.id !== postId),
       );
       try {
-        await dislikePost(postId, session.accessToken);
+        await dislikePost(postId);
       } catch (error) {
         handleApiError(error, {
           fallback: "操作失败，请稍后重试。",
@@ -44,7 +44,6 @@ export function useHomePostActions({
     },
     [
       handleApiError,
-      session?.accessToken,
       setContentMessage,
       setDiscoverPosts,
       setFollowingPosts,

@@ -57,8 +57,8 @@ export function useHomeSearch({ selectedTag, session }: UseHomeSearchOptions) {
         try {
           const [tags, users, posts] = await Promise.all([
             getTagSuggestions(query, controller.signal),
-            searchUsers(query, session?.accessToken, 5, controller.signal),
-            searchPostsByTitle(query, session?.accessToken, 5, controller.signal),
+            searchUsers(query, 5, controller.signal),
+            searchPostsByTitle(query, 5, controller.signal),
           ]);
           if (isMounted) {
             setTagSuggestions(tags);

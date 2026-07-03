@@ -17,7 +17,7 @@ type NotificationStore = {
   connectionStatus: "idle" | "connecting" | "connected" | "disconnected";
   socket: WebSocket | null;
   hydrate: (session: AuthSession | null) => Promise<void>;
-  connect: (session: AuthSession | null) => void;
+  connect: (session: AuthSession | null) => Promise<void>;
   disconnect: () => void;
   refreshNotifications: (session: AuthSession | null) => Promise<void>;
   markPostRead: (session: AuthSession | null, postId: number) => Promise<void>;
@@ -47,9 +47,9 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     }
     const [unreadCountData, postUnreadCounts, notificationPage] =
       await Promise.all([
-        getNotificationUnreadCount(session.accessToken),
-        getPostUnreadCounts(session.accessToken),
-        listNotifications(session.accessToken),
+        getNotificationUnreadCount(),
+        getPostUnreadCounts(),
+        listNotifications(),
       ]);
     set({
       unreadCount: unreadCountData.unread_count,
@@ -60,7 +60,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     });
     get().connect(session);
   },
-  connect(session) {
+  async connect(session) {
     if (!session) {
       get().disconnect();
       return;
@@ -72,7 +72,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     currentSocket?.close();
     set({ connectionStatus: "connecting" });
     const socket = new WebSocket(
-      getNotificationsWebSocketUrl(session.accessToken),
+      await getNotificationsWebSocketUrl(),
     );
     socket.onopen = () => {
       set({ connectionStatus: "connected", socket });
@@ -110,7 +110,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       set({ notifications: [] });
       return;
     }
-    const notificationPage = await listNotifications(session.accessToken);
+    const notificationPage = await listNotifications();
     set({ notifications: notificationPage.items });
   },
   async markPostRead(session, postId) {
@@ -121,7 +121,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     if (!currentCount) {
       return;
     }
-    await markNotificationsRead(session.accessToken, { postId });
+    await markNotificationsRead({ postId });
     set((state) => ({
       unreadCount: Math.max(0, state.unreadCount - currentCount),
       unreadByPostId: { ...state.unreadByPostId, [postId]: 0 },
@@ -140,7 +140,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     if (!notification || notification.is_read) {
       return;
     }
-    await markNotificationsRead(session.accessToken, { notificationId });
+    await markNotificationsRead({ notificationId });
     set((state) => ({
       unreadCount: Math.max(0, state.unreadCount - 1),
       unreadByPostId:

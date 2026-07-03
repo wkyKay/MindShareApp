@@ -14,9 +14,9 @@ export function useFollowingFeed({ setContentMessage }: UseFollowingFeedOptions)
   const [followingHasMore, setFollowingHasMore] = useState(true);
 
   const loadFollowingPage = useCallback(
-    async (nextPage: number, token: string, replace = false) => {
+    async (nextPage: number, _token: string, replace = false) => {
       setContentMessage("");
-      const data = await getFollowingPosts(nextPage, token, PAGE_SIZE);
+      const data = await getFollowingPosts(nextPage, PAGE_SIZE);
       setFollowingPosts((currentPosts) =>
         replace ? data.items : appendUniquePosts(currentPosts, data.items),
       );

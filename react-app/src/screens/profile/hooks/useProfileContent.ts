@@ -39,10 +39,10 @@ export function useProfileContent(session: AuthSession) {
         try {
           const [postsData, favoritesData, collectionsData, followingData] =
             await Promise.all([
-              getMyPosts(session.accessToken),
-              getMyFavorites(session.accessToken),
-              getMyCollections(session.accessToken),
-              getMyFollowing(session.accessToken),
+              getMyPosts(),
+              getMyFavorites(),
+              getMyCollections(),
+              getMyFollowing(),
             ]);
           if (isMounted) {
             setPosts(postsData.items);

@@ -6,6 +6,7 @@ const AUTH_SESSION_KEY = "auth.session.v1";
 
 export type AuthSession = {
   accessToken: string;
+  refreshToken: string;
   tokenType: string;
   user: AuthUser;
 };
@@ -13,6 +14,7 @@ export type AuthSession = {
 export async function saveAuthSession(tokenResponse: TokenResponse) {
   const session: AuthSession = {
     accessToken: tokenResponse.access_token,
+    refreshToken: tokenResponse.refresh_token,
     tokenType: tokenResponse.token_type,
     user: tokenResponse.user,
   };
@@ -41,7 +43,7 @@ export async function refreshAuthSession() {
     return null;
   }
 
-  const user = await getMe(session.accessToken);
+  const user = await getMe();
   const refreshedSession = { ...session, user };
   await AsyncStorage.setItem(
     AUTH_SESSION_KEY,

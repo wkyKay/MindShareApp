@@ -1,5 +1,6 @@
 import { API_V1_BASE_URL } from "../config/api";
-import { apiFetch, throwApiError } from "./apiError";
+import { authFetch } from "./apiClient";
+import { throwApiError } from "./apiError";
 
 export type CommentItem = {
   id: number;
@@ -22,25 +23,13 @@ export type CommentPage = {
   total: number;
 };
 
-function authHeaders(accessToken?: string, contentType = false) {
-  if (!accessToken && !contentType) return undefined;
-  return {
-    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    ...(contentType ? { "Content-Type": "application/json" } : {}),
-  };
-}
-
 export async function getComments(
   postId: number,
-  accessToken?: string,
   signal?: AbortSignal,
 ) {
-  const response = await apiFetch(
+  const response = await authFetch(
     `${API_V1_BASE_URL}/posts/${postId}/comments?page=1&page_size=100`,
-    {
-      headers: authHeaders(accessToken),
-      signal,
-    },
+    { signal },
   );
   if (!response.ok) {
     await throwApiError(response);
@@ -51,12 +40,11 @@ export async function getComments(
 export async function createComment(
   postId: number,
   body: string,
-  accessToken: string,
   parentId?: number | null,
 ) {
-  const response = await apiFetch(`${API_V1_BASE_URL}/posts/${postId}/comments`, {
+  const response = await authFetch(`${API_V1_BASE_URL}/posts/${postId}/comments`, {
     method: "POST",
-    headers: authHeaders(accessToken, true),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ body, parent_id: parentId ?? null }),
   });
   if (!response.ok) {
@@ -65,10 +53,9 @@ export async function createComment(
   return (await response.json()) as CommentItem;
 }
 
-export async function deleteComment(commentId: number, accessToken: string) {
-  const response = await apiFetch(`${API_V1_BASE_URL}/comments/${commentId}`, {
+export async function deleteComment(commentId: number) {
+  const response = await authFetch(`${API_V1_BASE_URL}/comments/${commentId}`, {
     method: "DELETE",
-    headers: authHeaders(accessToken),
   });
   if (!response.ok) {
     await throwApiError(response);
@@ -78,13 +65,12 @@ export async function deleteComment(commentId: number, accessToken: string) {
 export async function setCommentLiked(
   commentId: number,
   liked: boolean,
-  accessToken: string,
 ) {
-  const response = await apiFetch(
+  const response = await authFetch(
     `${API_V1_BASE_URL}/comments/${commentId}/like`,
     {
       method: "POST",
-      headers: authHeaders(accessToken, true),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ liked }),
     },
   );

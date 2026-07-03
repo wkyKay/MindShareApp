@@ -46,12 +46,10 @@ export function useProfileAvatar({
       const uploaded = await uploadPostImage(
         resized.uri,
         asset.fileName || `avatar-${Date.now()}.jpg`,
-        session.accessToken,
         "avatar",
       );
       const updatedUser = await updateMe(
         { avatar_asset_id: uploaded.id },
-        session.accessToken,
       );
       setAuthSession({ ...session, user: updatedUser });
     } catch (error) {

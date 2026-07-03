@@ -53,7 +53,6 @@ export function useBlogEditor({
             body: nextBody,
             summary: nextSummary,
           },
-          currentSession.accessToken,
         );
         setPost({
           ...post,

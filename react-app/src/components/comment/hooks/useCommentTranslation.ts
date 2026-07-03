@@ -53,7 +53,6 @@ export function useCommentTranslation({
           field: "body",
           target_language: i18n.language,
         },
-        currentSession.accessToken,
       );
       setTranslatedComments((current) => ({
         ...current,

@@ -1,4 +1,5 @@
 import { API_BASE_URL, API_V1_BASE_URL } from "../config/api";
+import { authFetch } from "./apiClient";
 import { apiFetch, throwApiError } from "./apiError";
 
 export type AuthMode = "login" | "register";
@@ -27,6 +28,7 @@ export type RegisterPayload = {
 
 export type TokenResponse = {
   access_token: string;
+  refresh_token: string;
   token_type: string;
   user: AuthUser;
 };
@@ -52,7 +54,7 @@ export type UpdateMePayload = {
 };
 
 async function apiRequest<T>(path: string, options?: RequestInit) {
-  const response = await apiFetch(`${API_V1_BASE_URL}${path}`, options);
+  const response = await authFetch(`${API_V1_BASE_URL}${path}`, options);
   if (!response.ok) {
     await throwApiError(response);
   }
@@ -83,21 +85,14 @@ export function register(payload: RegisterPayload) {
   });
 }
 
-export function getMe(accessToken: string) {
-  return apiRequest<AuthUser>("/auth/me", {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  }).then(normalizeAuthUser);
+export function getMe() {
+  return apiRequest<AuthUser>("/auth/me").then(normalizeAuthUser);
 }
 
-export function updateMe(payload: UpdateMePayload, accessToken: string) {
+export function updateMe(payload: UpdateMePayload) {
   return apiRequest<AuthUser>("/users/me", {
     method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   }).then(normalizeAuthUser);
 }

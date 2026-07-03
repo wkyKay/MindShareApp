@@ -17,7 +17,7 @@ export function useMessageSearch(session: AuthSession | null) {
     }
     const timer = setTimeout(async () => {
       try {
-        const data = await searchUsers(session.accessToken, q);
+        const data = await searchUsers(q);
         if (isMounted) setSearchResults(data);
       } catch {
         if (isMounted) setSearchResults([]);

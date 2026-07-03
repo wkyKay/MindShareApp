@@ -49,7 +49,7 @@ export function useProfilePostActions({
     setIsContentLoading(true);
     setContentMessage("");
     try {
-      await deletePost(post.id, session.accessToken);
+      await deletePost(post.id);
       setPostPendingDelete(null);
       setPosts((current) => current.filter((item) => item.id !== post.id));
       setCollectionPosts((current) =>

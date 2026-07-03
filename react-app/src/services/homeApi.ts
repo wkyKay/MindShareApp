@@ -1,4 +1,5 @@
 import { API_V1_BASE_URL } from "../config/api";
+import { authFetch } from "./apiClient";
 import { apiFetch, throwApiError } from "./apiError";
 
 export type Post = {
@@ -44,16 +45,10 @@ export async function getDiscoverPosts(
   pageSize: number = 10,
   seed: number = 1,
   tag?: string | null,
-  accessToken?: string,
 ) {
   const tagParam = tag ? `&tag=${encodeURIComponent(tag)}` : "";
-  const response = await apiFetch(
+  const response = await authFetch(
     `${API_V1_BASE_URL}/posts?tab=discover&page=${page}&page_size=${pageSize}&seed=${seed}${tagParam}`,
-    {
-      headers: accessToken
-        ? { Authorization: `Bearer ${accessToken}` }
-        : undefined,
-    },
   );
   if (!response.ok) {
     await throwApiError(response);
@@ -63,18 +58,12 @@ export async function getDiscoverPosts(
 
 export async function searchPostsByTitle(
   query: string,
-  accessToken?: string,
   pageSize: number = 5,
   signal?: AbortSignal,
 ) {
-  const response = await apiFetch(
+  const response = await authFetch(
     `${API_V1_BASE_URL}/posts?tab=discover&page=1&page_size=${pageSize}&seed=1&q=${encodeURIComponent(query)}`,
-    {
-      headers: accessToken
-        ? { Authorization: `Bearer ${accessToken}` }
-        : undefined,
-      signal,
-    },
+    { signal },
   );
   if (!response.ok) {
     await throwApiError(response);
@@ -95,18 +84,12 @@ export async function getTagSuggestions(query: string, signal?: AbortSignal) {
 
 export async function searchUsers(
   query: string,
-  accessToken?: string,
   limit: number = 5,
   signal?: AbortSignal,
 ) {
-  const response = await apiFetch(
+  const response = await authFetch(
     `${API_V1_BASE_URL}/users/search?q=${encodeURIComponent(query)}&limit=${limit}`,
-    {
-      headers: accessToken
-        ? { Authorization: `Bearer ${accessToken}` }
-        : undefined,
-      signal,
-    },
+    { signal },
   );
   if (!response.ok) {
     await throwApiError(response);
@@ -116,16 +99,10 @@ export async function searchUsers(
 
 export async function getFollowingPosts(
   page: number = 1,
-  accessToken: string,
   pageSize: number = 10,
 ) {
-  const response = await apiFetch(
+  const response = await authFetch(
     `${API_V1_BASE_URL}/posts?tab=following&page=${page}&page_size=${pageSize}`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    },
   );
   if (!response.ok) {
     await throwApiError(response);
