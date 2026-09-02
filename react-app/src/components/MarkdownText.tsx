@@ -25,7 +25,7 @@ type StreamdownTheme = Exclude<
   "dark" | "light" | undefined
 >;
 
-function createMarkdownTheme(colors: AppColors): StreamdownTheme {
+export function createMarkdownTheme(colors: AppColors): StreamdownTheme {
   return {
     colors: {
       background: colors.background,

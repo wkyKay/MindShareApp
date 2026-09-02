@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { FlatList, View } from "react-native";
+import { FlatList, RefreshControl, View } from "react-native";
 
 import type { AppStyles } from "../../components/styles";
 import type { Post } from "../../services/homeApi";
@@ -46,10 +46,15 @@ export function HomePostList({
           if (isActive) onEndReached();
         }}
         onEndReachedThreshold={0.35}
-        refreshing={isActive && isRefreshing}
-        onRefresh={() => {
-          if (isActive) onRefresh();
-        }}
+        refreshControl={
+          isActive ? (
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+            />
+          ) : undefined
+        }
+        alwaysBounceVertical={isActive}
         initialNumToRender={6}
         maxToRenderPerBatch={6}
         updateCellsBatchingPeriod={40}

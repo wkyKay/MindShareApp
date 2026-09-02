@@ -43,3 +43,6 @@ backend-server/.redis.pid
 *.key
 *.mobileprovision
 *.pem
+
+# showcase 展示目录（本地展示，不上传 GitHub）
+showcase/

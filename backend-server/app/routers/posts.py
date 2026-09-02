@@ -131,7 +131,7 @@ def create_post(
     db.refresh(post)
 
     if post.status == "published":
-        from ...tasks.rag_tasks import sync_post_chunks
+        from ..tasks.rag_tasks import sync_post_chunks
 
         sync_post_chunks.delay(post.id)
 
@@ -275,11 +275,11 @@ def update_post(
     db.refresh(post)
 
     if post.status == "published":
-        from ...tasks.rag_tasks import sync_post_chunks
+        from ..tasks.rag_tasks import sync_post_chunks
 
         sync_post_chunks.delay(post.id)
     elif post.status in ("draft", "archived"):
-        from ...tasks.rag_tasks import delete_post_chunks
+        from ..tasks.rag_tasks import delete_post_chunks
 
         delete_post_chunks.delay(post.id)
 
@@ -306,7 +306,7 @@ def delete_post(
     post.status = "deleted"
     db.commit()
 
-    from ...tasks.rag_tasks import delete_post_chunks
+    from ..tasks.rag_tasks import delete_post_chunks
 
     delete_post_chunks.delay(post.id)
 

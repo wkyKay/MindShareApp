@@ -345,6 +345,7 @@ function MainTabsScreen({
   navigation,
   openAuthorProfileAware,
 }: MainTabsScreenProps) {
+  
   function withPageBoundary(children: React.ReactNode, resetKey: string) {
     return (
       <PageErrorBoundary

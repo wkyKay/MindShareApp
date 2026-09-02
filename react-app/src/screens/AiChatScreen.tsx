@@ -1,8 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, Text, TextInput, View } from "react-native";
+import { StreamdownRN } from "streamdown-rn";
 
 import { useTranslation } from "react-i18next";
+import { createMarkdownTheme } from "../components/MarkdownText";
 import { useApiErrorHandler } from "../hooks/useApiErrorHandler";
 import { streamAiChat, type AiChatRequestMessage } from "../services/aiChatApi";
 import { useAuthStore } from "../stores/authStore";
@@ -21,6 +23,7 @@ function createMessageId() {
 
 export function AiChatScreen() {
   const { colors, styles } = useAppTheme();
+  const markdownTheme = useMemo(() => createMarkdownTheme(colors), [colors]);
   const { t } = useTranslation();
   const handleApiError = useApiErrorHandler();
   const session = useAuthStore((state) => state.session);
@@ -37,7 +40,7 @@ export function AiChatScreen() {
 
   function scrollToBottom() {
     requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: true });
+      listRef.current?.scrollToEnd({ animated: false });
     });
   }
 
@@ -168,11 +171,22 @@ export function AiChatScreen() {
               item.role === "user" ? styles.messageBubbleMine : styles.messageBubbleOther,
             ]}
           >
-            <Text style={styles.messageBubbleText}>
-              {item.content || (item.status === "streaming" ? t("正在思考...") : "")}
-            </Text>
+            {item.role === "assistant" && item.content.trim() ? (
+              <StreamdownRN
+                theme={markdownTheme}
+                isComplete={item.status === "done"}
+                style={{ flex: 0 }}
+              >
+                {item.content}
+              </StreamdownRN>
+            ) : (
+              <Text style={styles.messageBubbleText}>
+                {item.content || (item.status === "streaming" ? t("正在思考...") : "")}
+              </Text>
+            )}
           </View>
         )}
+        keyboardShouldPersistTaps="handled"
       />
 
       {notice ? <Text style={[styles.chatComposerHint, styles.messageCenterSubtitle]}>{notice}</Text> : null}

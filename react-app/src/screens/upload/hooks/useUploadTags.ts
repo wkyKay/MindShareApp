@@ -18,9 +18,15 @@ export function useUploadTags() {
     setTags((currentTags) => currentTags.filter((item) => item !== tag));
   }
 
+  function reset() {
+    setTagInput("");
+    setTags([]);
+  }
+
   return {
     addTag,
     removeTag,
+    reset,
     setTagInput,
     tagInput,
     tags,

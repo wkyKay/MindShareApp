@@ -147,7 +147,7 @@ def upload_document(
     asset.public_url = public_url
     db.commit()
 
-    from ...tasks.document_tasks import parse_document_async
+    from ..tasks.document_tasks import parse_document_async
 
     parse_document_async.delay(asset.id)
 

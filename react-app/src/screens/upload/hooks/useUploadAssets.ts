@@ -181,10 +181,7 @@ export function useUploadAssets({
         setMessage("Markdown 文件没有解析出正文内容。");
         return;
       }
-      const importedMarkdown = t("## 来自文件：{{name}}\n\n{{content}}\n", {
-        name: parsed.original_name,
-        content: parsed.extracted_text.trim(),
-      });
+      const importedMarkdown = `${parsed.extracted_text.trim()}\n`;
       setBody(
         (current) =>
           `${current}${current.trim() ? "\n\n" : ""}${importedMarkdown}`,
@@ -194,12 +191,19 @@ export function useUploadAssets({
     }
   }
 
+  function reset() {
+    setImages([]);
+    setDocuments([]);
+    setUploadProgress(0);
+  }
+
   return {
     documents,
     images,
     parseTextDocument,
     pickDocument,
     pickImage,
+    reset,
     uploadProgress,
   };
 }

@@ -57,6 +57,16 @@ export function UploadScreen({
     setMessage,
     t,
   });
+
+  function handleSaved() {
+    setTitle("");
+    setBody("");
+    setMessage("");
+    uploadAssets.reset();
+    uploadTags.reset();
+    onSaved();
+  }
+
   const uploadSubmit = useUploadSubmit({
     currentSession,
     requireAuthSession,
@@ -66,7 +76,7 @@ export function UploadScreen({
     documents: uploadAssets.documents,
     tags: uploadTags.tags,
     setMessage,
-    onSaved,
+    onSaved: handleSaved,
   });
 
   return (

@@ -63,7 +63,6 @@ export function HomeScreen({
   const selectedTag = selectedRouteTag ?? null;
   const {
     clearSearch,
-    isSearchFocused,
     searchError,
     searchStatus,
     setIsSearchFocused,
@@ -87,7 +86,6 @@ export function HomeScreen({
     followingPage,
     followingPosts,
     loadFollowingPage,
-    resetFollowing,
     setFollowingPosts,
   } = useFollowingFeed({ setContentMessage });
   const { actionPostId, markPostDisliked, setActionPostId } =
@@ -142,14 +140,37 @@ export function HomeScreen({
   }, [handleApiError, loadDiscoverPage, selectedRouteTag, session?.accessToken]);
 
   useEffect(() => {
-    if (
-      section === "following" &&
-      session?.accessToken &&
-      followingPage === 0
-    ) {
-      void loadFollowingPage(1, session.accessToken, true);
+    if (section !== "following" || !session?.accessToken || followingPage !== 0) {
+      return;
     }
-  }, [followingPage, loadFollowingPage, section, session]);
+
+    let isMounted = true;
+    setIsInitialLoading(true);
+    void loadFollowingPage(1, session.accessToken, true)
+      .catch((error) => {
+        if (isMounted) {
+          handleApiError(error, {
+            fallback: "内容加载失败",
+            setMessage: setContentMessage,
+          });
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsInitialLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    followingPage,
+    handleApiError,
+    loadFollowingPage,
+    section,
+    session?.accessToken,
+  ]);
 
   const loadMore = useCallback(async () => {
     if (isLoadingMore || isRefreshing || !hasMore) {
@@ -211,28 +232,9 @@ export function HomeScreen({
 
   const switchSection = useCallback((nextSection: "discover" | "following") => {
     setContentMessage("");
+    setIsSearchFocused(false);
     setActiveSection(nextSection);
-    if (nextSection === "following") {
-      resetFollowing();
-      if (session?.accessToken) {
-        setIsInitialLoading(true);
-        void loadFollowingPage(1, session.accessToken, true)
-          .catch((error) =>
-            handleApiError(error, {
-              fallback: "内容加载失败",
-              setMessage: setContentMessage,
-            }),
-          )
-          .finally(() => setIsInitialLoading(false));
-      }
-    }
-  }, [
-    handleApiError,
-    loadFollowingPage,
-    resetFollowing,
-    session?.accessToken,
-    setActiveSection,
-  ]);
+  }, [setActiveSection, setIsSearchFocused]);
 
   function renderFooter() {
     if (showInitialSkeleton) {
@@ -353,8 +355,9 @@ export function HomeScreen({
           switchSection(nextIndex === 0 ? "discover" : "following")
         }
         initialLayout={{ width: layout.width }}
+        renderLazyPlaceholder={() => <HomePostListSkeleton />}
         style={styles.homeScreen}
-        swipeEnabled={!isSearchFocused}
+        swipeEnabled
         lazy
       />
     </View>
