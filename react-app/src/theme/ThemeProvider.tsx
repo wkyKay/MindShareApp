@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -17,6 +18,8 @@ import {
   type AppThemeMode,
   type ResolvedThemeMode,
 } from "./colors";
+import { fetchUserTheme } from "../services/themeApi";
+import { useAuthStore } from "../stores/authStore";
 
 export const THEME_STORAGE_KEY = "app.themeMode";
 export const CUSTOM_LIGHT_THEME_KEY = "app.customLightTheme";
@@ -81,6 +84,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [previewTheme, setPreviewTheme] = useState<PartialThemeColors | null>(
     null,
   );
+  const session = useAuthStore((state) => state.session);
+  const serverThemeAppliedRef = useRef(false);
 
   // 初始化：从 AsyncStorage 读取主题模式和自定义主题
   useEffect(() => {
@@ -97,6 +102,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       ) {
         setModeState(storedMode);
       }
+      // 登录后以服务器返回的主题为准，已从服务器应用过则忽略本地缓存
+      if (serverThemeAppliedRef.current) return;
       if (storedLight) {
         try {
           setCustomLightTheme(JSON.parse(storedLight) as PartialThemeColors);
@@ -202,6 +209,30 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     },
     [],
   );
+
+  // 登录后必须重新从服务器拉取主题：有数据则应用，无数据则维持默认。
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      if (!session) {
+        serverThemeAppliedRef.current = false;
+        await resetCustomTheme("all");
+        return;
+      }
+      try {
+        const theme = await fetchUserTheme(session.accessToken);
+        if (cancelled) return;
+        serverThemeAppliedRef.current = true;
+        await setCustomTheme(theme.light, "light");
+        await setCustomTheme(theme.dark, "dark");
+      } catch {
+        // 拉取失败时保留本地缓存，避免网络异常清空用户主题
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session, setCustomTheme, resetCustomTheme]);
 
   const value: AppThemeContextValue = {
     colors,
