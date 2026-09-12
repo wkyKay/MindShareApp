@@ -1,17 +1,22 @@
+"""AI 对话接口（基于 LangGraph Agent）。
+
+完全兼容原有 SSE 事件格式，新增 theme_proposal 事件。
+"""
+
 import json
-from typing import AsyncIterator, List, Literal
+from typing import AsyncIterator, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from openai import AsyncOpenAI, OpenAIError
+from openai import OpenAIError
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from ..agent.graph import run_agent_stream
 from ..auth import get_current_user
-from ..config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
 from ..database import get_db
 from ..models import User
-from ..rag.retriever import retrieve as rag_retrieve, RetrievedChunk
+from ..rag.retriever import RetrievedChunk, retrieve as rag_retrieve
 
 router = APIRouter()
 
@@ -23,26 +28,30 @@ class AiChatMessage(BaseModel):
 
 class AiChatRequest(BaseModel):
     messages: list[AiChatMessage] = Field(default_factory=list)
+    # 可选：当前激活的主题模式，用于 Agent 生成主题时参考
+    current_mode: Literal["light", "dark"] = "light"
 
 
-def _sse_event(payload: dict[str, str]) -> str:
+def _sse_event(payload: dict) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
-def _create_deepseek_client() -> AsyncOpenAI:
-    if not DEEPSEEK_API_KEY:
-        raise HTTPException(status_code=500, detail="DeepSeek API key is not configured")
-    return AsyncOpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
+def _load_existing_theme(user: User, mode: str) -> Optional[Dict[str, str]]:
+    """读取用户已有的自定义主题（增量字典）。"""
+    import json as _json
 
+    from ..schemas import VALID_THEME_COLOR_KEYS
 
-def _build_rag_context(chunks: List[RetrievedChunk]) -> str:
-    if not chunks:
-        return ""
-    parts = ["以下是与用户问题相关的站内博客内容，请参考这些内容回答：\n"]
-    for item in chunks:
-        parts.append(f"【来源：{item.post_title}】\n{item.chunk.content}\n")
-    parts.append("如果以下内容不足以回答用户问题，请诚实说明，并基于你的知识补充。\n")
-    return "\n".join(parts)
+    raw = user.custom_light_theme if mode == "light" else user.custom_dark_theme
+    if not raw:
+        return None
+    try:
+        data = _json.loads(raw)
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if k in VALID_THEME_COLOR_KEYS}
+    except (_json.JSONDecodeError, TypeError):
+        return None
+    return None
 
 
 @router.post("/chat/stream")
@@ -52,49 +61,61 @@ async def stream_ai_chat(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
-    client = _create_deepseek_client()
+    """AI 对话流式接口（Agent 版本）。
 
-    # 提取最后一条用户消息作为检索查询
+    SSE 事件类型：
+    - start: 流开始
+    - delta: 增量文本
+    - theme_proposal: 主题方案提议（新增，结构化数据）
+    - done: 流结束
+    - error: 错误信息
+    """
+    # 提取最后一条用户消息作为 RAG 检索查询
     last_user_msg = ""
     for msg in reversed(payload.messages):
         if msg.role == "user":
             last_user_msg = msg.content
             break
 
-    # RAG 检索
+    # RAG 检索（保留原有能力）
     chunks: List[RetrievedChunk] = []
     if last_user_msg.strip():
-        chunks = rag_retrieve(last_user_msg, current_user, db)
+        try:
+            chunks = rag_retrieve(last_user_msg, current_user, db)
+        except Exception:
+            # RAG 失败不影响主流程
+            chunks = []
 
-    # 构建消息列表
-    messages: list[dict] = []
-
+    # 构建 RAG 上下文文本
+    rag_context = ""
     if chunks:
-        context = _build_rag_context(chunks)
-        messages.append({"role": "system", "content": context})
+        parts = ["以下是与用户问题相关的站内博客内容，请参考这些内容回答：\n"]
+        for item in chunks:
+            parts.append(f"【来源：{item.post_title}】\n{item.chunk.content}\n")
+        parts.append("如果以下内容不足以回答用户问题，请诚实说明，并基于你的知识补充。\n")
+        rag_context = "\n".join(parts)
 
-    for msg in payload.messages:
-        messages.append(msg.model_dump())
+    # 读取用户已有自定义主题
+    existing_theme = _load_existing_theme(current_user, payload.current_mode)
+
+    # 转换消息格式
+    messages_dict = [m.model_dump() for m in payload.messages]
 
     async def generate() -> AsyncIterator[str]:
-        yield _sse_event({"type": "start"})
         try:
-            stream = await client.chat.completions.create(
-                model=DEEPSEEK_MODEL,
-                messages=messages,
-                stream=True,
-            )
-            async for chunk in stream:
+            async for event in run_agent_stream(
+                messages=messages_dict,
+                rag_context=rag_context,
+                current_mode=payload.current_mode,
+                existing_custom_theme=existing_theme,
+            ):
                 if await request.is_disconnected():
                     return
-                delta = chunk.choices[0].delta.content or ""
-                if delta:
-                    yield _sse_event({"type": "delta", "content": delta})
-            yield _sse_event({"type": "done"})
+                yield _sse_event(event)
         except OpenAIError as error:
             yield _sse_event({"type": "error", "message": f"DeepSeek 调用失败：{error}"})
-        except Exception:
-            yield _sse_event({"type": "error", "message": "AI 回复失败，请稍后重试。"})
+        except Exception as exc:
+            yield _sse_event({"type": "error", "message": f"AI 回复失败：{exc}"})
 
     return StreamingResponse(
         generate(),

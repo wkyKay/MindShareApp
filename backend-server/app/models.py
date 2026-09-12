@@ -40,6 +40,12 @@ class User(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(
         String(20), default="active", nullable=False, index=True, comment="账号状态：active、disabled、deleted"
     )
+    custom_light_theme: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True, comment="用户自定义浅色主题，JSON 格式，只存储修改过的颜色键"
+    )
+    custom_dark_theme: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True, comment="用户自定义深色主题，JSON 格式，只存储修改过的颜色键"
+    )
 
 
 class Captcha(Base):

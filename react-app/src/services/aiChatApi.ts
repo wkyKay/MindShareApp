@@ -1,5 +1,6 @@
 import { API_V1_BASE_URL } from "../config/api";
 import i18n from "../i18n";
+import type { PartialThemeColors } from "../theme/ThemeProvider";
 import { createApiErrorFromBody, createNetworkApiError } from "./apiError";
 
 export type AiChatRole = "user" | "assistant" | "system";
@@ -12,14 +13,22 @@ export type AiChatRequestMessage = {
 type AiStreamEvent =
   | { type: "start" }
   | { type: "delta"; content?: string }
+  | {
+      type: "theme_proposal";
+      theme: PartialThemeColors;
+      description: string;
+    }
   | { type: "done" }
   | { type: "error"; message?: string };
 
 type StreamAiChatOptions = {
   accessToken: string;
   messages: AiChatRequestMessage[];
+  /** 当前激活的主题模式，用于 Agent 生成主题时参考 */
+  currentMode?: "light" | "dark";
   signal?: AbortSignal;
   onDelta: (content: string) => void;
+  onThemeProposal?: (theme: PartialThemeColors, description: string) => void;
   onDone?: () => void;
   onError?: (message: string) => void;
 };
@@ -51,8 +60,10 @@ function createAbortError() {
 export async function streamAiChat({
   accessToken,
   messages,
+  currentMode = "light",
   signal,
   onDelta,
+  onThemeProposal,
   onDone,
   onError,
 }: StreamAiChatOptions) {
@@ -74,6 +85,10 @@ export async function streamAiChat({
       if (!event || event.type === "start") return;
       if (event.type === "delta") {
         onDelta(event.content || "");
+        return;
+      }
+      if (event.type === "theme_proposal") {
+        onThemeProposal?.(event.theme, event.description);
         return;
       }
       if (event.type === "error") {
@@ -101,7 +116,7 @@ export async function streamAiChat({
         try {
           handleEvent(parseSseBlock(block));
         } catch {
-          settle(new Error(i18n.t("AI 回复解析失败，请稍后重试。")));
+          // 忽略解析失败的事件（向前兼容：未知事件类型）
         }
       }
     }
@@ -135,6 +150,6 @@ export async function streamAiChat({
     xhr.onerror = () => settle(createNetworkApiError());
     xhr.onabort = () => settle(createAbortError());
     signal?.addEventListener("abort", abort);
-    xhr.send(JSON.stringify({ messages }));
+    xhr.send(JSON.stringify({ messages, current_mode: currentMode }));
   });
 }

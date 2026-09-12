@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -429,3 +429,82 @@ class PageResponse(BaseModel):
     page: int
     page_size: int
     total: int
+
+
+# ---------- 主题定制 ----------
+
+VALID_THEME_COLOR_KEYS = {
+    "background",
+    "surface",
+    "surfaceSoft",
+    "surfaceWarm",
+    "surfacePink",
+    "surfacePinkStrong",
+    "text",
+    "textMuted",
+    "textSubtle",
+    "border",
+    "borderStrong",
+    "primary",
+    "primaryText",
+    "danger",
+    "dangerText",
+    "warning",
+    "warningBorder",
+    "warningText",
+    "overlay",
+    "imageOverlay",
+    "white",
+}
+
+
+class ThemeColors(BaseModel):
+    """部分主题颜色，键必须是合法的 AppColors 键，值为 hex 颜色字符串。"""
+
+    model_config = {"extra": "forbid"}
+
+    background: Optional[str] = None
+    surface: Optional[str] = None
+    surfaceSoft: Optional[str] = None
+    surfaceWarm: Optional[str] = None
+    surfacePink: Optional[str] = None
+    surfacePinkStrong: Optional[str] = None
+    text: Optional[str] = None
+    textMuted: Optional[str] = None
+    textSubtle: Optional[str] = None
+    border: Optional[str] = None
+    borderStrong: Optional[str] = None
+    primary: Optional[str] = None
+    primaryText: Optional[str] = None
+    danger: Optional[str] = None
+    dangerText: Optional[str] = None
+    warning: Optional[str] = None
+    warningBorder: Optional[str] = None
+    warningText: Optional[str] = None
+    overlay: Optional[str] = None
+    imageOverlay: Optional[str] = None
+    white: Optional[str] = None
+
+    def to_non_null_dict(self) -> dict[str, str]:
+        """返回只包含非空值的字典。"""
+        return {k: v for k, v in self.model_dump().items() if v is not None}
+
+
+class ThemeApplyRequest(BaseModel):
+    """应用主题请求：增量更新当前激活模式的自定义主题。"""
+
+    theme: ThemeColors
+    mode: Literal["light", "dark"] = Field(description="当前激活的主题模式")
+
+
+class ThemeResponse(BaseModel):
+    """用户自定义主题响应（两套），未设置为 null。"""
+
+    light: Optional[dict[str, str]] = None
+    dark: Optional[dict[str, str]] = None
+
+
+class ThemeResetRequest(BaseModel):
+    """重置主题请求。"""
+
+    mode: Literal["light", "dark", "all"] = "all"

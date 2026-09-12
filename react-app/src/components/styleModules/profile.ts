@@ -1,5 +1,3 @@
-import { StyleSheet } from "react-native";
-
 import type { AppColors } from "../../theme/colors";
 
 export function createProfileStyles(colors: AppColors) {
@@ -16,7 +14,11 @@ export function createProfileStyles(colors: AppColors) {
       overflow: "hidden",
     },
     profileHeaderBackgroundImage: {
-      ...StyleSheet.absoluteFillObject,
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
     },
     profileHeaderOverlay: {
       backgroundColor: "rgba(0, 0, 0, 0.18)",

@@ -71,6 +71,18 @@ type MainTabScreenProps<RouteName extends keyof MainTabParamList> =
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+function withPageBoundary(children: React.ReactNode, resetKey: string) {
+  return (
+    <PageErrorBoundary
+      fallbackTitle="页面加载失败"
+      retryLabel="重试"
+      resetKey={resetKey}
+    >
+      {children}
+    </PageErrorBoundary>
+  );
+}
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -113,18 +125,6 @@ function AppShell() {
       return;
     }
     navigation.navigate("author", { authorId });
-  }
-
-  function withPageBoundary(children: React.ReactNode, resetKey: string) {
-    return (
-      <PageErrorBoundary
-        fallbackTitle="页面加载失败"
-        retryLabel="重试"
-        resetKey={resetKey}
-      >
-        {children}
-      </PageErrorBoundary>
-    );
   }
 
   useEffect(() => {
@@ -322,10 +322,7 @@ function AppShell() {
               </Stack.Screen>
             </Stack.Navigator>
           </View>
-          <StatusBar
-            style={resolvedMode === "dark" ? "light" : "dark"}
-            backgroundColor={colors.background}
-          />
+          <StatusBar style={resolvedMode === "dark" ? "light" : "dark"} />
         </View>
       </NavigationContainer>
     </GestureHandlerRootView>
@@ -345,19 +342,6 @@ function MainTabsScreen({
   navigation,
   openAuthorProfileAware,
 }: MainTabsScreenProps) {
-  
-  function withPageBoundary(children: React.ReactNode, resetKey: string) {
-    return (
-      <PageErrorBoundary
-        fallbackTitle="页面加载失败"
-        retryLabel="重试"
-        resetKey={resetKey}
-      >
-        {children}
-      </PageErrorBoundary>
-    );
-  }
-
   return (
     <Tab.Navigator
       initialRouteName="home"
