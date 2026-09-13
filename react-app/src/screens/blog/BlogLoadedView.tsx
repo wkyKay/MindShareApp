@@ -36,6 +36,7 @@ type BlogLoadedViewProps = {
   onToggleBodyTranslation: () => void;
   onToggleLike: () => void;
   onToggleFavorite: () => void;
+  onOpenAi: () => void;
   onCommentCountChange: (commentCount: number) => void;
 };
 
@@ -65,6 +66,7 @@ export function BlogLoadedView({
   onToggleBodyTranslation,
   onToggleLike,
   onToggleFavorite,
+  onOpenAi,
   onCommentCountChange,
 }: BlogLoadedViewProps) {
   const { colors, styles } = useAppTheme();
@@ -101,6 +103,7 @@ export function BlogLoadedView({
             onPreviewImage={onPreviewImage}
             onImageRatio={onImageRatio}
             onToggleBodyTranslation={onToggleBodyTranslation}
+            onOpenAi={onOpenAi}
             styles={styles}
             t={t}
           />
@@ -131,6 +134,7 @@ export function BlogLoadedView({
       onPreviewImage,
       onSaveEdit,
       onToggleBodyTranslation,
+      onOpenAi,
       post,
       previewImageUrl,
       styles,

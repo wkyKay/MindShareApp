@@ -25,6 +25,7 @@ import { PageErrorBoundary } from "./src/components/PageErrorBoundary";
 import { useApiErrorHandler } from "./src/hooks/useApiErrorHandler";
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { AiChatScreen } from "./src/screens/AiChatScreen";
+import { BlogAiChatScreen } from "./src/screens/BlogAiChatScreen";
 import { BlogScreen } from "./src/screens/BlogScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { MessagesScreen } from "./src/screens/MessagesScreen";
@@ -58,6 +59,7 @@ type RootStackParamList = {
   profileSettings: undefined;
   auth: undefined;
   blog: { postId: number; focusCommentId?: number; startEditing?: boolean };
+  blogAiChat: { postId: number; mode: "read" | "edit" };
   author: { authorId: number };
   chat: { conversationId: number; partnerId: number; partnerName: string };
 };
@@ -270,8 +272,24 @@ function AppShell() {
                           params: { tag },
                         })
                       }
+                      onOpenAi={(postId, mode) =>
+                        navigation.navigate("blogAiChat", { postId, mode })
+                      }
                     />,
                     `blog-${route.params.postId}`,
+                  )
+                )}
+              </Stack.Screen>
+
+              <Stack.Screen name="blogAiChat">
+                {({ navigation, route }: AppScreenProps<"blogAiChat">) => (
+                  withPageBoundary(
+                    <BlogAiChatScreen
+                      postId={route.params.postId}
+                      mode={route.params.mode}
+                      onBack={() => navigation.goBack()}
+                    />,
+                    `blogAiChat-${route.params.postId}-${route.params.mode}`,
                   )
                 )}
               </Stack.Screen>

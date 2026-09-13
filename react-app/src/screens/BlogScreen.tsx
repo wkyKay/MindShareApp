@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { Pressable, Text, View } from "react-native";
 
 import { BlogDetailSkeleton } from "../components/Skeleton";
@@ -25,6 +26,7 @@ type BlogScreenProps = {
   onRequireAuth: () => void;
   onOpenAuthor: (authorId: number) => void;
   onOpenTag: (tag: string) => void;
+  onOpenAi: (postId: number, mode: "read" | "edit") => void;
 };
 
 export function BlogScreen({
@@ -37,6 +39,7 @@ export function BlogScreen({
   onBack,
   onDeleted,
   onRequireAuth,
+  onOpenAi,
 }: BlogScreenProps) {
   const { colors, styles } = useAppTheme();
   const storeSession = useAuthStore((state) => state.session);
@@ -46,6 +49,7 @@ export function BlogScreen({
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
   const showSkeleton = useDelayedLoading(isLoading, 250);
+  const hasLoadedOnceRef = useRef(false);
   const handleApiError = useApiErrorHandler();
   const { i18n, t } = useTranslation();
   const { handleImageRatio, imageRatios, previewImageUrl, setPreviewImageUrl } =
@@ -135,6 +139,36 @@ export function BlogScreen({
     );
   }, []);
 
+  // 从博客 AI 页返回时刷新博客内容（AI 可能修改过）
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasLoadedOnceRef.current) {
+        hasLoadedOnceRef.current = true;
+        return;
+      }
+      let cancelled = false;
+      async function refresh() {
+        try {
+          const data = await getPost(postId);
+          if (!cancelled) {
+            setPost(data);
+          }
+        } catch (error) {
+          if (!cancelled) {
+            handleApiError(error, {
+              fallback: "博客加载失败，请稍后重试。",
+              setMessage,
+            });
+          }
+        }
+      }
+      void refresh();
+      return () => {
+        cancelled = true;
+      };
+    }, [handleApiError, postId]),
+  );
+
   const handleSaveEdit = useCallback(() => {
     void saveEdit(post);
   }, [post, saveEdit]);
@@ -150,6 +184,12 @@ export function BlogScreen({
   const handleToggleLike = useCallback(() => {
     void toggleLike(post);
   }, [post, toggleLike]);
+
+  const handleOpenAi = useCallback(() => {
+    if (!post) return;
+    const mode: "read" | "edit" = post.is_owner ? "edit" : "read";
+    onOpenAi(post.id, mode);
+  }, [onOpenAi, post]);
 
   if (showSkeleton) {
     return <BlogDetailSkeleton onBack={onBack} />;
@@ -195,6 +235,7 @@ export function BlogScreen({
       onToggleBodyTranslation={handleToggleBodyTranslation}
       onToggleFavorite={handleToggleFavorite}
       onToggleLike={handleToggleLike}
+      onOpenAi={handleOpenAi}
       post={post}
       previewImageUrl={previewImageUrl}
       session={currentSession}

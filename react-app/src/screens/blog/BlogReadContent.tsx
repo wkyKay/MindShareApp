@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 
@@ -21,6 +22,7 @@ type BlogReadContentProps = {
   onPreviewImage: (imageUrl: string) => void;
   onImageRatio: (imageUrl: string, ratio: number) => void;
   onToggleBodyTranslation: () => void;
+  onOpenAi: () => void;
   styles: AppStyles;
   t: (key: string) => string;
 };
@@ -39,6 +41,7 @@ export function BlogReadContent({
   onPreviewImage,
   onImageRatio,
   onToggleBodyTranslation,
+  onOpenAi,
   styles,
   t,
 }: BlogReadContentProps) {
@@ -56,7 +59,20 @@ export function BlogReadContent({
         <Pressable style={styles.backButton} onPress={onBack}>
           <Text style={styles.backButtonText}>{t("‹ 返回")}</Text>
         </Pressable>
-        <Text style={styles.pageTitle}>{post.title}</Text>
+        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <Text style={[styles.pageTitle, { flex: 1 }]}>{post.title}</Text>
+          <Pressable
+            onPress={onOpenAi}
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 14,
+              backgroundColor: "transparent",
+            }}
+          >
+            <Ionicons name="sparkles" size={22} color={primaryTextColor} />
+          </Pressable>
+        </View>
         <Pressable onPress={() => onOpenAuthor(post.author.id)}>
           <Text style={styles.cardAuthor}>{post.author.display_name}</Text>
         </Pressable>

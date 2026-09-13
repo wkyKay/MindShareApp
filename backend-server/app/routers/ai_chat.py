@@ -12,10 +12,11 @@ from openai import OpenAIError
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from ..agent.blog_agent import run_blog_agent_stream
 from ..agent.graph import run_agent_stream
 from ..auth import get_current_user
 from ..database import get_db
-from ..models import User
+from ..models import Post, User
 from ..rag.retriever import RetrievedChunk, retrieve as rag_retrieve
 
 router = APIRouter()
@@ -30,6 +31,12 @@ class AiChatRequest(BaseModel):
     messages: list[AiChatMessage] = Field(default_factory=list)
     # 可选：当前激活的主题模式，用于 Agent 生成主题时参考
     current_mode: Literal["light", "dark"] = "light"
+
+
+class AiBlogChatRequest(BaseModel):
+    post_id: int
+    messages: list[AiChatMessage] = Field(default_factory=list)
+    mode: Literal["read", "edit"] = "read"
 
 
 def _sse_event(payload: dict) -> str:
@@ -108,6 +115,67 @@ async def stream_ai_chat(
                 rag_context=rag_context,
                 current_mode=payload.current_mode,
                 existing_custom_theme=existing_theme,
+            ):
+                if await request.is_disconnected():
+                    return
+                yield _sse_event(event)
+        except OpenAIError as error:
+            yield _sse_event({"type": "error", "message": f"DeepSeek 调用失败：{error}"})
+        except Exception as exc:
+            yield _sse_event({"type": "error", "message": f"AI 回复失败：{exc}"})
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/blog/stream")
+async def stream_blog_ai_chat(
+    payload: AiBlogChatRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    """博客专属 AI 流式接口。
+
+    - read 模式：把该博客正文作为上下文，进行问答。
+    - edit 模式：仅博客作者可用，根据用户要求输出修改提案（标题/摘要/正文）。
+
+    SSE 事件类型：start / delta / post_edit_proposal / done / error。
+    """
+    row = (
+        db.query(Post, User)
+        .join(User, User.id == Post.author_id)
+        .filter(Post.id == payload.post_id)
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="博客不存在")
+    post, _author = row
+
+    if post.status == "deleted" and current_user.id != post.author_id:
+        raise HTTPException(status_code=404, detail="博客已删除")
+    if post.visibility == "private" and current_user.id != post.author_id:
+        raise HTTPException(status_code=403, detail="无权查看该博客")
+
+    is_owner = post.author_id == current_user.id
+    if payload.mode == "edit" and not is_owner:
+        raise HTTPException(status_code=403, detail="只能编辑自己的博客")
+
+    async def generate() -> AsyncIterator[str]:
+        try:
+            async for event in run_blog_agent_stream(
+                messages=[m.model_dump() for m in payload.messages],
+                title=post.title,
+                summary=post.summary,
+                body=post.body,
+                mode=payload.mode,
             ):
                 if await request.is_disconnected():
                     return
