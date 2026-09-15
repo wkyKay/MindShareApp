@@ -37,10 +37,21 @@ def retrieve(
     current_user: User,
     db: Session,
     top_k: int = TOP_K,
+    post_ids: Optional[set[int]] = None,
+    include_archived_own: bool = False,
 ) -> List[RetrievedChunk]:
-    """混合召回 + 可选 cross-encoder 精排，按权限过滤后返回 top_k。"""
+    """混合召回 + 可选 cross-encoder 精排，按权限过滤后返回 top_k。
+
+    post_ids 可选：仅在该集合内的博客 chunk 中检索，用于表达
+    author / only_mine / only_favorites 等 chunk 级 scope 过滤。
+    include_archived_own 可选：为 True 时把当前用户已归档文章的 chunk 纳入可见集。
+    """
     # 权限过滤：只搜当前用户可见的博客
-    allowed_chunks = _visible_chunks(current_user, db)
+    allowed_chunks = _visible_chunks(
+        current_user, db, include_archived_own=include_archived_own
+    )
+    if post_ids is not None:
+        allowed_chunks = [c for c in allowed_chunks if c.post_id in post_ids]
     if not allowed_chunks:
         return []
 
@@ -76,7 +87,11 @@ def retrieve(
 
 # ── helpers ────────────────────────────────────────────────────────────
 
-def _visible_chunks(user: User, db: Session) -> List[TextChunk]:
+def _visible_chunks(
+    user: User,
+    db: Session,
+    include_archived_own: bool = False,
+) -> List[TextChunk]:
     """返回当前用户有权查看的所有 chunk。
 
     可见规则：
@@ -85,6 +100,7 @@ def _visible_chunks(user: User, db: Session) -> List[TextChunk]:
     - visibility=private → 仅作者本人
     - status=published → 已发布
     - status=deleted → 不可见
+    - include_archived_own=True 时，额外允许当前用户已归档（archived）文章
     """
     following_ids = {
         row[0]
@@ -93,11 +109,17 @@ def _visible_chunks(user: User, db: Session) -> List[TextChunk]:
         .all()
     }
 
+    status_filter = Post.status == "published"
+    if include_archived_own:
+        status_filter = (Post.status == "published") | (
+            (Post.status == "archived") & (Post.author_id == user.id)
+        )
+
     chunks = (
         db.query(TextChunk)
         .join(Post, Post.id == TextChunk.post_id)
         .filter(
-            Post.status == "published",
+            status_filter,
             (Post.visibility == "public")
             | ((Post.visibility == "followers") & Post.author_id.in_(following_ids | {user.id}))
             | ((Post.visibility == "private") & (Post.author_id == user.id)),

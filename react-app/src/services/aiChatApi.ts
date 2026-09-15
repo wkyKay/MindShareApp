@@ -2,6 +2,7 @@ import { API_V1_BASE_URL } from "../config/api";
 import i18n from "../i18n";
 import type { PartialThemeColors } from "../theme/ThemeProvider";
 import { createApiErrorFromBody, createNetworkApiError } from "./apiError";
+import { refreshAuthTokens } from "./apiClient";
 
 export type AiChatRole = "user" | "assistant" | "system";
 
@@ -18,6 +19,12 @@ type AiStreamEvent =
       theme: PartialThemeColors;
       description: string;
     }
+  | {
+      type: "tool_status";
+      tool?: string;
+      status?: "running" | "done";
+      display?: string;
+    }
   | { type: "done" }
   | { type: "error"; message?: string };
 
@@ -29,6 +36,7 @@ type StreamAiChatOptions = {
   signal?: AbortSignal;
   onDelta: (content: string) => void;
   onThemeProposal?: (theme: PartialThemeColors, description: string) => void;
+  onToolStatus?: (tool: string, status: "running" | "done", display?: string) => void;
   onDone?: () => void;
   onError?: (message: string) => void;
 };
@@ -64,14 +72,13 @@ export async function streamAiChat({
   signal,
   onDelta,
   onThemeProposal,
+  onToolStatus,
   onDone,
   onError,
 }: StreamAiChatOptions) {
   return new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    let buffer = "";
-    let processedLength = 0;
     let settled = false;
+    let activeXhr: XMLHttpRequest | null = null;
 
     function settle(error?: Error) {
       if (settled) return;
@@ -79,6 +86,11 @@ export async function streamAiChat({
       signal?.removeEventListener("abort", abort);
       if (error) reject(error);
       else resolve();
+    }
+
+    function abort() {
+      activeXhr?.abort();
+      settle(createAbortError());
     }
 
     function handleEvent(event: AiStreamEvent | null) {
@@ -89,6 +101,10 @@ export async function streamAiChat({
       }
       if (event.type === "theme_proposal") {
         onThemeProposal?.(event.theme, event.description);
+        return;
+      }
+      if (event.type === "tool_status") {
+        onToolStatus?.(event.tool || "", event.status || "running", event.display);
         return;
       }
       if (event.type === "error") {
@@ -103,27 +119,63 @@ export async function streamAiChat({
       }
     }
 
-    function processChunk() {
-      if (xhr.status >= 400) return;
-      const chunk = xhr.responseText.slice(processedLength);
-      processedLength = xhr.responseText.length;
-      buffer += chunk;
+    function runRequest(token: string, retried: boolean) {
+      if (settled) return;
 
-      const blocks = buffer.split(/\r?\n\r?\n/);
-      buffer = blocks.pop() || "";
+      const xhr = new XMLHttpRequest();
+      activeXhr = xhr;
+      let buffer = "";
+      let processedLength = 0;
 
-      for (const block of blocks) {
-        try {
-          handleEvent(parseSseBlock(block));
-        } catch {
-          // 忽略解析失败的事件（向前兼容：未知事件类型）
+      function processChunk() {
+        if (xhr.status >= 400) return;
+        const chunk = xhr.responseText.slice(processedLength);
+        processedLength = xhr.responseText.length;
+        buffer += chunk;
+
+        const blocks = buffer.split(/\r?\n\r?\n/);
+        buffer = blocks.pop() || "";
+
+        for (const block of blocks) {
+          try {
+            handleEvent(parseSseBlock(block));
+          } catch {
+            // 忽略解析失败的事件（向前兼容：未知事件类型）
+          }
         }
       }
-    }
 
-    function abort() {
-      xhr.abort();
-      settle(createAbortError());
+      xhr.open("POST", `${API_V1_BASE_URL}/ai/chat/stream`);
+      xhr.setRequestHeader("Accept", "text/event-stream");
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.onprogress = processChunk;
+      xhr.onload = async () => {
+        // 401：静默刷新 access token 后重试一次，避免向 UI 抛错
+        if (xhr.status === 401 && !retried) {
+          const newSession = await refreshAuthTokens();
+          if (settled) return;
+          if (newSession) {
+            runRequest(newSession.accessToken, true);
+            return;
+          }
+          settle(createXhrApiError(xhr.status, xhr.responseText));
+          return;
+        }
+        if (xhr.status >= 400) {
+          settle(createXhrApiError(xhr.status, xhr.responseText));
+          return;
+        }
+        processChunk();
+        if (!settled) {
+          onDone?.();
+          settle();
+        }
+      };
+      xhr.onerror = () => settle(createNetworkApiError());
+      xhr.onabort = () => settle(createAbortError());
+      signal?.addEventListener("abort", abort);
+      xhr.send(JSON.stringify({ messages, current_mode: currentMode }));
     }
 
     if (signal?.aborted) {
@@ -131,26 +183,7 @@ export async function streamAiChat({
       return;
     }
 
-    xhr.open("POST", `${API_V1_BASE_URL}/ai/chat/stream`);
-    xhr.setRequestHeader("Accept", "text/event-stream");
-    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
-    xhr.setRequestHeader("Content-Type", "application/json");
-    xhr.onprogress = processChunk;
-    xhr.onload = () => {
-      if (xhr.status >= 400) {
-        settle(createXhrApiError(xhr.status, xhr.responseText));
-        return;
-      }
-      processChunk();
-      if (!settled) {
-        onDone?.();
-        settle();
-      }
-    };
-    xhr.onerror = () => settle(createNetworkApiError());
-    xhr.onabort = () => settle(createAbortError());
-    signal?.addEventListener("abort", abort);
-    xhr.send(JSON.stringify({ messages, current_mode: currentMode }));
+    runRequest(accessToken, false);
   });
 }
 
@@ -173,6 +206,12 @@ type BlogStreamEvent =
       body: string;
       description: string;
     }
+  | {
+      type: "tool_status";
+      tool?: string;
+      status?: "running" | "done";
+      display?: string;
+    }
   | { type: "done" }
   | { type: "error"; message?: string };
 
@@ -184,6 +223,7 @@ type StreamBlogAiChatOptions = {
   signal?: AbortSignal;
   onDelta: (content: string) => void;
   onPostEditProposal?: (proposal: PostEditProposal) => void;
+  onToolStatus?: (tool: string, status: "running" | "done", display?: string) => void;
   onDone?: () => void;
   onError?: (message: string) => void;
 };
@@ -196,14 +236,13 @@ export async function streamBlogAiChat({
   signal,
   onDelta,
   onPostEditProposal,
+  onToolStatus,
   onDone,
   onError,
 }: StreamBlogAiChatOptions) {
   return new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    let buffer = "";
-    let processedLength = 0;
     let settled = false;
+    let activeXhr: XMLHttpRequest | null = null;
 
     function settle(error?: Error) {
       if (settled) return;
@@ -211,6 +250,11 @@ export async function streamBlogAiChat({
       signal?.removeEventListener("abort", abort);
       if (error) reject(error);
       else resolve();
+    }
+
+    function abort() {
+      activeXhr?.abort();
+      settle(createAbortError());
     }
 
     function handleEvent(event: BlogStreamEvent | null) {
@@ -228,6 +272,10 @@ export async function streamBlogAiChat({
         });
         return;
       }
+      if (event.type === "tool_status") {
+        onToolStatus?.(event.tool || "", event.status || "running", event.display);
+        return;
+      }
       if (event.type === "error") {
         const message = event.message || i18n.t("AI 回复失败，请稍后重试。");
         onError?.(message);
@@ -240,27 +288,63 @@ export async function streamBlogAiChat({
       }
     }
 
-    function processChunk() {
-      if (xhr.status >= 400) return;
-      const chunk = xhr.responseText.slice(processedLength);
-      processedLength = xhr.responseText.length;
-      buffer += chunk;
+    function runRequest(token: string, retried: boolean) {
+      if (settled) return;
 
-      const blocks = buffer.split(/\r?\n\r?\n/);
-      buffer = blocks.pop() || "";
+      const xhr = new XMLHttpRequest();
+      activeXhr = xhr;
+      let buffer = "";
+      let processedLength = 0;
 
-      for (const block of blocks) {
-        try {
-          handleEvent(parseSseBlock<BlogStreamEvent>(block));
-        } catch {
-          // 忽略解析失败的事件（向前兼容：未知事件类型）
+      function processChunk() {
+        if (xhr.status >= 400) return;
+        const chunk = xhr.responseText.slice(processedLength);
+        processedLength = xhr.responseText.length;
+        buffer += chunk;
+
+        const blocks = buffer.split(/\r?\n\r?\n/);
+        buffer = blocks.pop() || "";
+
+        for (const block of blocks) {
+          try {
+            handleEvent(parseSseBlock<BlogStreamEvent>(block));
+          } catch {
+            // 忽略解析失败的事件（向前兼容：未知事件类型）
+          }
         }
       }
-    }
 
-    function abort() {
-      xhr.abort();
-      settle(createAbortError());
+      xhr.open("POST", `${API_V1_BASE_URL}/ai/blog/stream`);
+      xhr.setRequestHeader("Accept", "text/event-stream");
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.onprogress = processChunk;
+      xhr.onload = async () => {
+        // 401：静默刷新 access token 后重试一次，避免向 UI 抛错
+        if (xhr.status === 401 && !retried) {
+          const newSession = await refreshAuthTokens();
+          if (settled) return;
+          if (newSession) {
+            runRequest(newSession.accessToken, true);
+            return;
+          }
+          settle(createXhrApiError(xhr.status, xhr.responseText));
+          return;
+        }
+        if (xhr.status >= 400) {
+          settle(createXhrApiError(xhr.status, xhr.responseText));
+          return;
+        }
+        processChunk();
+        if (!settled) {
+          onDone?.();
+          settle();
+        }
+      };
+      xhr.onerror = () => settle(createNetworkApiError());
+      xhr.onabort = () => settle(createAbortError());
+      signal?.addEventListener("abort", abort);
+      xhr.send(JSON.stringify({ post_id: postId, mode, messages }));
     }
 
     if (signal?.aborted) {
@@ -268,25 +352,6 @@ export async function streamBlogAiChat({
       return;
     }
 
-    xhr.open("POST", `${API_V1_BASE_URL}/ai/blog/stream`);
-    xhr.setRequestHeader("Accept", "text/event-stream");
-    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
-    xhr.setRequestHeader("Content-Type", "application/json");
-    xhr.onprogress = processChunk;
-    xhr.onload = () => {
-      if (xhr.status >= 400) {
-        settle(createXhrApiError(xhr.status, xhr.responseText));
-        return;
-      }
-      processChunk();
-      if (!settled) {
-        onDone?.();
-        settle();
-      }
-    };
-    xhr.onerror = () => settle(createNetworkApiError());
-    xhr.onabort = () => settle(createAbortError());
-    signal?.addEventListener("abort", abort);
-    xhr.send(JSON.stringify({ post_id: postId, mode, messages }));
+    runRequest(accessToken, false);
   });
 }

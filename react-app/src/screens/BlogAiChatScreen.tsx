@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   Text,
@@ -40,6 +41,7 @@ type AiChatMessage = {
   content: string;
   status?: "streaming" | "done" | "error";
   postEditProposal?: PostEditProposalState;
+  toolStatus?: string | null;
 };
 
 function createMessageId() {
@@ -184,6 +186,19 @@ export function BlogAiChatScreen({
                       ...proposal,
                       status: "pending",
                     },
+                  }
+                : item,
+            ),
+          );
+          scrollToBottom();
+        },
+        onToolStatus(tool, status, display) {
+          setMessages((current) =>
+            current.map((item) =>
+              item.id === assistantMessage.id
+                ? {
+                    ...item,
+                    toolStatus: status === "running" ? display || tool : null,
                   }
                 : item,
             ),
@@ -396,6 +411,22 @@ export function BlogAiChatScreen({
         }
         renderItem={({ item }) => (
           <View>
+            {item.role === "assistant" && item.toolStatus ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  paddingLeft: 4,
+                  paddingBottom: 4,
+                }}
+              >
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={{ color: colors.textMuted, fontSize: 12 }}>
+                  {item.toolStatus}
+                </Text>
+              </View>
+            ) : null}
             <View
               style={[
                 styles.messageBubble,

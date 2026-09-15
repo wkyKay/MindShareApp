@@ -12,8 +12,8 @@ from openai import OpenAIError
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from ..agent.blog_agent import run_blog_agent_stream
 from ..agent.graph import run_agent_stream
+from ..agent.nodes import build_blog_context
 from ..auth import get_current_user
 from ..database import get_db
 from ..models import Post, User
@@ -115,6 +115,8 @@ async def stream_ai_chat(
                 rag_context=rag_context,
                 current_mode=payload.current_mode,
                 existing_custom_theme=existing_theme,
+                db=db,
+                current_user=current_user,
             ):
                 if await request.is_disconnected():
                     return
@@ -157,7 +159,7 @@ async def stream_blog_ai_chat(
     )
     if row is None:
         raise HTTPException(status_code=404, detail="博客不存在")
-    post, _author = row
+    post, author = row
 
     if post.status == "deleted" and current_user.id != post.author_id:
         raise HTTPException(status_code=404, detail="博客已删除")
@@ -168,14 +170,20 @@ async def stream_blog_ai_chat(
     if payload.mode == "edit" and not is_owner:
         raise HTTPException(status_code=403, detail="只能编辑自己的博客")
 
+    blog_context = build_blog_context(post.title, post.summary, post.body)
+    # read 模式跳过意图检测直达 chat；edit 模式仅允许 chat / post_edit
+    intent_scope: Optional[List[str]] = [] if payload.mode == "read" else ["chat", "post_edit"]
+
     async def generate() -> AsyncIterator[str]:
         try:
-            async for event in run_blog_agent_stream(
+            async for event in run_agent_stream(
                 messages=[m.model_dump() for m in payload.messages],
-                title=post.title,
-                summary=post.summary,
-                body=post.body,
-                mode=payload.mode,
+                db=db,
+                current_user=current_user,
+                blog_context=blog_context,
+                current_author_id=post.author_id,
+                current_author_name=author.username,
+                intent_scope=intent_scope,
             ):
                 if await request.is_disconnected():
                     return

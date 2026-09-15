@@ -1,93 +1,88 @@
 """Agent 工作流图构建与流式运行。"""
 
-import json
 from typing import Any, AsyncIterator, Dict, List, Literal, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 
-from ..config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
 from .nodes import (
-    chat_response_node,
     generate_theme_node,
     intent_detect_node,
+    make_agent_reason_node,
+    make_tool_executor_node,
+    post_edit_proposal_node,
+    route_after_reason,
     route_by_intent,
 )
 from .state import AgentState
+from .tools import build_tools
+
+# 工具名 → 前端展示文案
+TOOL_DISPLAY = {
+    "search_posts": "正在搜索站内文章",
+    "rag_retrieve": "正在检索站内文章",
+    "get_post": "正在查看文章全文",
+    "list_collections": "正在查看你的收藏",
+}
 
 
-def build_agent_graph() -> StateGraph:
-    """构建 Agent 工作流图。
+def _tool_status(name: str, status: str) -> Dict[str, str]:
+    payload: Dict[str, str] = {"type": "tool_status", "tool": name, "status": status}
+    if status == "running":
+        payload["display"] = TOOL_DISPLAY.get(name, "正在执行工具")
+    return payload
+
+
+def build_agent_graph(tools: list, skip_intent: bool = False):
+    """构建统一 Agent 工作流图。
 
     流程：
         intent_detect
-            ├── "chat" ──▶ chat_response ──▶ END
-            └── "theme" ──▶ generate_theme ──▶ END
+            ├── "chat" ──▶ agent_reason ⇅ tool_executor ──▶ END
+            ├── "theme" ──▶ generate_theme ──▶ END
+            └── "post_edit" ──▶ post_edit_proposal ──▶ END
+
+    skip_intent=True 时（博客 read 模式）直接以 agent_reason 为入口。
     """
     workflow = StateGraph(AgentState)
 
     workflow.add_node("intent_detect", intent_detect_node)
     workflow.add_node("generate_theme", generate_theme_node)
-    workflow.add_node("chat_response", chat_response_node)
+    workflow.add_node("post_edit", post_edit_proposal_node)
+    workflow.add_node("agent_reason", make_agent_reason_node(tools))
+    workflow.add_node("tool_executor", make_tool_executor_node(tools))
 
-    workflow.set_entry_point("intent_detect")
+    if skip_intent:
+        workflow.set_entry_point("agent_reason")
+    else:
+        workflow.set_entry_point("intent_detect")
+        workflow.add_conditional_edges(
+            "intent_detect",
+            route_by_intent,
+            {
+                "chat": "agent_reason",
+                "theme": "generate_theme",
+                "post_edit": "post_edit",
+            },
+        )
 
     workflow.add_conditional_edges(
-        "intent_detect",
-        route_by_intent,
+        "agent_reason",
+        route_after_reason,
         {
-            "chat": "chat_response",
-            "theme": "generate_theme",
+            "tool_executor": "tool_executor",
+            "end": END,
         },
     )
-
+    workflow.add_edge("tool_executor", "agent_reason")
     workflow.add_edge("generate_theme", END)
-    workflow.add_edge("chat_response", END)
+    workflow.add_edge("post_edit", END)
 
-    return workflow
-
-
-def _get_llm() -> ChatOpenAI:
-    return ChatOpenAI(
-        api_key=DEEPSEEK_API_KEY,
-        base_url=DEEPSEEK_BASE_URL,
-        model=DEEPSEEK_MODEL,
-        temperature=0.7,
-    )
+    return workflow.compile()
 
 
-CHAT_SYSTEM_PROMPT_TEMPLATE = """你是一个知识博客 App 的 AI 助手，擅长回答用户问题。
-
-{rag_context}
-
-请用中文回答用户问题。如果提供了参考资料，请优先基于资料回答；如果资料不足，请诚实说明，再基于你的知识补充。"""
-
-
-async def run_agent_stream(
-    messages: List[Dict[str, str]],
-    rag_context: str = "",
-    current_mode: Literal["light", "dark"] = "light",
-    existing_custom_theme: Optional[Dict[str, str]] = None,
-) -> AsyncIterator[Dict[str, Any]]:
-    """运行 Agent 并以 SSE 事件形式输出结果。
-
-    Args:
-        messages: 对话历史，每条包含 role 和 content
-        rag_context: RAG 检索到的上下文文本
-        current_mode: 当前激活的主题模式
-        existing_custom_theme: 用户已有的自定义主题
-
-    Yields:
-        SSE 事件字典：
-        - {"type": "start"}
-        - {"type": "delta", "content": "..."}
-        - {"type": "theme_proposal", "theme": {...}, "description": "..."}
-        - {"type": "done"}
-        - {"type": "error", "message": "..."}
-    """
-    # 将字典消息转换为 LangChain Message 对象
-    lc_messages: list = []
+def _to_lc_messages(messages: List[Dict[str, str]]) -> list:
+    lc_messages = []
     for msg in messages:
         role = msg.get("role", "user")
         content = msg.get("content", "")
@@ -97,8 +92,38 @@ async def run_agent_stream(
             lc_messages.append(AIMessage(content=content))
         elif role == "system":
             lc_messages.append(SystemMessage(content=content))
+    return lc_messages
 
-    # 构建初始状态
+
+async def run_agent_stream(
+    messages: List[Dict[str, str]],
+    rag_context: str = "",
+    current_mode: Literal["light", "dark"] = "light",
+    existing_custom_theme: Optional[Dict[str, str]] = None,
+    db=None,
+    current_user=None,
+    blog_context: Optional[str] = None,
+    current_author_id: Optional[int] = None,
+    current_author_name: Optional[str] = None,
+    intent_scope: Optional[List[str]] = None,
+) -> AsyncIterator[Dict[str, Any]]:
+    """运行统一 Agent 并以 SSE 事件形式输出结果。
+
+    Yields:
+        - {"type": "start"}
+        - {"type": "tool_status", "tool": "...", "status": "running"|"done", "display": "..."}
+        - {"type": "delta", "content": "..."}
+        - {"type": "theme_proposal", "theme": {...}, "description": "..."}
+        - {"type": "post_edit_proposal", "title": ..., "summary": ..., "body": ..., "description": ...}
+        - {"type": "done"}
+        - {"type": "error", "message": "..."}
+    """
+    lc_messages = _to_lc_messages(messages)
+
+    tools = build_tools(current_user, db) if (current_user is not None and db is not None) else []
+    # 仅 blog read 模式（显式传入空列表）跳过意图检测；主聊天未传（None）走默认检测
+    skip_intent = intent_scope == []
+
     initial_state: AgentState = {
         "messages": lc_messages,
         "intent": "chat",
@@ -108,40 +133,60 @@ async def run_agent_stream(
         "final_text": None,
         "current_mode": current_mode,
         "existing_custom_theme": existing_custom_theme,
+        "intent_scope": intent_scope or ["chat", "theme"],
+        "blog_context": blog_context,
+        "current_author_id": current_author_id,
+        "current_author_name": current_author_name,
+        "current_user_id": current_user.id if current_user else None,
+        "current_user_name": current_user.username if current_user else None,
+        "post_edit_proposal": None,
+        "tool_call_count": 0,
     }
 
     try:
-        workflow = build_agent_graph()
-        graph = workflow.compile()
+        graph = build_agent_graph(tools, skip_intent=skip_intent)
 
-        intent_result: Optional[str] = None
+        started = False
+        pending_tools: List[str] = []
 
         async for step_output in graph.astream(initial_state):
-            # 每个节点的输出是一个 dict，键是节点名
             for node_name, node_output in step_output.items():
                 if node_name == "intent_detect":
-                    intent_result = node_output.get("intent")
-                    yield {"type": "start"}
+                    if not started:
+                        yield {"type": "start"}
+                        started = True
+                    continue
 
-                    if intent_result == "chat":
-                        # chat 分支：直接流式输出 LLM 回复
-                        async for delta in _stream_chat_response(
-                            lc_messages, rag_context
-                        ):
-                            yield {"type": "delta", "content": delta}
+                if not started:
+                    yield {"type": "start"}
+                    started = True
+
+                if node_name == "agent_reason":
+                    last_msg = node_output.get("messages", [])[-1] if node_output.get("messages") else None
+                    tool_calls = getattr(last_msg, "tool_calls", None)
+                    final_text = node_output.get("final_text")
+
+                    if tool_calls:
+                        pending_tools = [c.get("name") for c in tool_calls]
+                        for name in pending_tools:
+                            yield _tool_status(name, "running")
+                    elif final_text:
+                        for char in final_text:
+                            yield {"type": "delta", "content": char}
                         yield {"type": "done"}
                         return
+
+                elif node_name == "tool_executor":
+                    for name in pending_tools:
+                        yield _tool_status(name, "done")
+                    pending_tools = []
 
                 elif node_name == "generate_theme":
                     theme_colors = node_output.get("theme_proposal") or {}
                     theme_desc = node_output.get("theme_description") or ""
-
-                    # 逐字输出描述文本，模拟打字机效果
                     if theme_desc:
                         for char in theme_desc:
                             yield {"type": "delta", "content": char}
-
-                    # 发送主题方案结构化事件
                     yield {
                         "type": "theme_proposal",
                         "theme": theme_colors,
@@ -150,38 +195,27 @@ async def run_agent_stream(
                     yield {"type": "done"}
                     return
 
-        # 如果循环结束没有返回（异常情况）
-        if intent_result is None:
-            yield {"type": "error", "message": "Agent 运行异常：未能识别意图。"}
-        else:
+                elif node_name == "post_edit":
+                    proposal = node_output.get("post_edit_proposal") or {}
+                    description = proposal.get("description") or ""
+                    if description:
+                        for char in description:
+                            yield {"type": "delta", "content": char}
+                    yield {
+                        "type": "post_edit_proposal",
+                        "title": proposal.get("title"),
+                        "summary": proposal.get("summary"),
+                        "body": proposal.get("body"),
+                        "description": description,
+                    }
+                    yield {"type": "done"}
+                    return
+
+        # 未命中任何终态分支（异常情况）
+        if started:
             yield {"type": "done"}
+        else:
+            yield {"type": "error", "message": "Agent 运行异常：未能识别意图。"}
 
     except Exception as exc:
         yield {"type": "error", "message": "Agent 运行失败：{}".format(exc)}
-
-
-async def _stream_chat_response(
-    messages: list,
-    rag_context: str = "",
-) -> AsyncIterator[str]:
-    """chat 分支：流式调用 LLM 生成回复。"""
-    llm = _get_llm()
-
-    # 构建带 RAG 上下文的消息列表
-    final_messages: list = []
-    if rag_context:
-        system_prompt = CHAT_SYSTEM_PROMPT_TEMPLATE.format(rag_context=rag_context)
-    else:
-        system_prompt = CHAT_SYSTEM_PROMPT_TEMPLATE.format(
-            rag_context="（当前没有检索到相关的站内博客内容，请基于你的知识回答。）"
-        )
-
-    final_messages.append(SystemMessage(content=system_prompt))
-    # 加入用户对话历史（跳过 system 消息，因为我们已经加了自己的 system）
-    for msg in messages:
-        if isinstance(msg, (HumanMessage, AIMessage)):
-            final_messages.append(msg)
-
-    async for chunk in llm.astream(final_messages):
-        if chunk.content:
-            yield chunk.content
