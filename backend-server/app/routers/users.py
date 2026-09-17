@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user, get_optional_current_user, hash_password
+from ..cache import invalidate_user_cache
 from ..database import get_db
 from ..models import Asset, Collection, CollectionFavorite, Favorite, Follow, Like, Post, PostTag, Tag, User
 from ..notification_service import create_notification, delete_unread_notification, push_notification
@@ -171,6 +172,7 @@ def update_me(
         db.rollback()
         raise HTTPException(status_code=400, detail="用户名或邮箱已存在") from None
     db.refresh(current_user)
+    invalidate_user_cache(current_user.id)
     return _user_private(current_user, db)
 
 
@@ -360,33 +362,44 @@ def toggle_follow(
     if not target:
         raise HTTPException(status_code=404, detail="用户不存在")
 
-    follow = db.query(Follow).filter(
-        Follow.follower_id == current_user.id,
-        Follow.following_id == user_id,
-    ).first()
+    following = payload.following
     notification = None
-    if payload.following and follow is None:
-        db.add(Follow(follower_id=current_user.id, following_id=user_id))
-        notification = create_notification(
-            db,
-            recipient_id=user_id,
-            actor_id=current_user.id,
-            type="user_followed",
-            target_user_id=user_id,
-        )
-    elif not payload.following and follow is not None:
-        db.delete(follow)
-        delete_unread_notification(
-            db,
-            recipient_id=user_id,
-            actor_id=current_user.id,
-            type="user_followed",
-            target_user_id=user_id,
-        )
-    db.commit()
+
+    try:
+        if following:
+            db.add(Follow(follower_id=current_user.id, following_id=user_id))
+            notification = create_notification(
+                db,
+                recipient_id=user_id,
+                actor_id=current_user.id,
+                type="user_followed",
+                target_user_id=user_id,
+            )
+        else:
+            deleted = db.query(Follow).filter(
+                Follow.follower_id == current_user.id,
+                Follow.following_id == user_id,
+            ).delete()
+            if deleted:
+                delete_unread_notification(
+                    db,
+                    recipient_id=user_id,
+                    actor_id=current_user.id,
+                    type="user_followed",
+                    target_user_id=user_id,
+                )
+
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        following = True
+
+    invalidate_user_cache(current_user.id)
+    invalidate_user_cache(user_id)
+
     if notification is not None:
         push_notification(notification, current_user)
-    return FollowResponse(following=payload.following)
+    return FollowResponse(following=following)
 
 
 @router.get("/{user_id}/posts", response_model=PageResponse)

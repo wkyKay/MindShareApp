@@ -13,6 +13,7 @@ from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from . import models
+from .cache import get_user_cache, set_user_cache
 from .database import get_db
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -92,9 +93,20 @@ def get_current_user(
     if user_id is None:
         raise credentials_error
 
+    cached = get_user_cache(user_id)
+    if cached is not None:
+        return models.User(**cached)
+
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if user is None or user.status != "active":
         raise credentials_error
+
+    user_data = {
+        key: value
+        for key, value in user.__dict__.items()
+        if not key.startswith("_") and key not in ("password_hash", "email")
+    }
+    set_user_cache(user_id, user_data)
     return user
 
 

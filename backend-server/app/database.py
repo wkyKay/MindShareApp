@@ -3,10 +3,32 @@ from collections.abc import Generator
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from .config import BASE_DIR, DATABASE_URL
+from .config import (
+    BASE_DIR,
+    DATABASE_URL,
+    DB_ECHO,
+    DB_MAX_OVERFLOW,
+    DB_POOL_PRE_PING,
+    DB_POOL_RECYCLE,
+    DB_POOL_SIZE,
+)
 
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+is_sqlite = DATABASE_URL.startswith("sqlite")
+
+connect_args: dict = {}
+if is_sqlite:
+    connect_args["check_same_thread"] = False
+
+# 连接池参数（SQLite 下部分参数会被忽略，但传了也不报错）
+engine = create_engine(
+    DATABASE_URL,
+    connect_args=connect_args,
+    pool_pre_ping=DB_POOL_PRE_PING,
+    pool_recycle=DB_POOL_RECYCLE,
+    pool_size=DB_POOL_SIZE if not is_sqlite else 5,
+    max_overflow=DB_MAX_OVERFLOW if not is_sqlite else 10,
+    echo=DB_ECHO,
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

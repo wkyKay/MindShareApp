@@ -2,6 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user, get_optional_current_user
@@ -117,46 +118,58 @@ def toggle_comment_like(
     comment = db.query(Comment).filter(Comment.id == comment_id, Comment.status == "published").first()
     if comment is None:
         raise HTTPException(status_code=404, detail="评论不存在")
-    like = db.query(CommentLike).filter(
-        CommentLike.user_id == current_user.id,
-        CommentLike.comment_id == comment_id,
-    ).first()
-    if payload.liked and like is None:
-        db.add(CommentLike(user_id=current_user.id, comment_id=comment_id))
-        comment.like_count += 1
-        if comment.author_id != current_user.id:
-            create_notification(
-                db,
-                recipient_id=comment.author_id,
-                actor_id=current_user.id,
-                type="comment_liked",
-                post_id=comment.post_id,
-                post_title=db.query(Post.title).filter(Post.id == comment.post_id).scalar(),
-                comment_id=comment.id,
+
+    liked = payload.liked
+    notification = None
+
+    try:
+        if liked:
+            # 原子插入点赞记录（UniqueConstraint 兜底防重复）
+            db.add(CommentLike(user_id=current_user.id, comment_id=comment_id))
+            # 原子更新计数：SET like_count = like_count + 1
+            db.query(Comment).filter(Comment.id == comment_id).update(
+                {Comment.like_count: Comment.like_count + 1}
             )
-    elif not payload.liked and like is not None:
-        db.delete(like)
-        comment.like_count = max(0, comment.like_count - 1)
-        delete_unread_notification(
-            db,
-            recipient_id=comment.author_id,
-            actor_id=current_user.id,
-            type="comment_liked",
-            post_id=comment.post_id,
-            comment_id=comment.id,
-        )
-    db.commit()
-    db.refresh(comment)
-    if payload.liked:
-        notifications = db.query(Notification).filter(
-            Notification.recipient_id == comment.author_id,
-            Notification.actor_id == current_user.id,
-            Notification.type == "comment_liked",
-            Notification.comment_id == comment.id,
-        ).order_by(Notification.id.desc()).all()
-        if notifications:
-            push_notification(notifications[0], current_user)
-    return CommentLikeResponse(liked=payload.liked, like_count=comment.like_count)
+            if comment.author_id != current_user.id:
+                notification = create_notification(
+                    db,
+                    recipient_id=comment.author_id,
+                    actor_id=current_user.id,
+                    type="comment_liked",
+                    post_id=comment.post_id,
+                    post_title=db.query(Post.title).filter(Post.id == comment.post_id).scalar(),
+                    comment_id=comment.id,
+                )
+        else:
+            # 原子删除点赞记录，返回受影响行数
+            deleted = db.query(CommentLike).filter(
+                CommentLike.user_id == current_user.id, CommentLike.comment_id == comment_id
+            ).delete()
+            if deleted:
+                # 原子更新计数
+                db.query(Comment).filter(Comment.id == comment_id).update(
+                    {Comment.like_count: func.greatest(Comment.like_count - 1, 0)}
+                )
+                delete_unread_notification(
+                    db,
+                    recipient_id=comment.author_id,
+                    actor_id=current_user.id,
+                    type="comment_liked",
+                    post_id=comment.post_id,
+                    comment_id=comment.id,
+                )
+
+        db.commit()
+    except IntegrityError:
+        # UniqueConstraint 冲突 = 已经赞过了，回滚事务
+        db.rollback()
+        liked = True  # 已经赞过了
+
+    # 重新查询最新计数
+    comment = db.query(Comment).filter(Comment.id == comment_id).first()
+    if notification is not None:
+        push_notification(notification, current_user)
+    return CommentLikeResponse(liked=liked, like_count=comment.like_count)
 
 
 def _comment_response(comment: Comment, author: User, db: Session, current_user: Optional[User]) -> CommentResponse:

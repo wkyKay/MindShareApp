@@ -3,9 +3,17 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user, get_optional_current_user
+from ..cache import (
+    add_user_favorite,
+    add_user_like,
+    invalidate_post_cache,
+    remove_user_favorite,
+    remove_user_like,
+)
 from ..database import get_db
 from ..models import Asset, Favorite, Follow, Like, Post, PostDislike, PostTag, Tag, User
 from ..notification_service import create_notification, delete_unread_notification, push_notification
@@ -323,38 +331,65 @@ def toggle_like(
     post = db.query(Post).filter(Post.id == post_id, Post.status != "deleted").first()
     if post is None:
         raise HTTPException(status_code=404, detail="博客不存在")
-    like = db.query(Like).filter(Like.user_id == current_user.id, Like.post_id == post_id).first()
-    if payload.liked and like is None:
-        db.add(Like(user_id=current_user.id, post_id=post_id))
-        post.like_count += 1
-        notification = None
-        if post.author_id != current_user.id:
-            notification = create_notification(
-                db,
-                recipient_id=post.author_id,
-                actor_id=current_user.id,
-                type="post_liked",
-                post_id=post.id,
-                post_title=post.title,
+
+    liked = payload.liked
+    notification = None
+
+    try:
+        if liked:
+            # 原子插入点赞记录（UniqueConstraint 兜底防重复）
+            db.add(Like(user_id=current_user.id, post_id=post_id))
+            # 原子更新计数：SET like_count = like_count + 1
+            db.query(Post).filter(Post.id == post_id).update(
+                {Post.like_count: Post.like_count + 1}
             )
-    elif not payload.liked and like is not None:
-        db.delete(like)
-        post.like_count = max(0, post.like_count - 1)
-        delete_unread_notification(
-            db,
-            recipient_id=post.author_id,
-            actor_id=current_user.id,
-            type="post_liked",
-            post_id=post.id,
-        )
-        notification = None
+            if post.author_id != current_user.id:
+                notification = create_notification(
+                    db,
+                    recipient_id=post.author_id,
+                    actor_id=current_user.id,
+                    type="post_liked",
+                    post_id=post.id,
+                    post_title=post.title,
+                )
+        else:
+            # 原子删除点赞记录，返回受影响行数
+            deleted = db.query(Like).filter(
+                Like.user_id == current_user.id, Like.post_id == post_id
+            ).delete()
+            if deleted:
+                # 原子更新计数
+                db.query(Post).filter(Post.id == post_id).update(
+                    {Post.like_count: func.greatest(Post.like_count - 1, 0)}
+                )
+                delete_unread_notification(
+                    db,
+                    recipient_id=post.author_id,
+                    actor_id=current_user.id,
+                    type="post_liked",
+                    post_id=post.id,
+                )
+
+        db.commit()
+    except IntegrityError:
+        # UniqueConstraint 冲突 = 已经赞过了，回滚事务
+        db.rollback()
+        liked = True  # 已经赞过了
+
+    # 数据库提交成功后再同步 Redis，保证缓存与数据库方向一致
+    if liked:
+        add_user_like(current_user.id, post_id)
     else:
-        notification = None
-    db.commit()
-    db.refresh(post)
+        remove_user_like(current_user.id, post_id)
+
+    # 失效帖子详情缓存
+    invalidate_post_cache(post_id)
+
+    # 重新查询最新计数
+    post = db.query(Post).filter(Post.id == post_id).first()
     if notification is not None:
         push_notification(notification, current_user)
-    return LikeResponse(liked=payload.liked, like_count=post.like_count)
+    return LikeResponse(liked=liked, like_count=post.like_count)
 
 
 @router.post("/{post_id}/favorite", response_model=FavoriteResponse)
@@ -367,35 +402,59 @@ def toggle_favorite(
     post = db.query(Post).filter(Post.id == post_id, Post.status != "deleted").first()
     if post is None:
         raise HTTPException(status_code=404, detail="博客不存在")
-    favorite = db.query(Favorite).filter(Favorite.user_id == current_user.id, Favorite.post_id == post_id).first()
+
+    favorited = payload.favorited
     notification = None
-    if payload.favorited and favorite is None:
-        db.add(Favorite(user_id=current_user.id, post_id=post_id))
-        post.favorite_count += 1
-        if post.author_id != current_user.id:
-            notification = create_notification(
-                db,
-                recipient_id=post.author_id,
-                actor_id=current_user.id,
-                type="post_favorited",
-                post_id=post.id,
-                post_title=post.title,
+
+    try:
+        if favorited:
+            db.add(Favorite(user_id=current_user.id, post_id=post_id))
+            db.query(Post).filter(Post.id == post_id).update(
+                {Post.favorite_count: Post.favorite_count + 1}
             )
-    elif not payload.favorited and favorite is not None:
-        db.delete(favorite)
-        post.favorite_count = max(0, post.favorite_count - 1)
-        delete_unread_notification(
-            db,
-            recipient_id=post.author_id,
-            actor_id=current_user.id,
-            type="post_favorited",
-            post_id=post.id,
-        )
-    db.commit()
-    db.refresh(post)
+            if post.author_id != current_user.id:
+                notification = create_notification(
+                    db,
+                    recipient_id=post.author_id,
+                    actor_id=current_user.id,
+                    type="post_favorited",
+                    post_id=post.id,
+                    post_title=post.title,
+                )
+        else:
+            deleted = db.query(Favorite).filter(
+                Favorite.user_id == current_user.id, Favorite.post_id == post_id
+            ).delete()
+            if deleted:
+                db.query(Post).filter(Post.id == post_id).update(
+                    {Post.favorite_count: func.greatest(Post.favorite_count - 1, 0)}
+                )
+                delete_unread_notification(
+                    db,
+                    recipient_id=post.author_id,
+                    actor_id=current_user.id,
+                    type="post_favorited",
+                    post_id=post.id,
+                )
+
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        favorited = True  # 已经收藏过了
+
+    # 数据库提交成功后再同步 Redis
+    if favorited:
+        add_user_favorite(current_user.id, post_id)
+    else:
+        remove_user_favorite(current_user.id, post_id)
+
+    # 失效帖子详情缓存
+    invalidate_post_cache(post_id)
+
+    post = db.query(Post).filter(Post.id == post_id).first()
     if notification is not None:
         push_notification(notification, current_user)
-    return FavoriteResponse(favorited=payload.favorited, favorite_count=post.favorite_count)
+    return FavoriteResponse(favorited=favorited, favorite_count=post.favorite_count)
 
 
 @router.post("/{post_id}/dislike")

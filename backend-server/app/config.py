@@ -10,6 +10,15 @@ load_dotenv(BASE_DIR / ".env")
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'forum.db'}")
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
 
+# ── 数据库连接池配置 ────────────────────────────────────────────────
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))
+DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "20"))
+DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "3600"))
+DB_POOL_PRE_PING = os.getenv("DB_POOL_PRE_PING", "true").lower() == "true"
+DB_ECHO = os.getenv("DB_ECHO", "false").lower() == "true"
+
+# ── Redis 配置 ──────────────────────────────────────────────────────
+
 UPLOAD_DIR = BASE_DIR / "uploads"
 IMAGE_UPLOAD_DIR = UPLOAD_DIR / "images"
 MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
@@ -22,6 +31,8 @@ DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_SOCKET_TIMEOUT = int(os.getenv("REDIS_SOCKET_TIMEOUT", "2"))
+REDIS_CONNECT_TIMEOUT = int(os.getenv("REDIS_CONNECT_TIMEOUT", "2"))
 EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "openai").lower()
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "")
 EMBEDDING_API_KEY = os.getenv("EMBEDDING_API_KEY")

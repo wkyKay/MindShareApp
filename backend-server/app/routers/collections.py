@@ -3,6 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user, get_optional_current_user
@@ -249,34 +250,45 @@ def toggle_collection_favorite(
         raise HTTPException(status_code=404, detail="合集不存在")
     if collection.owner_id == current_user.id:
         raise HTTPException(status_code=400, detail="不能收藏自己的合集")
-    favorite = db.query(CollectionFavorite).filter(
-        CollectionFavorite.user_id == current_user.id,
-        CollectionFavorite.collection_id == collection_id,
-    ).first()
+    favorited = payload.favorited
     notification = None
-    if payload.favorited and favorite is None:
-        db.add(CollectionFavorite(user_id=current_user.id, collection_id=collection_id))
-        notification = create_notification(
-            db,
-            recipient_id=collection.owner_id,
-            actor_id=current_user.id,
-            type="collection_favorited",
-            post_id=0,
-            target_user_id=collection.id,
-        )
-    elif not payload.favorited and favorite is not None:
-        db.delete(favorite)
-        delete_unread_notification(
-            db,
-            recipient_id=collection.owner_id,
-            actor_id=current_user.id,
-            type="collection_favorited",
-            target_user_id=collection.id,
-        )
-    db.commit()
+
+    try:
+        if favorited:
+            # 原子插入收藏记录（UniqueConstraint 兜底防重复）
+            db.add(CollectionFavorite(user_id=current_user.id, collection_id=collection_id))
+            notification = create_notification(
+                db,
+                recipient_id=collection.owner_id,
+                actor_id=current_user.id,
+                type="collection_favorited",
+                post_id=0,
+                target_user_id=collection.id,
+            )
+        else:
+            # 原子删除收藏记录，返回受影响行数
+            deleted = db.query(CollectionFavorite).filter(
+                CollectionFavorite.user_id == current_user.id,
+                CollectionFavorite.collection_id == collection_id,
+            ).delete()
+            if deleted:
+                delete_unread_notification(
+                    db,
+                    recipient_id=collection.owner_id,
+                    actor_id=current_user.id,
+                    type="collection_favorited",
+                    target_user_id=collection.id,
+                )
+
+        db.commit()
+    except IntegrityError:
+        # UniqueConstraint 冲突 = 已经收藏过了，回滚事务
+        db.rollback()
+        favorited = True  # 已经收藏过了
+
     if notification is not None:
         push_notification(notification, current_user)
-    return CollectionFavoriteResponse(favorited=payload.favorited)
+    return CollectionFavoriteResponse(favorited=favorited)
 
 
 def _get_owned_collection(db: Session, collection_id: int, owner_id: int) -> Collection:

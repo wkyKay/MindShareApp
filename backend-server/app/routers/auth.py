@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import random
 import string
 from typing import Optional
@@ -10,14 +10,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..auth import create_access_token, create_refresh_token, get_current_user, hash_password, validate_refresh_token, verify_password
+from ..cache import CAPTCHA_MAX_ATTEMPTS, CAPTCHA_TTL, get_captcha as cache_get_captcha, increment_captcha_attempts, mark_captcha_used, set_captcha
 from ..database import get_db
-from ..models import Asset, Captcha, RefreshToken, User
+from ..models import Asset, RefreshToken, User
 from ..schemas import CaptchaResponse, LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, UserPrivate
 
 router = APIRouter()
-
-CAPTCHA_EXPIRE_MINUTES = 5
-CAPTCHA_MAX_FAILED_ATTEMPTS = 5
 
 
 def _asset_url(db: Session, asset_id: Optional[int]) -> Optional[str]:
@@ -51,43 +49,33 @@ def _normalize_captcha_code(value: str) -> str:
 
 
 def _verify_captcha(db: Session, captcha_key: str, captcha_code: str, purpose: str) -> None:
-    captcha = db.query(Captcha).filter(Captcha.captcha_key == captcha_key).first()
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    captcha = cache_get_captcha(captcha_key)
 
-    if captcha is None or captcha.purpose != purpose or captcha.used_at is not None or captcha.expires_at <= now:
+    if captcha is None or captcha["purpose"] != purpose or captcha["used"]:
         raise HTTPException(status_code=400, detail="验证码无效或已过期")
 
-    if captcha.failed_attempts >= CAPTCHA_MAX_FAILED_ATTEMPTS:
+    if captcha["failed_attempts"] >= CAPTCHA_MAX_ATTEMPTS:
         raise HTTPException(status_code=400, detail="验证码错误次数过多，请刷新后重试")
 
-    if not verify_password(_normalize_captcha_code(captcha_code), captcha.code_hash):
-        captcha.failed_attempts += 1
-        db.commit()
+    if not verify_password(_normalize_captcha_code(captcha_code), captcha["code_hash"]):
+        increment_captcha_attempts(captcha_key)
         raise HTTPException(status_code=400, detail="验证码错误")
 
-    captcha.used_at = now
-    db.commit()
+    mark_captcha_used(captcha_key)
 
 
 @router.get("/captcha", response_model=CaptchaResponse)
-def get_captcha(purpose: str, db: Session = Depends(get_db)) -> CaptchaResponse:
+def get_captcha(purpose: str) -> CaptchaResponse:
     if purpose not in {"register", "login"}:
         raise HTTPException(status_code=400, detail="Invalid captcha purpose")
     code = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
-    captcha_key = f"cap_{uuid4().hex}_{code.lower()}"
-    captcha = Captcha(
-        captcha_key=captcha_key,
-        code_hash=hash_password(code),
-        purpose=purpose,
-        expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=CAPTCHA_EXPIRE_MINUTES),
-    )
-    db.add(captcha)
-    db.commit()
+    captcha_id = uuid4().hex
+    set_captcha(captcha_id, hash_password(code), purpose)
 
     return CaptchaResponse(
-        captcha_key=captcha_key,
-        image_url=f"/api/v1/auth/captcha/{captcha_key}/image",
-        expires_in=int(timedelta(minutes=CAPTCHA_EXPIRE_MINUTES).total_seconds()),
+        captcha_key=captcha_id,
+        image_url=f"/api/v1/auth/captcha/{captcha_id}/image",
+        expires_in=CAPTCHA_TTL,
     )
 
 

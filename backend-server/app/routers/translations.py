@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
+from ..cache import get_translation, set_translation
 from ..database import get_db
 from ..models import Collection, Comment, ConversationParticipant, Message, Post, TranslationCache, User
 from ..schemas import TranslationContentRequest, TranslationContentResponse
@@ -39,6 +40,22 @@ def translate_content(
         raise HTTPException(status_code=400, detail="待翻译内容为空")
 
     source_text_hash = sha256(source_text.encode("utf-8")).hexdigest()
+
+    # 1. 查 Redis 缓存
+    cached_translation = get_translation(source_text_hash, source_language, target_language)
+    if cached_translation is not None:
+        return TranslationContentResponse(
+            content_type=content_type,
+            content_id=payload.content_id,
+            field=field,
+            source_language=source_language,
+            target_language=target_language,
+            translated_text=cached_translation,
+            provider="mock",
+            cached=True,
+        )
+
+    # 2. 查 DB 缓存
     cached = (
         db.query(TranslationCache)
         .filter(
@@ -51,8 +68,11 @@ def translate_content(
         .first()
     )
     if cached is not None:
+        # DB 命中，回写 Redis
+        set_translation(source_text_hash, source_language, target_language, cached.translated_text)
         return _translation_response(cached, cached=True)
 
+    # 3. 调用翻译
     translated_text = _translate_mock(source_text, target_language)
     cache = TranslationCache(
         content_type=content_type,
@@ -67,6 +87,9 @@ def translate_content(
     db.add(cache)
     db.commit()
     db.refresh(cache)
+
+    # 写入 Redis
+    set_translation(source_text_hash, source_language, target_language, translated_text)
     return _translation_response(cache, cached=False)
 
 

@@ -18,10 +18,8 @@ import json
 import logging
 from typing import Optional
 
-import redis
-
+from ..cache import get_redis
 from ..config import (
-    REDIS_URL,
     SEMANTIC_CACHE_ENABLED,
     SEMANTIC_CACHE_TTL,
     SEMANTIC_CACHE_THRESHOLD,
@@ -67,7 +65,7 @@ def get_cache(query: str) -> Optional[dict]:
 
         # 降级：精确文本匹配缓存
         exact_key = _exact_cache_key(query)
-        r = _get_redis()
+        r = get_redis()
         if r is None:
             return None
 
@@ -96,7 +94,7 @@ def set_cache(query: str, answer: str, references: list = None) -> None:
         return
 
     try:
-        r = _get_redis()
+        r = get_redis()
         if r is None:
             return
 
@@ -126,25 +124,6 @@ def get_stats() -> dict:
 
 
 # ── 工具函数 ────────────────────────────────────────────────────────
-
-
-_redis_client: Optional[redis.Redis] = None
-
-
-def _get_redis() -> Optional[redis.Redis]:
-    global _redis_client
-    if _redis_client is not None:
-        return _redis_client
-
-    try:
-        _redis_client = redis.from_url(REDIS_URL)
-        # 测试连接
-        _redis_client.ping()
-        return _redis_client
-    except Exception as exc:
-        logger.warning("Redis connection failed for semantic cache: %s", exc)
-        _redis_client = None
-        return None
 
 
 def _exact_cache_key(query: str) -> str:
