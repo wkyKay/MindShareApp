@@ -19,3 +19,5 @@ Pillow==11.1.0
 langgraph==0.2.58
 langchain==0.3.20
 langchain-openai==0.2.14
+qdrant-client==1.12.0
+jieba==0.42.1

@@ -76,9 +76,47 @@ def _ensure_sqlite_schema_updates() -> None:
                     "  post_id INTEGER NOT NULL,"
                     "  chunk_index INTEGER NOT NULL,"
                     "  content TEXT NOT NULL,"
-                    "  embedding TEXT,"
-                    "  created_at DATETIME DEFAULT CURRENT_TIMESTAMP"
+                    "  content_hash TEXT,"
+                    "  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
+                    "  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP"
                     ")"
                 )
             )
             connection.execute(text("CREATE INDEX ix_text_chunks_post_id ON text_chunks(post_id)"))
+            connection.execute(text("CREATE INDEX ix_text_chunks_content_hash ON text_chunks(content_hash)"))
+        else:
+            # 已有 text_chunks 表：schema 升级
+            chunk_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(text_chunks)"))}
+            if "embedding" in chunk_columns:
+                # 删除 embedding 字段（SQLite 不支持 DROP COLUMN 用重建表方式）
+                connection.execute(
+                    text(
+                        "CREATE TABLE text_chunks_new ("
+                        "  id INTEGER PRIMARY KEY,"
+                        "  post_id INTEGER NOT NULL,"
+                        "  chunk_index INTEGER NOT NULL,"
+                        "  content TEXT NOT NULL,"
+                        "  content_hash TEXT,"
+                        "  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
+                        "  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP"
+                        ")"
+                    )
+                )
+                connection.execute(
+                    text(
+                        "INSERT INTO text_chunks_new (id, post_id, chunk_index, content, created_at) "
+                        "SELECT id, post_id, chunk_index, content, created_at FROM text_chunks"
+                    )
+                )
+                connection.execute(text("DROP TABLE text_chunks"))
+                connection.execute(text("ALTER TABLE text_chunks_new RENAME TO text_chunks"))
+                connection.execute(text("CREATE INDEX ix_text_chunks_post_id ON text_chunks(post_id)"))
+                connection.execute(text("CREATE INDEX ix_text_chunks_content_hash ON text_chunks(content_hash)"))
+            else:
+                if "content_hash" not in chunk_columns:
+                    connection.execute(text("ALTER TABLE text_chunks ADD COLUMN content_hash TEXT"))
+                    connection.execute(text("CREATE INDEX ix_text_chunks_content_hash ON text_chunks(content_hash)"))
+                if "updated_at" not in chunk_columns:
+                    connection.execute(
+                        text("ALTER TABLE text_chunks ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP")
+                    )

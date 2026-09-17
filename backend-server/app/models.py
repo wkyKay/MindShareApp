@@ -332,13 +332,12 @@ class TranslationCache(TimestampMixin, Base):
     provider: Mapped[str] = mapped_column(String(30), default="mock", nullable=False, comment="翻译服务提供方")
 
 
-class TextChunk(Base):
+class TextChunk(TimestampMixin, Base):
     __tablename__ = "text_chunks"
-    __table_args__ = {"comment": "博客文本切段，用于 RAG 知识库检索"}
+    __table_args__ = {"comment": "博客文本切段，用于 RAG 知识库检索（向量存储在 Qdrant 中）"}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="切段 ID")
     post_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True, comment="所属博客 ID，对应 posts.id")
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False, comment="段落在原博客中的序号，从 0 开始")
     content: Mapped[str] = mapped_column(Text, nullable=False, comment="段落原文")
-    embedding: Mapped[Optional[str]] = mapped_column(Text, nullable=True, comment="段落向量，JSON 格式的 float 数组")
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), comment="创建时间")
+    content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True, comment="内容 SHA-256 哈希，用于增量更新判断")

@@ -1,10 +1,19 @@
-import json
+"""Embedding 向量化层。
+
+升级点：
+- 全局单例 OpenAI client，复用 HTTP 连接池
+- 批量优化（百度已做，OpenAI 兼容也支持）
+- 向量预归一化（检索时可用点积代替余弦）
+- 指数退避重试，避免 transient error
+- 移除 serialize/deserialize（向量不再存 JSON）
+"""
+
 import logging
 import time
-from typing import Any, List, Optional
+from typing import List, Optional
 
-from openai import OpenAI, OpenAIError
 import httpx
+from openai import OpenAI, OpenAIError
 
 from ..config import (
     BAIDU_ACCESS_TOKEN_URL,
@@ -25,6 +34,9 @@ logger = logging.getLogger(__name__)
 _baidu_access_token: Optional[str] = None
 _baidu_access_token_expires_at = 0.0
 
+# OpenAI 兼容 client 单例
+_openai_client: Optional[OpenAI] = None
+
 
 def is_available() -> bool:
     if EMBEDDING_PROVIDER == "baidu":
@@ -33,7 +45,7 @@ def is_available() -> bool:
 
 
 def embed_texts(texts: List[str]) -> Optional[List[List[float]]]:
-    """对多段文本调用 Embedding API，返回对应的向量列表。
+    """对多段文本调用 Embedding API，返回对应的向量列表（已归一化）。
 
     返回 None 表示 Embedding 服务不可用。
     """
@@ -41,27 +53,62 @@ def embed_texts(texts: List[str]) -> Optional[List[List[float]]]:
         return None
     if EMBEDDING_PROVIDER == "baidu":
         return _embed_texts_with_baidu(texts)
-
     return _embed_texts_with_openai_compatible(texts)
 
 
-def _embed_texts_with_openai_compatible(texts: List[str]) -> Optional[List[List[float]]]:
+def embed_text(text: str) -> Optional[List[float]]:
+    """单文本 embedding 便捷方法。"""
+    result = embed_texts([text])
+    return result[0] if result else None
+
+
+def _get_openai_client() -> Optional[OpenAI]:
+    global _openai_client
+    if _openai_client is not None:
+        return _openai_client
+
     api_key = EMBEDDING_API_KEY or DEEPSEEK_API_KEY
     base_url = EMBEDDING_BASE_URL or DEEPSEEK_BASE_URL
     if not api_key:
-        logger.warning("Embedding API key not configured, skipping")
+        logger.warning("Embedding API key not configured")
         return None
 
-    client = OpenAI(api_key=api_key, base_url=base_url)
     try:
-        response = client.embeddings.create(model=EMBEDDING_MODEL, input=texts)
-        return [item.embedding for item in response.data]
-    except OpenAIError as exc:
-        logger.warning("Embedding API call failed: %s", exc)
-        return None
+        _openai_client = OpenAI(api_key=api_key, base_url=base_url)
     except Exception as exc:
-        logger.warning("Embedding unexpected error: %s", exc)
+        logger.warning("Failed to create OpenAI embedding client: %s", exc)
         return None
+    return _openai_client
+
+
+def _embed_texts_with_openai_compatible(texts: List[str]) -> Optional[List[List[float]]]:
+    client = _get_openai_client()
+    if client is None:
+        return None
+
+    # 指数退避重试
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = client.embeddings.create(model=EMBEDDING_MODEL, input=texts)
+            embeddings = [item.embedding for item in response.data]
+            # 预归一化
+            return [_normalize(emb) for emb in embeddings]
+        except OpenAIError as exc:
+            if attempt < max_retries - 1:
+                wait = 2 ** attempt
+                logger.warning(
+                    "Embedding API call failed (attempt %d/%d), retrying in %ds: %s",
+                    attempt + 1, max_retries, wait, exc,
+                )
+                time.sleep(wait)
+            else:
+                logger.warning("Embedding API call failed after %d retries: %s", max_retries, exc)
+                return None
+        except Exception as exc:
+            logger.warning("Embedding unexpected error: %s", exc)
+            return None
+    return None
 
 
 def _embed_texts_with_baidu(texts: List[str]) -> Optional[List[List[float]]]:
@@ -86,8 +133,16 @@ def _embed_texts_with_baidu(texts: List[str]) -> Optional[List[List[float]]]:
             if "error_code" in payload:
                 logger.warning("Baidu embedding API failed: %s", payload)
                 return None
-            embeddings.extend(_extract_baidu_embeddings(payload))
-        return embeddings if len(embeddings) == len(texts) else None
+            batch_embeddings = _extract_baidu_embeddings(payload)
+            embeddings.extend(batch_embeddings)
+        if len(embeddings) != len(texts):
+            logger.warning(
+                "Baidu embedding count mismatch: expected %d, got %d",
+                len(texts), len(embeddings),
+            )
+            return None
+        # 预归一化
+        return [_normalize(emb) for emb in embeddings]
     except httpx.HTTPError as exc:
         logger.warning("Baidu embedding HTTP call failed: %s", exc)
         return None
@@ -124,7 +179,7 @@ def _get_baidu_access_token() -> str:
     return access_token
 
 
-def _extract_baidu_embeddings(payload: dict[str, Any]) -> List[List[float]]:
+def _extract_baidu_embeddings(payload: dict) -> List[List[float]]:
     data = payload.get("data")
     if not isinstance(data, list):
         return []
@@ -141,9 +196,12 @@ def _extract_baidu_embeddings(payload: dict[str, Any]) -> List[List[float]]:
     return embeddings
 
 
-def serialize_embedding(embedding: List[float]) -> str:
-    return json.dumps(embedding)
-
-
-def deserialize_embedding(raw: str) -> List[float]:
-    return json.loads(raw)
+def _normalize(embedding: List[float]) -> List[float]:
+    """L2 归一化向量。归一化后点积 = 余弦相似度。"""
+    norm = 0.0
+    for v in embedding:
+        norm += v * v
+    norm = norm ** 0.5
+    if norm == 0:
+        return embedding
+    return [v / norm for v in embedding]

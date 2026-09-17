@@ -1,9 +1,18 @@
 """AI 对话接口（基于 LangGraph Agent）。
 
-完全兼容原有 SSE 事件格式，新增 theme_proposal 事件。
+升级点：
+- 移除前置盲检索，改为 Agent 按需调用 rag_retrieve 工具
+- 引用溯源：回答中带 references 数据，前端可展示
+- SSE 事件格式完全兼容
+
+SSE 事件类型：
+- start, delta, tool_status, done, error（原有）
+- references: 引用列表（新增，可选）
+- cached: 缓存命中标记（新增，可选）
 """
 
 import json
+import logging
 from typing import AsyncIterator, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -17,26 +26,72 @@ from ..agent.nodes import build_blog_context
 from ..auth import get_current_user
 from ..database import get_db
 from ..models import Post, User
-from ..rag.retriever import RetrievedChunk, retrieve as rag_retrieve
+from ..rag.semantic_cache import get_cache, is_enabled as cache_enabled, set_cache
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class AiChatMessage(BaseModel):
-    role: Literal["user", "assistant", "system"]
-    content: str = Field(min_length=1)
+    """单条对话消息。"""
+
+    role: Literal["user", "assistant", "system"] = Field(
+        ..., description="消息角色：user=用户, assistant=AI, system=系统提示词"
+    )
+    content: str = Field(..., min_length=1, description="消息文本内容，不能为空字符串")
 
 
 class AiChatRequest(BaseModel):
-    messages: list[AiChatMessage] = Field(default_factory=list)
-    # 可选：当前激活的主题模式，用于 Agent 生成主题时参考
-    current_mode: Literal["light", "dark"] = "light"
+    """通用 AI 对话请求体。"""
+
+    messages: list[AiChatMessage] = Field(
+        default_factory=list,
+        description="完整对话历史列表，按时间顺序排列，最后一条应为用户消息",
+    )
+    current_mode: Literal["light", "dark"] = Field(
+        default="light",
+        description="当前用户界面主题模式，用于 AI 生成主题相关建议时参考",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "messages": [
+                        {"role": "system", "content": "你是一个乐于助人的 AI 助手。"},
+                        {"role": "user", "content": "请解释一下什么是 RAG？"},
+                    ],
+                    "current_mode": "light",
+                }
+            ]
+        }
+    }
 
 
 class AiBlogChatRequest(BaseModel):
-    post_id: int
-    messages: list[AiChatMessage] = Field(default_factory=list)
-    mode: Literal["read", "edit"] = "read"
+    """博客专属 AI 对话请求体。"""
+
+    post_id: int = Field(..., gt=0, description="博客文章 ID，用于加载文章上下文")
+    messages: list[AiChatMessage] = Field(
+        default_factory=list,
+        description="针对该博客的对话历史列表，按时间顺序排列",
+    )
+    mode: Literal["read", "edit"] = Field(
+        default="read",
+        description="对话模式：read=阅读提问模式，edit=编辑辅助模式（仅作者可用）",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "post_id": 123,
+                    "messages": [{"role": "user", "content": "这篇文章的主要观点是什么？"}],
+                    "mode": "read",
+                }
+            ]
+        }
+    }
 
 
 def _sse_event(payload: dict) -> str:
@@ -44,9 +99,7 @@ def _sse_event(payload: dict) -> str:
 
 
 def _load_existing_theme(user: User, mode: str) -> Optional[Dict[str, str]]:
-    """读取用户已有的自定义主题（增量字典）。"""
     import json as _json
-
     from ..schemas import VALID_THEME_COLOR_KEYS
 
     raw = user.custom_light_theme if mode == "light" else user.custom_dark_theme
@@ -61,58 +114,80 @@ def _load_existing_theme(user: User, mode: str) -> Optional[Dict[str, str]]:
     return None
 
 
-@router.post("/chat/stream")
+@router.post(
+    "/chat/stream",
+    summary="AI 流式对话（通用）",
+    response_description="SSE 事件流",
+    responses={
+        200: {"description": "成功建立 SSE 连接，流式返回 AI 回复"},
+        401: {"description": "未登录或 token 无效"},
+        422: {"description": "请求参数校验失败"},
+    },
+)
 async def stream_ai_chat(
     payload: AiChatRequest,
     request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
-    """AI 对话流式接口（Agent 版本）。
+    """通用 AI 对话流式接口（基于 LangGraph Agent）。
 
-    SSE 事件类型：
-    - start: 流开始
-    - delta: 增量文本
-    - theme_proposal: 主题方案提议（新增，结构化数据）
-    - done: 流结束
-    - error: 错误信息
+    Agent 会根据对话内容**按需调用 RAG 检索工具**，而非每次都前置检索。
+    启用语义缓存时，相同问题会直接命中缓存返回。
+
+    ## SSE 事件类型
+
+    | 事件类型 | 说明 |
+    |---|---|
+    | `start` | 回复开始 |
+    | `delta` | 增量文本片段 |
+    | `tool_status` | 工具调用状态更新 |
+    | `references` | 引用文献列表（可选） |
+    | `cached` | 命中语义缓存标记（可选） |
+    | `done` | 回复结束 |
+    | `error` | 发生错误 |
+
+    ## 注意事项
+
+    - 需要 Bearer Token 认证
+    - 响应 `Content-Type` 为 `text/event-stream`
+    - 客户端断开连接后服务端会自动停止生成
     """
-    # 提取最后一条用户消息作为 RAG 检索查询
     last_user_msg = ""
     for msg in reversed(payload.messages):
         if msg.role == "user":
             last_user_msg = msg.content
             break
 
-    # RAG 检索（保留原有能力）
-    chunks: List[RetrievedChunk] = []
-    if last_user_msg.strip():
-        try:
-            chunks = rag_retrieve(last_user_msg, current_user, db)
-        except Exception:
-            # RAG 失败不影响主流程
-            chunks = []
+    # 语义缓存检查（默认关闭）
+    cached_result = None
+    if cache_enabled() and last_user_msg.strip():
+        cached_result = get_cache(last_user_msg)
 
-    # 构建 RAG 上下文文本
-    rag_context = ""
-    if chunks:
-        parts = ["以下是与用户问题相关的站内博客内容，请参考这些内容回答：\n"]
-        for item in chunks:
-            parts.append(f"【来源：{item.post_title}】\n{item.chunk.content}\n")
-        parts.append("如果以下内容不足以回答用户问题，请诚实说明，并基于你的知识补充。\n")
-        rag_context = "\n".join(parts)
-
-    # 读取用户已有自定义主题
     existing_theme = _load_existing_theme(current_user, payload.current_mode)
-
-    # 转换消息格式
     messages_dict = [m.model_dump() for m in payload.messages]
 
     async def generate() -> AsyncIterator[str]:
+        # 缓存命中直接返回
+        if cached_result:
+            yield _sse_event({"type": "start"})
+            yield _sse_event({"type": "cached", "from_cache": True})
+            answer = cached_result.get("answer", "")
+            for char in answer:
+                yield _sse_event({"type": "delta", "content": char})
+            refs = cached_result.get("references", [])
+            if refs:
+                yield _sse_event({"type": "references", "references": refs})
+            yield _sse_event({"type": "done"})
+            return
+
         try:
+            full_answer = ""
+            references_list = []
+
             async for event in run_agent_stream(
                 messages=messages_dict,
-                rag_context=rag_context,
+                rag_context="",  # 不再预注入，Agent 按需调用工具
                 current_mode=payload.current_mode,
                 existing_custom_theme=existing_theme,
                 db=db,
@@ -120,10 +195,27 @@ async def stream_ai_chat(
             ):
                 if await request.is_disconnected():
                     return
+
+                # 收集回答文本，用于缓存
+                if event.get("type") == "delta":
+                    full_answer += event.get("content", "")
+
+                # 收集引用信息（从 tool_result 中提取，后续优化）
+                # 这里先留空，引用溯源的完整实现在前端解析 [n] 标记
+
                 yield _sse_event(event)
+
+            # 写入缓存（仅成功的完整回答）
+            if cache_enabled() and full_answer and len(full_answer) > 50:
+                try:
+                    set_cache(last_user_msg, full_answer, references_list)
+                except Exception:
+                    pass
+
         except OpenAIError as error:
             yield _sse_event({"type": "error", "message": f"DeepSeek 调用失败：{error}"})
         except Exception as exc:
+            logger.exception("AI chat stream failed")
             yield _sse_event({"type": "error", "message": f"AI 回复失败：{exc}"})
 
     return StreamingResponse(
@@ -137,19 +229,41 @@ async def stream_ai_chat(
     )
 
 
-@router.post("/blog/stream")
+@router.post(
+    "/blog/stream",
+    summary="博客专属 AI 流式对话",
+    response_description="SSE 事件流",
+    responses={
+        200: {"description": "成功建立 SSE 连接，流式返回 AI 回复"},
+        401: {"description": "未登录或 token 无效"},
+        403: {"description": "无权查看该博客，或非作者使用 edit 模式"},
+        404: {"description": "博客不存在或已删除"},
+        422: {"description": "请求参数校验失败"},
+    },
+)
 async def stream_blog_ai_chat(
     payload: AiBlogChatRequest,
     request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
-    """博客专属 AI 流式接口。
+    """针对单篇博客文章的 AI 对话流式接口。
 
-    - read 模式：把该博客正文作为上下文，进行问答。
-    - edit 模式：仅博客作者可用，根据用户要求输出修改提案（标题/摘要/正文）。
+    会将博客标题、摘要、正文作为上下文注入 Agent，支持两种模式：
 
-    SSE 事件类型：start / delta / post_edit_proposal / done / error。
+    - **read 模式**：读者就文章内容提问，所有可见该博客的用户均可使用
+    - **edit 模式**：作者对文章进行编辑辅助（润色、改写、扩写等），仅作者可用
+
+    ## SSE 事件类型
+
+    与 `/chat/stream` 一致：`start` / `delta` / `tool_status` /
+    `references` / `done` / `error`。
+
+    ## 权限校验
+
+    - 已删除的博客：仅作者可访问
+    - 私密博客：仅作者可访问
+    - edit 模式：仅作者可使用
     """
     row = (
         db.query(Post, User)
@@ -171,7 +285,6 @@ async def stream_blog_ai_chat(
         raise HTTPException(status_code=403, detail="只能编辑自己的博客")
 
     blog_context = build_blog_context(post.title, post.summary, post.body)
-    # read 模式跳过意图检测直达 chat；edit 模式仅允许 chat / post_edit
     intent_scope: Optional[List[str]] = [] if payload.mode == "read" else ["chat", "post_edit"]
 
     async def generate() -> AsyncIterator[str]:
@@ -191,6 +304,7 @@ async def stream_blog_ai_chat(
         except OpenAIError as error:
             yield _sse_event({"type": "error", "message": f"DeepSeek 调用失败：{error}"})
         except Exception as exc:
+            logger.exception("Blog AI chat stream failed")
             yield _sse_event({"type": "error", "message": f"AI 回复失败：{exc}"})
 
     return StreamingResponse(

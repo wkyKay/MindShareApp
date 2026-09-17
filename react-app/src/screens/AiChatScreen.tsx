@@ -9,6 +9,8 @@ import {
   View,
   type ViewStyle,
 } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { StreamdownRN } from "streamdown-rn";
 
 import { useTranslation } from "react-i18next";
@@ -17,6 +19,7 @@ import { useApiErrorHandler } from "../hooks/useApiErrorHandler";
 import {
   streamAiChat,
   type AiChatRequestMessage,
+  type ReferenceItem,
 } from "../services/aiChatApi";
 import { applyTheme } from "../services/themeApi";
 import { useAuthStore } from "../stores/authStore";
@@ -35,6 +38,8 @@ type AiChatMessage = {
   status?: "streaming" | "done" | "error";
   themeProposal?: ThemeProposal;
   toolStatus?: string | null;
+  references?: ReferenceItem[];
+  fromCache?: boolean;
 };
 
 function createMessageId() {
@@ -51,7 +56,14 @@ const PREVIEW_COLOR_KEYS: Array<keyof PartialThemeColors> = [
   "border",
 ];
 
+type RootStackParamList = {
+  blog: { postId: number; focusCommentId?: number; startEditing?: boolean };
+  mainTabs: undefined;
+};
+
 export function AiChatScreen() {
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList, "mainTabs">>();
   const {
     colors,
     styles,
@@ -105,6 +117,10 @@ export function AiChatScreen() {
         item.status === "streaming" ? { ...item, status: "done" } : item,
       ),
     );
+  }
+
+  function openReferencePost(postId: number) {
+    navigation.navigate("blog", { postId });
   }
 
   async function submit() {
@@ -197,6 +213,21 @@ export function AiChatScreen() {
             ),
           );
           scrollToBottom();
+        },
+        onReferences(refs) {
+          setMessages((current) =>
+            current.map((item) =>
+              item.id === assistantMessage.id ? { ...item, references: refs } : item,
+            ),
+          );
+          scrollToBottom();
+        },
+        onCached() {
+          setMessages((current) =>
+            current.map((item) =>
+              item.id === assistantMessage.id ? { ...item, fromCache: true } : item,
+            ),
+          );
         },
         onDone() {
           setMessages((current) =>
@@ -441,6 +472,88 @@ export function AiChatScreen() {
     );
   };
 
+  const renderReferences = (message: AiChatMessage) => {
+    if (!message.references || message.references.length === 0) return null;
+    const refs = message.references.slice(0, 5); // 最多展示 5 条
+
+    return (
+      <View
+        style={[
+          styles.messageBubble,
+          styles.messageBubbleOther as ViewStyle,
+          {
+            marginTop: 0,
+            borderTopLeftRadius: 6,
+            padding: 10,
+            width: "82%",
+            maxWidth: "82%",
+            gap: 6,
+          },
+        ]}
+      >
+        <Text
+          style={{
+            color: colors.textMuted,
+            fontSize: 12,
+            fontWeight: "600",
+            marginBottom: 2,
+          }}
+        >
+          {t("参考来源")}
+        </Text>
+        {refs.map((ref, index) => (
+          <Pressable
+            key={`${ref.post_id}-${index}`}
+            onPress={() => openReferencePost(ref.post_id)}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              paddingVertical: 4,
+              paddingHorizontal: 6,
+              borderRadius: 8,
+              opacity: pressed ? 0.6 : 1,
+              backgroundColor: pressed ? colors.surfaceSoft : "transparent",
+            })}
+          >
+            <View
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 10,
+                backgroundColor: colors.primary,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text
+                style={{
+                  color: colors.surface,
+                  fontSize: 11,
+                  fontWeight: "700",
+                }}
+              >
+                {index + 1}
+              </Text>
+            </View>
+            <Text
+              style={{
+                color: colors.primary,
+                fontSize: 13,
+                flex: 1,
+                textDecorationLine: "underline",
+              }}
+              numberOfLines={1}
+            >
+              {ref.post_title || `${t("文章")} #${ref.post_id}`}
+            </Text>
+            <Ionicons name="arrow-forward" size={14} color={colors.textMuted} />
+          </Pressable>
+        ))}
+      </View>
+    );
+  };
+
   return (
     <View style={[styles.chatScreen, { paddingBottom: 0 }]}>
       <View style={styles.chatHeader}>
@@ -492,6 +605,22 @@ export function AiChatScreen() {
                 </Text>
               </View>
             ) : null}
+            {item.role === "assistant" && item.fromCache ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  paddingLeft: 4,
+                  paddingBottom: 4,
+                }}
+              >
+                <Ionicons name="flash" size={12} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "600" }}>
+                  {t("缓存命中，极速回复")}
+                </Text>
+              </View>
+            ) : null}
             <View
               style={[
                 styles.messageBubble,
@@ -499,6 +628,8 @@ export function AiChatScreen() {
                   ? styles.messageBubbleMine
                   : styles.messageBubbleOther,
                 item.themeProposal && item.role === "assistant"
+                  ? { borderBottomLeftRadius: 6, marginBottom: 0 }
+                  : item.references && item.references.length > 0
                   ? { borderBottomLeftRadius: 6, marginBottom: 0 }
                   : null,
               ]}
@@ -520,6 +651,9 @@ export function AiChatScreen() {
             </View>
             {item.role === "assistant" && item.themeProposal
               ? renderThemeProposalCard(item)
+              : null}
+            {item.role === "assistant" && item.references && item.references.length > 0
+              ? renderReferences(item)
               : null}
           </View>
         )}

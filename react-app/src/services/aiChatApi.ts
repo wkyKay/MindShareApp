@@ -11,6 +11,13 @@ export type AiChatRequestMessage = {
   content: string;
 };
 
+export type ReferenceItem = {
+  post_id: number;
+  post_title: string;
+  chunk_index?: number;
+  content?: string;
+};
+
 type AiStreamEvent =
   | { type: "start" }
   | { type: "delta"; content?: string }
@@ -25,6 +32,8 @@ type AiStreamEvent =
       status?: "running" | "done";
       display?: string;
     }
+  | { type: "cached"; from_cache?: boolean }
+  | { type: "references"; references?: ReferenceItem[] }
   | { type: "done" }
   | { type: "error"; message?: string };
 
@@ -37,6 +46,8 @@ type StreamAiChatOptions = {
   onDelta: (content: string) => void;
   onThemeProposal?: (theme: PartialThemeColors, description: string) => void;
   onToolStatus?: (tool: string, status: "running" | "done", display?: string) => void;
+  onReferences?: (references: ReferenceItem[]) => void;
+  onCached?: () => void;
   onDone?: () => void;
   onError?: (message: string) => void;
 };
@@ -73,6 +84,8 @@ export async function streamAiChat({
   onDelta,
   onThemeProposal,
   onToolStatus,
+  onReferences,
+  onCached,
   onDone,
   onError,
 }: StreamAiChatOptions) {
@@ -105,6 +118,14 @@ export async function streamAiChat({
       }
       if (event.type === "tool_status") {
         onToolStatus?.(event.tool || "", event.status || "running", event.display);
+        return;
+      }
+      if (event.type === "cached") {
+        onCached?.();
+        return;
+      }
+      if (event.type === "references") {
+        onReferences?.(event.references || []);
         return;
       }
       if (event.type === "error") {
@@ -212,6 +233,7 @@ type BlogStreamEvent =
       status?: "running" | "done";
       display?: string;
     }
+  | { type: "references"; references?: ReferenceItem[] }
   | { type: "done" }
   | { type: "error"; message?: string };
 
@@ -224,6 +246,7 @@ type StreamBlogAiChatOptions = {
   onDelta: (content: string) => void;
   onPostEditProposal?: (proposal: PostEditProposal) => void;
   onToolStatus?: (tool: string, status: "running" | "done", display?: string) => void;
+  onReferences?: (references: ReferenceItem[]) => void;
   onDone?: () => void;
   onError?: (message: string) => void;
 };
@@ -237,6 +260,7 @@ export async function streamBlogAiChat({
   onDelta,
   onPostEditProposal,
   onToolStatus,
+  onReferences,
   onDone,
   onError,
 }: StreamBlogAiChatOptions) {
@@ -274,6 +298,10 @@ export async function streamBlogAiChat({
       }
       if (event.type === "tool_status") {
         onToolStatus?.(event.tool || "", event.status || "running", event.display);
+        return;
+      }
+      if (event.type === "references") {
+        onReferences?.(event.references || []);
         return;
       }
       if (event.type === "error") {
